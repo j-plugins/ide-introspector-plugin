@@ -112,20 +112,60 @@ object ExtensionPointInspector {
     }
 
     private fun kindAndClass(ep: ExtensionPoint<*>): Pair<String, String> {
-        // ExtensionPointImpl exposes `getClassName()` / `getKind()`.
+        // ExtensionPointImpl exposes `className` as a @JvmField; `getKind()` is a method. We
+        // try the typed field first (fast), then fall back to reflection across name drift
+        // (`className` / `myClassName`) and finally to the lazily-resolved Class<*> for EPs
+        // that were registered with a Class reference rather than a name string.
         try {
-            val classNameMethod = ep.javaClass.methods.firstOrNull { it.name == "getClassName" && it.parameterCount == 0 }
-            val kindMethod = ep.javaClass.methods.firstOrNull { it.name == "getKind" && it.parameterCount == 0 }
-            val className = classNameMethod?.invoke(ep) as? String ?: "?"
-            val kindRaw = kindMethod?.invoke(ep)
+            val impl = ep as? ExtensionPointImpl<*>
+            val typedClassName = impl?.className
+            val kindRaw = ep.javaClass.methods.firstOrNull {
+                it.name == "getKind" && it.parameterCount == 0
+            }?.invoke(ep)
             val kindStr = when (kindRaw?.toString()) {
                 "INTERFACE" -> "INTERFACE"
                 "BEAN_CLASS" -> "BEAN_CLASS"
                 else -> kindRaw?.toString() ?: "BEAN_CLASS"
             }
-            return kindStr to className
+            val resolvedName = typedClassName
+                ?: tryReadClassNameField(ep)
+                ?: tryReadExtensionClass(ep)
+                ?: "?"
+            return kindStr to resolvedName
         } catch (_: Throwable) {
             return "BEAN_CLASS" to "?"
+        }
+    }
+
+    /** Last-resort: walk declared fields named "className" / "myClassName" — covers shape drift
+     *  across platform versions where the public accessor is removed or renamed. */
+    private fun tryReadClassNameField(ep: ExtensionPoint<*>): String? {
+        val names = arrayOf("className", "myClassName")
+        var cls: Class<*>? = ep.javaClass
+        while (cls != null && cls != Any::class.java) {
+            for (n in names) {
+                val f = cls.declaredFields.firstOrNull { it.name == n } ?: continue
+                return try {
+                    f.isAccessible = true
+                    f.get(ep) as? String
+                } catch (_: Throwable) { null }
+            }
+            cls = cls.superclass
+        }
+        return null
+    }
+
+    /** Reads the lazily-resolved Class<*> off ExtensionPointImpl. Does NOT instantiate any
+     *  extension — only forces classloading of the bean/interface type, which the platform
+     *  has already done for any EP that has at least one registered extension. */
+    private fun tryReadExtensionClass(ep: ExtensionPoint<*>): String? {
+        return try {
+            val m = ep.javaClass.methods.firstOrNull {
+                it.name == "getExtensionClass" && it.parameterCount == 0
+            } ?: return null
+            (m.invoke(ep) as? Class<*>)?.name
+        } catch (_: Throwable) {
+            null
         }
     }
 
