@@ -81,7 +81,12 @@ object ExtensionPointInspector {
         val (kind, beanOrInterface) = kindAndClass(ep)
         val pluginDescriptor = pluginDescriptorOf(ep)
         val dynamic = isDynamic(ep)
-        val extCount = try { ep.extensionList.size } catch (_: Throwable) { 0 }
+        // IMPORTANT: never call ep.extensionList here — it instantiates every extension and
+        // surfaces latent registration bugs in other plugins (e.g. com.intellij.java's
+        // BuildManager$BuildManagerStartupActivity may not implement ProjectActivity in some
+        // builds, which makes the extensionList getter throw and pollute the IDE state).
+        // ep.size() returns the adapter count without instantiation.
+        val extCount = try { ep.size() } catch (_: Throwable) { 0 }
         return ExtensionPointInfo(
             name = epName(ep),
             kind = kind,
@@ -185,10 +190,12 @@ object ExtensionPointInspector {
             for (adapter in adapters) {
                 if (adapter == null) continue
                 val implClass = readMethod(adapter, "getAssignableToClassName")?.toString()
-                    ?: readMethod(adapter, "getImplementationClassName")?.toString()
+                    ?: readField(adapter, "implementationClassOrName")?.toString()
                     ?: readMethod(adapter, "getOrderId")?.toString()
-                val pd = readMethod(adapter, "getPluginDescriptor")
-                val pluginId = pd?.let { readMethod(it, "getPluginId")?.toString() } ?: "unknown"
+                // ExtensionComponentAdapter exposes `pluginDescriptor` as a public field, not a getter.
+                val pd = readField(adapter, "pluginDescriptor")
+                    ?: readMethod(adapter, "getPluginDescriptor")
+                val pluginId = pd?.let { extractPluginIdString(it) } ?: "unknown"
                 val pluginName = pd?.let { readMethod(it, "getName")?.toString() }
                 val attributes = readAdditionalAttributes(adapter)
                 out += ExtensionInfo(
@@ -212,27 +219,57 @@ object ExtensionPointInspector {
         null
     }
 
+    /** Walks the class hierarchy looking for a field, honoring superclasses. */
+    private fun readField(target: Any, name: String): Any? {
+        var c: Class<*>? = target.javaClass
+        while (c != null) {
+            val f = c.declaredFields.firstOrNull { it.name == name }
+            if (f != null) {
+                return try {
+                    f.isAccessible = true
+                    f.get(target)
+                } catch (_: Throwable) {
+                    null
+                }
+            }
+            c = c.superclass
+        }
+        return null
+    }
+
+    /** Pulls the idString out of a PluginDescriptor's PluginId — handles both 'idString' field and toString(). */
+    private fun extractPluginIdString(pd: Any): String? {
+        val pidObj = readMethod(pd, "getPluginId") ?: readField(pd, "pluginId") ?: return null
+        // PluginId#toString() returns idString in modern builds, but cover both paths.
+        return readMethod(pidObj, "getIdString")?.toString()
+            ?: readField(pidObj, "idString")?.toString()
+            ?: pidObj.toString()
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun readAdditionalAttributes(adapter: Any): Map<String, String> {
-        // ExtensionComponentAdapter has private `pluginDescriptor` and (sometimes) `extensionElement`.
+        // XmlExtensionAdapter holds a private `extensionElement: XmlElement`. XmlElement
+        // exposes `attributes` as a Map<String, String> (Kotlin val backed by a JvmField).
         try {
-            val field = adapter.javaClass.declaredFields.firstOrNull { it.name == "extensionElement" }
-                ?: return emptyMap()
-            field.isAccessible = true
-            val element = field.get(adapter) ?: return emptyMap()
-            // org.jdom.Element / XmlElement: try `getAttributes()`.
-            val attrsMethod = element.javaClass.methods.firstOrNull {
-                it.name == "getAttributes" && it.parameterCount == 0
-            } ?: return emptyMap()
-            val attrs = attrsMethod.invoke(element) as? List<*> ?: return emptyMap()
-            val map = mutableMapOf<String, String>()
-            for (a in attrs) {
+            val element = readField(adapter, "extensionElement") ?: return emptyMap()
+            // Try Map-shaped attributes first (modern XmlElement)…
+            val asMap = readField(element, "attributes") as? Map<*, *>
+                ?: readMethod(element, "getAttributes") as? Map<*, *>
+            if (asMap != null) {
+                return asMap.entries
+                    .mapNotNull { (k, v) -> if (k != null && v != null) k.toString() to v.toString() else null }
+                    .toMap()
+            }
+            // …falling back to legacy jdom List<Attribute> form.
+            val asList = readMethod(element, "getAttributes") as? List<*> ?: return emptyMap()
+            val out = mutableMapOf<String, String>()
+            for (a in asList) {
                 if (a == null) continue
                 val n = readMethod(a, "getName")?.toString() ?: continue
                 val v = readMethod(a, "getValue")?.toString() ?: continue
-                map[n] = v
+                out[n] = v
             }
-            return map
+            return out
         } catch (_: Throwable) {
             return emptyMap()
         }

@@ -1,21 +1,31 @@
 package com.github.xepozz.introspectorplugin.toolwindow
 
-import com.intellij.openapi.ui.JBMenuItem
+import com.intellij.ide.BrowserUtil
 import com.intellij.ui.components.JBScrollPane
+import java.awt.BorderLayout
 import javax.swing.JEditorPane
 import javax.swing.JPanel
+import javax.swing.event.HyperlinkEvent
 import javax.swing.text.html.HTMLEditorKit
-import java.awt.BorderLayout
 
 /**
  * Right-side details panel rendering selected-node attributes as HTML. Lightweight to keep
  * the tool window snappy; complex content (long extension lists) is summarised.
+ *
+ * Links in rendered HTML are routed to [BrowserUtil] so they open in the user's default browser
+ * (notably the "Open in Platform Explorer (web)" deep link on EP nodes).
  */
 class DetailsPanel : JPanel(BorderLayout()) {
     private val editor = JEditorPane().apply {
         editorKit = HTMLEditorKit()
         isEditable = false
         contentType = "text/html"
+        addHyperlinkListener { e ->
+            if (e.eventType == HyperlinkEvent.EventType.ACTIVATED) {
+                val href = e.url?.toString() ?: e.description ?: return@addHyperlinkListener
+                BrowserUtil.browse(href)
+            }
+        }
     }
 
     init {
