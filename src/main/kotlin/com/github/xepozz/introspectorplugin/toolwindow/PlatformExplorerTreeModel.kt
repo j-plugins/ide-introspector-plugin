@@ -12,6 +12,7 @@ class PlatformExplorerTreeModel(
     private val inventory: PluginInventory,
     var viewMode: ViewMode,
     var filter: String = "",
+    var showBundled: Boolean = true,
 ) : DefaultTreeModel(DefaultMutableTreeNode(PlatformExplorerNode.Root("Platform Explorer"))) {
 
     fun rebuild() {
@@ -25,7 +26,9 @@ class PlatformExplorerTreeModel(
     }
 
     private fun populateByPlugin(root: DefaultMutableTreeNode) {
-        val plugins = inventory.plugins().filter { matchesFilter(it.id) || matchesFilter(it.name) }
+        val plugins = inventory.plugins()
+            .filter { showBundled || !it.isBundled }
+            .filter { matchesFilter(it.id) || matchesFilter(it.name) }
         for (p in plugins) {
             val pluginNode = DefaultMutableTreeNode(PlatformExplorerNode.PluginNode(p))
             val eps = inventory.extensionPoints().filter { it.declaredByPluginId == p.id }
@@ -58,7 +61,11 @@ class PlatformExplorerTreeModel(
     }
 
     private fun populateByEp(root: DefaultMutableTreeNode) {
-        val eps = inventory.extensionPoints().filter { matchesFilter(it.name) }
+        val bundledIds: Set<String> = if (showBundled) emptySet()
+            else inventory.plugins().filter { it.isBundled }.map { it.id }.toSet()
+        val eps = inventory.extensionPoints()
+            .filter { showBundled || it.declaredByPluginId !in bundledIds }
+            .filter { matchesFilter(it.name) }
         for (ep in eps) {
             val epNode = DefaultMutableTreeNode(PlatformExplorerNode.ExtensionPointNode(ep))
             val list = inventory.extensionsForEpLive(ep.name)
@@ -75,7 +82,9 @@ class PlatformExplorerTreeModel(
     }
 
     private fun populateByDependencies(root: DefaultMutableTreeNode) {
-        val plugins = inventory.plugins().filter { matchesFilter(it.id) || matchesFilter(it.name) }
+        val plugins = inventory.plugins()
+            .filter { showBundled || !it.isBundled }
+            .filter { matchesFilter(it.id) || matchesFilter(it.name) }
         for (p in plugins) {
             if (p.dependencies.isEmpty()) continue
             val pluginNode = DefaultMutableTreeNode(PlatformExplorerNode.PluginNode(p))

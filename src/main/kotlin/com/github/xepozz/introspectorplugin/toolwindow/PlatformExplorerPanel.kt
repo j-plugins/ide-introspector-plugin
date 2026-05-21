@@ -4,9 +4,11 @@ import com.github.xepozz.introspectorplugin.core.PluginInventory
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.ToggleAction
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
@@ -84,6 +86,7 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
             add(ChangeViewModeAction(ViewMode.BY_EXTENSION_POINT))
             add(ChangeViewModeAction(ViewMode.BY_DEPENDENCIES))
             addSeparator()
+            add(ShowBundledAction())
             add(RefreshAction())
         }
         val tb = ActionManager.getInstance().createActionToolbar(
@@ -164,6 +167,7 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
 
     private inner class ChangeViewModeAction(private val mode: ViewMode) :
         AnAction(mode.displayName, "Switch tree to ${mode.displayName} layout", iconForMode(mode)) {
+        override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
         override fun actionPerformed(e: AnActionEvent) {
             treeModel.viewMode = mode
             rebuild()
@@ -177,8 +181,23 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
     }
 
     private inner class RefreshAction : AnAction("Refresh", "Reload plugin and extension data", AllIcons.Actions.Refresh) {
+        override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
         override fun actionPerformed(e: AnActionEvent) {
             inventory.refresh()
+            rebuild()
+        }
+    }
+
+    /** Toolbar toggle for hiding bundled (IDE-shipped) plugins so only third-party ones remain. */
+    private inner class ShowBundledAction : ToggleAction(
+        "Show Bundled Plugins",
+        "Toggle visibility of plugins bundled with the IDE",
+        AllIcons.General.Filter,
+    ) {
+        override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+        override fun isSelected(e: AnActionEvent): Boolean = treeModel.showBundled
+        override fun setSelected(e: AnActionEvent, state: Boolean) {
+            treeModel.showBundled = state
             rebuild()
         }
     }
