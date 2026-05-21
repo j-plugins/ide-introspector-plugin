@@ -3,12 +3,11 @@ package com.github.xepozz.introspectorplugin.exec
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
-import com.intellij.openapi.ui.Messages
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import java.awt.BorderLayout
 import java.awt.Dimension
-import javax.swing.Action
+import javax.swing.JCheckBox
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.JTextArea
@@ -55,7 +54,7 @@ object ConfirmationManager {
                 font = font.deriveFont(12f)
             }
             panel.add(JBScrollPane(area), BorderLayout.CENTER)
-            val bypass = javax.swing.JCheckBox("Execute and don't ask again for this session")
+            val bypass = JCheckBox("Execute and don't ask again for this session")
             bypass.addActionListener { bypassForSession = bypass.isSelected }
             panel.add(bypass, BorderLayout.SOUTH)
             return panel

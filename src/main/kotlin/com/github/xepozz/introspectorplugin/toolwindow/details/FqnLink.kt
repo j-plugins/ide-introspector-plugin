@@ -1,5 +1,6 @@
 package com.github.xepozz.introspectorplugin.toolwindow.details
 
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
@@ -34,7 +35,10 @@ object FqnLink {
     fun text(s: String?): JComponent = JBLabel(s.orDash())
 
     private fun navigateTo(project: Project, fqn: String) {
-        val psiFile = tryFindByPsiFacade(project, fqn) ?: tryFindBySimpleName(project, fqn)
+        // PSI / FilenameIndex lookups require a read action even when invoked from the EDT.
+        val psiFile = ReadAction.compute<PsiFile?, RuntimeException> {
+            tryFindByPsiFacade(project, fqn) ?: tryFindBySimpleName(project, fqn)
+        }
         psiFile?.virtualFile?.let { OpenFileDescriptor(project, it).navigate(true) }
     }
 

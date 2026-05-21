@@ -103,6 +103,10 @@ class ScreenshotToolset : McpToolset {
         |
         |Returns: same shape as screenshot.capture — { mimeType:"image/png", width, height,
         |base64, warnings:string[] }.
+        |
+        |Examples:
+        |  x=0, y=0, width=1200, height=60                  — top toolbar of the active frame
+        |  x=100, y=200, width=400, height=300, coordinateSpace="screen" — desktop region
         """
     )
     suspend fun screenshot_crop(

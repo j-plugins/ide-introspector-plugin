@@ -275,6 +275,10 @@ class CodeSourceToolset : McpToolset {
         |  - For Gradle projects the IDE may need a project reload (Maven.DownloadSources alone
         |    won't help). If "triggered" doesn't take effect, consider exec.execute_kotlin_in_ide
         |    to flip GradleSettings.isDownloadSources=true and reload.
+        |
+        |Examples:
+        |  fqn="org.apache.commons.lang3.StringUtils"   — triggers Maven/Gradle source download
+        |  fqn="com.acme.MyService"                     — returns outcome="not_compiled" (already source)
         """
     )
     suspend fun code_attach_sources(

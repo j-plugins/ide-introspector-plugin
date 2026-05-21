@@ -10,10 +10,10 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.ToggleAction
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
-import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.TreeSpeedSearch
 import com.intellij.ui.components.JBTextField
@@ -25,7 +25,6 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.JComponent
 import javax.swing.JPanel
-import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.tree.DefaultMutableTreeNode
@@ -220,8 +219,11 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
     private inner class RefreshAction : AnAction("Refresh", "Reload plugin and extension data", AllIcons.Actions.Refresh) {
         override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
         override fun actionPerformed(e: AnActionEvent) {
-            inventory.refresh()
-            rebuild()
+            // refresh() walks every plugin descriptor — push it off the EDT, then rebuild on EDT.
+            ApplicationManager.getApplication().executeOnPooledThread {
+                inventory.refresh()
+                ApplicationManager.getApplication().invokeLater({ rebuild() }, ModalityState.any())
+            }
         }
     }
 

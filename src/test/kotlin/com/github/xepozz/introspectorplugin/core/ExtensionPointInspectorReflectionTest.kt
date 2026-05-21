@@ -303,7 +303,7 @@ class ExtensionPointInspectorReflectionTest {
         assertEquals("com.example.IFace", info.interfaceOrBeanClass)
         assertEquals("com.example.everything-plugin", info.declaredByPluginId)
         assertEquals("Everything Plugin", info.declaredByPluginName)
-        assertTrue(info.isDynamic)
+        assertTrue("EpWithEverything declares isDynamic=true", info.isDynamic)
         assertEquals(42, info.extensionsCount)
         assertEquals("application", info.area)
     }
@@ -331,7 +331,10 @@ class ExtensionPointInspectorReflectionTest {
 
     @Test
     fun `isDynamic returns true when isDynamic returns true`() {
-        assertTrue(ExtensionPointInspector.isDynamic(EpWithIsDynamic(true)))
+        assertTrue(
+            "expected isDynamic=true for EpWithIsDynamic(true)",
+            ExtensionPointInspector.isDynamic(EpWithIsDynamic(true)),
+        )
     }
 
     @Test
@@ -358,8 +361,8 @@ class ExtensionPointInspectorReflectionTest {
         val area = AreaWithMapMethod(mapOf("a" to ep1, "b" to ep2))
         val result = ExtensionPointInspector.extractAllEps(area)
         assertEquals(2, result.size)
-        assertTrue(result.contains(ep1))
-        assertTrue(result.contains(ep2))
+        assertTrue("expected ep1 in result, got $result", result.contains(ep1))
+        assertTrue("expected ep2 in result, got $result", result.contains(ep2))
     }
 
     @Test
@@ -369,7 +372,7 @@ class ExtensionPointInspectorReflectionTest {
         val result = ExtensionPointInspector.extractAllEps(area)
         // filterIsInstance keeps only the ExtensionPoint entries.
         assertEquals(1, result.size)
-        assertTrue(result.contains(ep1))
+        assertTrue("expected ep1 to survive filterIsInstance, got $result", result.contains(ep1))
     }
 
     @Test
@@ -378,19 +381,21 @@ class ExtensionPointInspectorReflectionTest {
         val area = AreaWithFieldOnly(mapOf("a" to ep1))
         val result = ExtensionPointInspector.extractAllEps(area)
         assertEquals(1, result.size)
-        assertTrue(result.contains(ep1))
+        assertTrue("expected ep1 picked up from field fallback, got $result", result.contains(ep1))
     }
 
     @Test
     fun `extractAllEps returns empty when neither method nor field present`() {
         val area = AreaWithNothing()
-        assertTrue(ExtensionPointInspector.extractAllEps(area).isEmpty())
+        val result = ExtensionPointInspector.extractAllEps(area)
+        assertTrue("expected empty result when no method/field exposed, got $result", result.isEmpty())
     }
 
     @Test
     fun `extractAllEps returns empty when getExtensionPoints returns a wrong type`() {
         val area = AreaWithStringMethod("not-a-collection")
-        assertTrue(ExtensionPointInspector.extractAllEps(area).isEmpty())
+        val result = ExtensionPointInspector.extractAllEps(area)
+        assertTrue("expected empty result for non-collection return type, got $result", result.isEmpty())
     }
 
     // ====================================================================================

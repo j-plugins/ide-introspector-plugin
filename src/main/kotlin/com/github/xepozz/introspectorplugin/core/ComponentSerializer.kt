@@ -72,27 +72,13 @@ object ComponentSerializer {
         val out = mutableListOf<ComponentProperty>()
 
         // Visible client properties — JComponent stores plenty under named keys.
+        // We probe a small fixed set rather than enumerating the whole clientProperties table:
+        // the table is an ArrayTable in some versions and a Hashtable in others, with no stable
+        // public iteration API. The public getClientProperty(key) covers everything we care about.
         if (component is JComponent) {
-            try {
-                val field = JComponent::class.java.getDeclaredField("clientProperties")
-                field.isAccessible = true
-                val table = field.get(component)
-                if (table != null) {
-                    // ArrayTable / Hashtable both expose getValue/getKey via reflection,
-                    // but for simplicity we walk a few well-known keys instead.
-                    listOf(
-                        "JComponent.sizeVariant",
-                        "place",
-                        "action",
-                        "ActionToolbar.smallVariant",
-                        "html.disable",
-                    ).forEach { key ->
-                        val v = component.getClientProperty(key)
-                        if (v != null) out.add(ComponentProperty(key, truncate(v.toString(), truncateAt)))
-                    }
-                }
-            } catch (_: Throwable) {
-                // Field layout changed across versions — ignore.
+            WELL_KNOWN_CLIENT_PROPERTY_KEYS.forEach { key ->
+                val v = component.getClientProperty(key)
+                if (v != null) out.add(ComponentProperty(key, truncate(v.toString(), truncateAt)))
             }
         }
 
@@ -116,4 +102,12 @@ object ComponentSerializer {
         if (limit <= 0 || s.length <= limit) return s
         return s.substring(0, limit) + "…"
     }
+
+    private val WELL_KNOWN_CLIENT_PROPERTY_KEYS = listOf(
+        "JComponent.sizeVariant",
+        "place",
+        "action",
+        "ActionToolbar.smallVariant",
+        "html.disable",
+    )
 }

@@ -77,7 +77,7 @@ class ExecToolset : McpToolset {
         |error:string?, durationMs:long, warnings:string[] }. On compile/runtime failure
         |ok=false and 'error' carries the formatted stacktrace; the IDE itself stays up.
         |
-        |EXAMPLES:
+        |Examples:
         |  // List every tool window id in the current project:
         |  com.intellij.openapi.wm.ToolWindowManager.getInstance(project!!).toolWindowIds.toList()
         |

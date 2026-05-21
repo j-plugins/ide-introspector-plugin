@@ -6,22 +6,16 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
-import java.io.PrintStream
 import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
-import javax.script.ScriptContext
 import javax.script.ScriptEngine
 import javax.script.ScriptEngineManager
 import javax.swing.SwingUtilities
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 /**
  * Top-level entry point for executing user-supplied Kotlin inside the IDE.
@@ -146,18 +140,18 @@ object KotlinExecutor {
         null
     }
 
-    private fun <T> runOn(runOn: String, block: () -> T): T {
-        return when (runOn) {
-            "edt" -> {
-                if (SwingUtilities.isEventDispatchThread()) block()
-                else {
-                    var out: Result<T>? = null
-                    ApplicationManager.getApplication().invokeAndWait { out = runCatching(block) }
-                    out!!.getOrThrow()
-                }
+    private fun <T> runOn(runOn: String, block: () -> T): T = when (runOn) {
+        "edt" -> {
+            if (SwingUtilities.isEventDispatchThread()) {
+                block()
+            } else {
+                val out = java.util.concurrent.atomic.AtomicReference<Result<T>>()
+                ApplicationManager.getApplication().invokeAndWait { out.set(runCatching(block)) }
+                requireNotNull(out.get()) { "invokeAndWait returned without populating the result reference" }
+                    .getOrThrow()
             }
-            else -> block()
         }
+        else -> block()
     }
 
     private fun elapsedMs(startNs: Long) = (System.nanoTime() - startNs) / 1_000_000

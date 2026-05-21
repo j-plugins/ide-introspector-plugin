@@ -19,19 +19,25 @@ class ExecSettingsConfigurable : Configurable {
 
     override fun createComponent(): JComponent {
         val s = ExecSettings.getInstance()
-        enabledBox = JBCheckBox("Allow Kotlin code execution via exec.execute_kotlin_in_ide", s.enabled)
-        confirmBox = JBCheckBox("Show confirmation dialog before each execution", s.requireConfirmation)
-        auditBox = JBCheckBox("Write each execution to the IDE log (audit)", s.auditEnabled)
-        defaultTimeoutField = JBTextField(s.defaultTimeoutMs.toString())
-        maxTimeoutField = JBTextField(s.maxTimeoutMs.toString())
+        val enabled = JBCheckBox("Allow Kotlin code execution via exec.execute_kotlin_in_ide", s.enabled)
+        val confirm = JBCheckBox("Show confirmation dialog before each execution", s.requireConfirmation)
+        val audit = JBCheckBox("Write each execution to the IDE log (audit)", s.auditEnabled)
+        val defaultTimeout = JBTextField(s.defaultTimeoutMs.toString())
+        val maxTimeout = JBTextField(s.maxTimeoutMs.toString())
+
+        enabledBox = enabled
+        confirmBox = confirm
+        auditBox = audit
+        defaultTimeoutField = defaultTimeout
+        maxTimeoutField = maxTimeout
 
         return FormBuilder.createFormBuilder()
             .addComponent(JBLabel("Tier 2: Runtime Kotlin execution"))
-            .addComponent(enabledBox!!)
-            .addComponent(confirmBox!!)
-            .addComponent(auditBox!!)
-            .addLabeledComponent("Default timeout (ms)", defaultTimeoutField!!)
-            .addLabeledComponent("Maximum timeout (ms)", maxTimeoutField!!)
+            .addComponent(enabled)
+            .addComponent(confirm)
+            .addComponent(audit)
+            .addLabeledComponent("Default timeout (ms)", defaultTimeout)
+            .addLabeledComponent("Maximum timeout (ms)", maxTimeout)
             .addComponentFillVertically(javax.swing.JPanel(), 0)
             .panel
     }
@@ -50,9 +56,18 @@ class ExecSettingsConfigurable : Configurable {
         s.enabled = enabledBox?.isSelected ?: false
         s.requireConfirmation = confirmBox?.isSelected ?: true
         s.auditEnabled = auditBox?.isSelected ?: true
-        // Hard cap: see CLAUDE.md — no timeout above 10 s.
-        s.defaultTimeoutMs = (defaultTimeoutField?.text?.trim()?.toLongOrNull() ?: 10_000L).coerceAtMost(10_000L)
-        s.maxTimeoutMs = (maxTimeoutField?.text?.trim()?.toLongOrNull() ?: 10_000L).coerceAtMost(10_000L)
+        // Hard cap: see CLAUDE.md — no timeout above 10 s. The coerce here is the user-facing
+        // guard; ExecSettings.maxTimeoutMs in code already defaults to MAX_TIMEOUT_MS.
+        s.defaultTimeoutMs = readTimeoutMs(defaultTimeoutField?.text)
+        s.maxTimeoutMs = readTimeoutMs(maxTimeoutField?.text)
+    }
+
+    private fun readTimeoutMs(input: String?): Long =
+        (input?.trim()?.toLongOrNull() ?: MAX_TIMEOUT_MS).coerceAtMost(MAX_TIMEOUT_MS)
+
+    private companion object {
+        /** Hard cap from CLAUDE.md — never raise above 10 000 ms. */
+        const val MAX_TIMEOUT_MS = 10_000L
     }
 
     override fun reset() {

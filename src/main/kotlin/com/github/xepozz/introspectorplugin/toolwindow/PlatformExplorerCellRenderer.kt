@@ -24,7 +24,7 @@ class PlatformExplorerCellRenderer : ColoredTreeCellRenderer() {
                 append(node.displayName)
             }
             is PlatformExplorerNode.PluginNode -> {
-                icon = if (node.plugin.isBundled) AllIcons.Nodes.Plugin else AllIcons.Nodes.Plugin
+                icon = AllIcons.Nodes.Plugin
                 append(node.plugin.name)
                 append("  ")
                 append("[${node.plugin.id}]", SimpleTextAttributes.GRAY_ATTRIBUTES)

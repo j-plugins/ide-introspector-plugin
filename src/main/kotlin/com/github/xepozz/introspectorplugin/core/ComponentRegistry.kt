@@ -3,6 +3,7 @@ package com.github.xepozz.introspectorplugin.core
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import java.awt.Component
+import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
 /**
@@ -16,18 +17,18 @@ import java.util.WeakHashMap
 class ComponentRegistry {
 
     private val componentToId = WeakHashMap<Component, String>()
-    private val idToRef = HashMap<String, java.lang.ref.WeakReference<Component>>()
+    private val idToRef = HashMap<String, WeakReference<Component>>()
 
     @Synchronized
     fun register(component: Component): String {
         componentToId[component]?.let { existing ->
             // Re-register in idToRef in case the previous weak reference was cleared.
-            idToRef[existing] = java.lang.ref.WeakReference(component)
+            idToRef[existing] = WeakReference(component)
             return existing
         }
         val id = "c_" + Integer.toHexString(System.identityHashCode(component)).padStart(8, '0')
         componentToId[component] = id
-        idToRef[id] = java.lang.ref.WeakReference(component)
+        idToRef[id] = WeakReference(component)
         return id
     }
 

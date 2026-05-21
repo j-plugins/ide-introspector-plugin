@@ -7,6 +7,7 @@ import com.github.xepozz.introspectorplugin.model.UsageInfo
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
@@ -106,10 +107,11 @@ object PsiUsageSearcher {
                 if (info != null) out += info
                 true
             })
-        } catch (e: Throwable) {
+        } catch (pce: ProcessCanceledException) {
+            throw pce
+        } catch (_: Throwable) {
             // Index hiccup / cancelled — keep what we have. The 10 s timeout will surface
             // separately via TimeoutException if we're really stuck.
-            if (e is RuntimeException && e.javaClass.simpleName == "ProcessCanceledException") throw e
         }
 
         // (b) DefinitionsScopedSearch — overriding methods + implementing classes, language-agnostic.
@@ -126,8 +128,9 @@ object PsiUsageSearcher {
                     if (info != null) out += info
                     true
                 })
-            } catch (e: Throwable) {
-                if (e is RuntimeException && e.javaClass.simpleName == "ProcessCanceledException") throw e
+            } catch (pce: ProcessCanceledException) {
+                throw pce
+            } catch (_: Throwable) {
             }
         }
 

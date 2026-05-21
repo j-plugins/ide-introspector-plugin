@@ -9,6 +9,9 @@ IntelliJ IDE plugin that exposes the running IDE to MCP clients (Claude, Cursor,
 `arch.*` (plugin/extension-point inventory), `exec.*` (opt-in Kotlin runtime execution).
 Ships with a "Platform Explorer" tool window for the same data without an MCP client.
 
+See [docs/CODE_QUALITY.md](docs/CODE_QUALITY.md) for the full Kotlin / IntelliJ-plugin /
+testing criteria. The Hard rules below take precedence; the guide expands on the rest.
+
 ## Build commands
 
 - `./gradlew build` — full build (compileKotlin → KSP → verifyPlugin → tests). Must pass

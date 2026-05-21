@@ -15,6 +15,7 @@ object AstSafetyChecker {
         Regex("""setAccessible\s*\(\s*true\s*\)"""),
         Regex("""System\s*\.\s*exit\s*\("""),
         Regex("""Class\s*\.\s*forName\s*\(\s*"sun\."""),
+        Regex("""Class\s*\.\s*forName\s*\(\s*"jdk\.internal\."""),
     )
 
     data class CheckResult(val ok: Boolean, val reason: String? = null)

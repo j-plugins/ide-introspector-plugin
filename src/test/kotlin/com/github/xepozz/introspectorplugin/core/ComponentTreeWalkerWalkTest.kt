@@ -164,13 +164,13 @@ class ComponentTreeWalkerWalkTest {
             visited.add(c)
             true
         }
-        assertTrue(visited.contains(t.root))
+        assertTrue("root must always be visited regardless of visibility", visited.contains(t.root))
         assertFalse("expected hidden subtree to be skipped", visited.contains(t.a))
-        assertFalse(visited.contains(t.a1))
-        assertFalse(visited.contains(t.a2))
+        assertFalse("a1 (child of hidden a) must be skipped", visited.contains(t.a1))
+        assertFalse("a2 (child of hidden a) must be skipped", visited.contains(t.a2))
         // Sibling subtree is fine.
-        assertTrue(visited.contains(t.b))
-        assertTrue(visited.contains(t.b1))
+        assertTrue("visible sibling b must still be visited", visited.contains(t.b))
+        assertTrue("child of visible sibling (b1) must still be visited", visited.contains(t.b1))
     }
 
     @Test
@@ -183,9 +183,9 @@ class ComponentTreeWalkerWalkTest {
             visited.add(c)
             true
         }
-        assertTrue(visited.contains(t.a))
-        assertTrue(visited.contains(t.a1))
-        assertTrue(visited.contains(t.a2))
+        assertTrue("hidden node a must be visited when includeInvisible=true", visited.contains(t.a))
+        assertTrue("a1 (child of hidden a) must be visited when includeInvisible=true", visited.contains(t.a1))
+        assertTrue("a2 (child of hidden a) must be visited when includeInvisible=true", visited.contains(t.a2))
     }
 
     // ====================================================================================
@@ -222,10 +222,10 @@ class ComponentTreeWalkerWalkTest {
             c !== a
         }
         assertTrue("Expected to visit a once before pruning", visited.contains(a))
-        assertFalse(visited.contains(aChild))
-        assertFalse(visited.contains(leaf))
-        assertTrue(visited.contains(b))
-        assertTrue(visited.contains(b1))
+        assertFalse("aChild must be skipped when visitor returns false for a", visited.contains(aChild))
+        assertFalse("leaf (grandchild of a) must be skipped when a is pruned", visited.contains(leaf))
+        assertTrue("sibling b must still be visited after a is pruned", visited.contains(b))
+        assertTrue("b1 (child of unpruned sibling) must still be visited", visited.contains(b1))
     }
 
     // ====================================================================================

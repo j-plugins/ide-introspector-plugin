@@ -128,8 +128,8 @@ class ImageBudgetTest {
         assertNotSame("Expected a different (downscaled) image", img, result)
         assertEquals(64, result.width)
         assertEquals(64, result.height)
-        assertNotNull("Expected a warning when image was downscaled", warning)
-        assertTrue(warning!!.contains("1 halving passes"))
+        val msg = requireNotNull(warning) { "Expected a warning when image was downscaled" }
+        assertTrue("warning should mention '1 halving passes', got: $msg", msg.contains("1 halving passes"))
     }
 
     @Test
@@ -142,10 +142,10 @@ class ImageBudgetTest {
         // After 3 halves: 256 -> 128 -> 64 -> 32 px each axis.
         assertEquals(32, result.width)
         assertEquals(32, result.height)
-        assertNotNull(warning)
+        val msg = requireNotNull(warning) { "Expected a warning when image was downscaled" }
         assertTrue(
-            "Expected warning to mention 3 halving passes, got: $warning",
-            warning!!.contains("3 halving passes"),
+            "Expected warning to mention 3 halving passes, got: $msg",
+            msg.contains("3 halving passes"),
         )
     }
 
@@ -156,10 +156,10 @@ class ImageBudgetTest {
         // After exactly 2 halves: 64 -> 32 -> 16.
         assertEquals(16, result.width)
         assertEquals(16, result.height)
-        assertNotNull(warning)
+        val msg = requireNotNull(warning) { "Expected a warning when downscale capped out" }
         assertTrue(
-            "Expected warning to mention exactly 2 halving passes, got: $warning",
-            warning!!.contains("2 halving passes"),
+            "Expected warning to mention exactly 2 halving passes, got: $msg",
+            msg.contains("2 halving passes"),
         )
         // And the PNG is still over budget — proving the cap, not the budget, ended the loop.
         assertTrue(

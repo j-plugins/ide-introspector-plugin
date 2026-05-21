@@ -33,9 +33,9 @@ class ArchitectureToolset : McpToolset {
         |  - arch.find_extenders_of        — reverse search by EP name or class
         |  - arch.get_plugin_details       — full inventory for one plugin
         |
-        |Do NOT use this to: count installed plugins (use arch.list_plugins), or to find
-        |classes implementing an interface unrelated to EPs (the IDE doesn't index them
-        |that way — try arch.find_extenders_of with targetKind="interface").
+        |Do NOT use this when: you need to count installed plugins (use arch.list_plugins), or
+        |when looking for classes that implement an interface unrelated to EPs (the IDE doesn't
+        |index them that way — try arch.find_extenders_of with targetKind="interface").
         |
         |Returns: { extensionPoints: ExtensionPointInfo[], total: int } where each EP carries
         |name, kind ('INTERFACE'|'BEAN_CLASS'), interfaceOrBeanClass (FQCN), declaredByPluginId,
@@ -43,6 +43,11 @@ class ArchitectureToolset : McpToolset {
         |
         |Vanilla IDEA Community has ≥1000 EPs at application area — narrow with nameContains
         |("toolWindow", "configurable", etc.) before reading the response.
+        |
+        |Examples:
+        |  nameContains="toolWindow"                              — every tool-window EP
+        |  area="project", declaredByPlugin="com.intellij"        — project-area platform EPs
+        |  nameContains="inspection", onlyDynamic=true            — dynamic inspection EPs only
         """
     )
     suspend fun arch_list_extension_points(
@@ -87,8 +92,9 @@ class ArchitectureToolset : McpToolset {
         |providedByPluginId, providedByPluginName, additionalAttributes (full XML attribute
         |map: id, anchor, icon, etc.).
         |
-        |Example: extensionPointName="com.intellij.toolWindow" → returns every registered
-        |ToolWindowFactory with its anchor, id, icon, and contributing plugin.
+        |Examples:
+        |  extensionPointName="com.intellij.toolWindow"                  — every registered ToolWindowFactory with anchor/id/icon/plugin
+        |  extensionPointName="com.intellij.applicationConfigurable"     — every settings panel contributed by any plugin
         """
     )
     suspend fun arch_list_extensions_for_ep(
@@ -117,6 +123,11 @@ class ArchitectureToolset : McpToolset {
         |
         |Returns: { plugins: PluginInfo[], total: int }. A typical IDEA install has 50-150
         |bundled plugins — set includeBundled=false to focus on third-party.
+        |
+        |Examples:
+        |  includeBundled=false                                   — only third-party plugins
+        |  nameOrIdContains="kotlin"                              — Kotlin-related plugins
+        |  includeDisabled=true, nameOrIdContains="docker"        — find a disabled Docker plugin
         """
     )
     suspend fun arch_list_plugins(
@@ -161,6 +172,11 @@ class ArchitectureToolset : McpToolset {
         |  - For large plugins (com.intellij itself owns ~1000 EPs and contributes ~500
         |    extensions) the response can be huge — consider whether the narrower
         |    arch.list_extensions_for_ep is what you actually need.
+        |
+        |Examples:
+        |  pluginId="com.github.xepozz.introspectorplugin"                            — this plugin's inventory
+        |  pluginId="org.jetbrains.kotlin", includeRegisteredExtensions=false         — only declared EPs
+        |  pluginId="com.intellij.java", includeActions=true                          — full inventory + actions (slow)
         """
     )
     suspend fun arch_get_plugin_details(

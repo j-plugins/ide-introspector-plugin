@@ -67,6 +67,9 @@ class PsiToolset : McpToolset {
         |The `viewProviderLanguages` field reports the multi-PSI nature of the file as IntelliJ
         |sees it — a .php file shows ["PHP", "HTML"], a .vue file shows ["Vue", "JavaScript",
         |"CSS", "HTML"]. psi.get_structure will return one tree per language.
+        |
+        |Examples:
+        |  (no args)   — list open tabs, identify the focused tab, return urls for follow-ups
         """
     )
     suspend fun psi_list_open_files(): OpenFilesResponse {

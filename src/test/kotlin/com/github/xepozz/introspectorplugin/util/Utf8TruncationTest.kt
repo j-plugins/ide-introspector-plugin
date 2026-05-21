@@ -27,7 +27,7 @@ class Utf8TruncationTest {
         val r = truncateUtf8("abcdef", 3)
         assertEquals("abc", r.text)
         assertEquals(6, r.byteLength)
-        assertTrue(r.truncated)
+        assertTrue("result must be marked truncated when source exceeds maxBytes", r.truncated)
     }
 
     @Test
@@ -39,7 +39,7 @@ class Utf8TruncationTest {
         val r = truncateUtf8(src, 5)
         assertEquals("Пр", r.text)
         assertEquals(4, r.text.toByteArray(Charsets.UTF_8).size)
-        assertTrue(r.truncated)
+        assertTrue("Cyrillic source must be marked truncated when budget cuts before end", r.truncated)
         assertEquals(12, r.byteLength)
     }
 
@@ -48,10 +48,10 @@ class Utf8TruncationTest {
         val src = "abс"   // 'a'=1B 'b'=1B 'с'=2B  — 4 bytes total
         val r3 = truncateUtf8(src, 3)
         assertEquals("ab", r3.text)   // can't fit 'с' (2 more bytes) into 3 with 2 used
-        assertTrue(r3.truncated)
+        assertTrue("budget=3 cannot fit Cyrillic 'с' so must be truncated", r3.truncated)
         val r4 = truncateUtf8(src, 4)
         assertEquals(src, r4.text)
-        assertFalse(r4.truncated)
+        assertFalse("budget=4 fits the full string so must not be truncated", r4.truncated)
     }
 
     @Test
@@ -60,10 +60,10 @@ class Utf8TruncationTest {
         val emoji = "😀"
         val r3 = truncateUtf8(emoji, 3)
         assertEquals("", r3.text)    // doesn't fit in 3 bytes
-        assertTrue(r3.truncated)
+        assertTrue("emoji needs 4 bytes so budget=3 must mark truncated", r3.truncated)
         val r4 = truncateUtf8(emoji, 4)
         assertEquals(emoji, r4.text)
-        assertFalse(r4.truncated)
+        assertFalse("budget=4 fits the 4-byte emoji exactly so must not be truncated", r4.truncated)
     }
 
     @Test
@@ -79,7 +79,7 @@ class Utf8TruncationTest {
         val r = truncateUtf8("abc", 0)
         assertEquals("", r.text)
         assertEquals(3, r.byteLength)
-        assertTrue(r.truncated)
+        assertTrue("budget=0 with non-empty input must be marked truncated", r.truncated)
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -99,7 +99,7 @@ class Utf8TruncationTest {
                 r.text.contains('�'),
             )
             // And the result is itself a clean prefix.
-            assertTrue(src.startsWith(r.text))
+            assertTrue("Budget $budget produced non-prefix: '${r.text}'", src.startsWith(r.text))
         }
     }
 }

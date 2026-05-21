@@ -10,7 +10,7 @@ plugins {
     // com.intellij.util.lang.PathClassLoader, which JaCoCo's on-the-fly instrumentation
     // can't see — every counter ends up 0/N. Kover (also a JetBrains project) handles
     // that classloader natively and emits a JaCoCo-compatible XML alongside its own HTML.
-    id("org.jetbrains.kotlinx.kover") version "0.9.1"
+    id("org.jetbrains.kotlinx.kover")
 }
 
 kover {

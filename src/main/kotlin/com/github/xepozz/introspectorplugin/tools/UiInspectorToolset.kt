@@ -57,6 +57,11 @@ class UiInspectorToolset : McpToolset {
         |Returns: { nodes: ComponentInfo[], rootIds: string[], truncated: boolean, warnings: string[] }.
         |Each ComponentInfo has id, class (FQCN), name, accessibleName, accessibleRole,
         |bounds {x,y,width,height}, visible, enabled, text, toolTipText, properties[], children[].
+        |
+        |Examples:
+        |  rootSelector="tool_window:Project", maxDepth=10   — Project view subtree
+        |  rootSelector="frame", maxDepth=6                  — shallow frame overview
+        |  rootSelector="dialog"                             — only open modal dialogs
         """
     )
     suspend fun `ui_get_tree`(
@@ -93,7 +98,10 @@ class UiInspectorToolset : McpToolset {
         |Returns: { matches: ComponentInfo[], total: int }. Matches include id you can reuse
         |with ui.get_properties / screenshot.capture(target='component').
         |
-        |Example: query="Run", matchMode="exact", searchIn=["text"] → finds the Run toolbar button.
+        |Examples:
+        |  query="Run", matchMode="exact", searchIn=["text"]           — the Run toolbar button
+        |  query="ProjectViewTree", searchIn=["name"]                  — programmatic-name match
+        |  query="^Save( All)?$", matchMode="regex", searchIn=["text"] — Save / Save All buttons
         """
     )
     suspend fun `ui_find_by_name`(
@@ -127,6 +135,11 @@ class UiInspectorToolset : McpToolset {
         |
         |Returns: { matches: ComponentInfo[], total: int } where matches[0] is the deepest
         |component and (if requested) matches[1..N] are its ancestors up to the window root.
+        |
+        |Examples:
+        |  x=42, y=80, coordinateSpace="frame"                  — what's at the frame's (42,80)
+        |  x=1280, y=400, coordinateSpace="screen"              — virtual-desktop coords
+        |  x=300, y=200, returnAncestors=false                  — just the deepest component
         """
     )
     suspend fun `ui_find_by_coordinates`(
@@ -193,14 +206,18 @@ class UiInspectorToolset : McpToolset {
         |ui.find_by_coordinates / ui.find_by_xpath / ui.get_tree and now want everything
         |the platform knows about it.
         |
-        |Do NOT use this with a fresh id-less guess — the id must come from a prior ui.*
-        |response in the same IDE session (ids do not survive an IDE restart). If the
-        |component has since been garbage-collected (panel closed), you'll get an
-        |"is no longer attached" error.
+        |Do NOT use this when: you don't already have an id from a prior ui.* call in the same
+        |IDE session — ids do not survive an IDE restart and dead ids return an "is no longer
+        |attached" error once the panel closes. Locate the component first via ui.find_by_* or
+        |ui.get_tree.
         |
         |Returns: { componentId, className, properties: [{name,value}...], warnings: string[] }.
         |Properties are key-value pairs like "bounds": "10,20 100x30", "accessibleName": "Run",
         |"clientProperty[place]": "MainToolbar", "uiInspector[ActionId]": "RunAction", etc.
+        |
+        |Examples:
+        |  componentId="c_a3f2e1b8"                              — full property bag
+        |  componentId="c_a3f2e1b8", includeClientProperties=false — slim, accessibility-only view
         """
     )
     suspend fun `ui_get_properties`(
