@@ -51,7 +51,17 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
         showsRootHandles = true
         selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
     }
-    private val details = DetailsPanel()
+    private val details = DetailsPanel(
+        project,
+        navigator = object : com.github.xepozz.introspectorplugin.toolwindow.details.DetailViews.Navigator {
+            override fun selectPluginById(pluginId: String) = selectNode { n ->
+                n is PlatformExplorerNode.PluginNode && n.plugin.id == pluginId
+            }
+            override fun selectExtensionPointByName(name: String) = selectNode { n ->
+                n is PlatformExplorerNode.ExtensionPointNode && n.ep.name == name
+            }
+        },
+    )
     private val filterField = JBTextField()
 
     init {
@@ -163,6 +173,33 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
         ApplicationManager.getApplication().invokeLater {
             treeModel.rebuild()
         }
+    }
+
+    /**
+     * Walks the tree under the current root and selects the first node matching [predicate].
+     * Used by detail-panel deep-links so a click on "provided by: someplugin" jumps to that
+     * plugin's node in the tree (and updates the detail panel to that node's data).
+     */
+    private fun selectNode(predicate: (PlatformExplorerNode) -> Boolean) {
+        val root = tree.model.root as? DefaultMutableTreeNode ?: return
+        val match = findMatching(root, predicate) ?: return
+        val path = javax.swing.tree.TreePath(match.path)
+        tree.expandPath(path)
+        tree.selectionPath = path
+        tree.scrollPathToVisible(path)
+    }
+
+    private fun findMatching(
+        node: DefaultMutableTreeNode,
+        predicate: (PlatformExplorerNode) -> Boolean,
+    ): DefaultMutableTreeNode? {
+        val user = node.userObject as? PlatformExplorerNode
+        if (user != null && predicate(user)) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChildAt(i) as? DefaultMutableTreeNode ?: continue
+            findMatching(child, predicate)?.let { return it }
+        }
+        return null
     }
 
     private inner class ChangeViewModeAction(private val mode: ViewMode) :
