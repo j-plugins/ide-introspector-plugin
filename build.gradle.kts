@@ -6,6 +6,32 @@ plugins {
     id("org.jetbrains.intellij.platform")
     id("org.jetbrains.changelog")
     id("com.google.devtools.ksp")
+    // Kover instead of JaCoCo: the IntelliJ Platform Gradle plugin runs tests under
+    // com.intellij.util.lang.PathClassLoader, which JaCoCo's on-the-fly instrumentation
+    // can't see — every counter ends up 0/N. Kover (also a JetBrains project) handles
+    // that classloader natively and emits a JaCoCo-compatible XML alongside its own HTML.
+    id("org.jetbrains.kotlinx.kover") version "0.9.1"
+}
+
+kover {
+    reports {
+        filters {
+            includes {
+                classes("com.github.xepozz.introspectorplugin.*")
+            }
+            // Generated / IDE-only surfaces — keep them out so the headline number reflects
+            // logic we actually own and can test off-IDE.
+            excludes {
+                classes(
+                    "com.github.xepozz.introspectorplugin.toolwindow.*",   // Swing tool window
+                    "com.github.xepozz.introspectorplugin.tools.*",        // MCP toolset entry points
+                    "com.github.xepozz.introspectorplugin.exec.*",         // Kotlin runtime execution
+                    "*\$\$serializer",                                      // kotlinx.serialization synthetics
+                    "*Companion",                                           // boilerplate
+                )
+            }
+        }
+    }
 }
 
 dependencies {

@@ -1,5 +1,6 @@
 package com.github.xepozz.introspectorplugin.core
 
+import com.github.xepozz.introspectorplugin.core.internal.ExtensionMetadata
 import com.github.xepozz.introspectorplugin.model.ExtensionInfo
 import com.github.xepozz.introspectorplugin.model.ExtensionPointInfo
 import com.intellij.openapi.diagnostic.thisLogger
@@ -198,7 +199,7 @@ object ExtensionPointInspector {
                 val pluginId = pd?.let { extractPluginIdString(it) } ?: "unknown"
                 val pluginName = pd?.let { readMethod(it, "getName")?.toString() }
                 val attributes = readAdditionalAttributes(adapter)
-                val effectiveClass = pickEffectiveClass(implClass, attributes)
+                val effectiveClass = ExtensionMetadata.pickEffectiveClass(implClass, attributes)
                 out += ExtensionInfo(
                     extensionPointName = pointName,
                     implementationClass = implClass,
@@ -280,45 +281,9 @@ object ExtensionPointInspector {
         try {
             val instance = readField(adapter, "extensionInstance")
             if (instance != null) {
-                harvestBeanFields(instance, merged)
+                ExtensionMetadata.harvestBeanFields(instance, merged)
             }
         } catch (_: Throwable) {}
         return merged
-    }
-
-    /** For BEAN_CLASS extensions whose XmlElement was already discarded, pull XML-attribute-shaped
-     *  data straight off the bean's public/JvmField properties. */
-    private fun harvestBeanFields(instance: Any, into: MutableMap<String, String>) {
-        var c: Class<*>? = instance.javaClass
-        while (c != null && c != Any::class.java) {
-            for (f in c.declaredFields) {
-                if (java.lang.reflect.Modifier.isStatic(f.modifiers)) continue
-                if (f.isSynthetic) continue
-                if (into.containsKey(f.name)) continue
-                try {
-                    f.isAccessible = true
-                    val v = f.get(instance) ?: continue
-                    // Only flatten primitive-ish values; nested beans would clutter the view.
-                    when (v) {
-                        is String, is Number, is Boolean, is Char -> into[f.name] = v.toString()
-                    }
-                } catch (_: Throwable) {}
-            }
-            c = c.superclass
-        }
-    }
-
-    /** Resolve the "user class" for an extension. For INTERFACE EPs, [implClass] is already the
-     *  user's class. For BEAN_CLASS EPs, the user's class lives in one of these XML attributes. */
-    private fun pickEffectiveClass(implClass: String?, attributes: Map<String, String>): String? {
-        val candidates = listOf(
-            "implementation", "factoryClass", "instance",
-            "serviceImplementation", "serviceInterface", "class",
-        )
-        for (key in candidates) {
-            val v = attributes[key]
-            if (!v.isNullOrBlank()) return v
-        }
-        return implClass
     }
 }

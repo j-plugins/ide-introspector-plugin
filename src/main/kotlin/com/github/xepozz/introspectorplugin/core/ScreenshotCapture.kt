@@ -44,11 +44,22 @@ object ScreenshotCapture {
     }
 
     /** Auto-downscales [image] until its PNG size is within [MAX_IMAGE_BYTES]. */
-    fun fitWithinBudget(image: BufferedImage): Pair<BufferedImage, String?> {
+    fun fitWithinBudget(image: BufferedImage): Pair<BufferedImage, String?> =
+        fitWithinBudget(image, MAX_IMAGE_BYTES, maxAttempts = 4)
+
+    /**
+     * Test-visible overload: same algorithm as [fitWithinBudget] but parameterised so tests
+     * can drive it with smaller budgets / attempt caps instead of producing many-MB images.
+     */
+    internal fun fitWithinBudget(
+        image: BufferedImage,
+        budgetBytes: Int,
+        maxAttempts: Int,
+    ): Pair<BufferedImage, String?> {
         var current = image
         var warning: String? = null
         var attempts = 0
-        while (encodedSize(current) > MAX_IMAGE_BYTES && attempts < 4) {
+        while (encodedSize(current) > budgetBytes && attempts < maxAttempts) {
             current = scaleImage(current, 0.5)
             attempts++
             warning = "Image was downscaled to fit MCP response size budget (${attempts} halving passes)."
@@ -56,7 +67,7 @@ object ScreenshotCapture {
         return current to warning
     }
 
-    private fun encodedSize(image: BufferedImage): Int {
+    internal fun encodedSize(image: BufferedImage): Int {
         val baos = ByteArrayOutputStream()
         ImageIO.write(image, "png", baos)
         return baos.size()

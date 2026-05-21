@@ -1,5 +1,6 @@
 package com.github.xepozz.introspectorplugin.core
 
+import com.github.xepozz.introspectorplugin.core.internal.TtlCache
 import com.github.xepozz.introspectorplugin.model.ExtensionInfo
 import com.github.xepozz.introspectorplugin.model.ExtensionPointInfo
 import com.github.xepozz.introspectorplugin.model.PluginDependencyInfo
@@ -7,7 +8,6 @@ import com.github.xepozz.introspectorplugin.model.PluginInfo
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Application-level cache of plugin + EP + extension data. Both the MCP arch.* tools
@@ -26,20 +26,11 @@ class PluginInventory {
         val extensionsByEp: Map<String, List<ExtensionInfo>>,
     )
 
-    private val cache = AtomicReference<Snapshot?>(null)
+    private val cache = TtlCache<Snapshot>(ttlMs = CACHE_TTL_MS) { collect() }
 
-    fun snapshot(forceRefresh: Boolean = false): Snapshot {
-        val now = System.currentTimeMillis()
-        val existing = cache.get()
-        if (!forceRefresh && existing != null && now - existing.takenAtMs < CACHE_TTL_MS) {
-            return existing
-        }
-        val s = collect()
-        cache.set(s)
-        return s
-    }
+    fun snapshot(forceRefresh: Boolean = false): Snapshot = cache.get(forceRefresh)
 
-    fun refresh() { snapshot(forceRefresh = true) }
+    fun refresh() { cache.invalidate(); cache.get() }
 
     fun plugins(): List<PluginInfo> = snapshot().plugins
     fun extensionPoints(): List<ExtensionPointInfo> = snapshot().extensionPoints
