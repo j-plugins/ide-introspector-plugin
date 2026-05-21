@@ -6,5 +6,6 @@
         <mcpServer.mcpToolset implementation="com.github.xepozz.introspectorplugin.tools.UiInspectorToolset"/>
         <mcpServer.mcpToolset implementation="com.github.xepozz.introspectorplugin.tools.ScreenshotToolset"/>
         <mcpServer.mcpToolset implementation="com.github.xepozz.introspectorplugin.tools.ArchitectureToolset"/>
+        <mcpServer.mcpToolset implementation="com.github.xepozz.introspectorplugin.tools.PsiToolset"/>
     </extensions>
 </idea-plugin>
