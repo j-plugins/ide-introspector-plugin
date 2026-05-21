@@ -112,6 +112,14 @@ class XPathMatcher(
         // Leading `/` or `//` decides whether the first step is CHILD or DESCENDANT_OR_SELF;
         // a bareword (no leading slash) is treated as `//bareword` — convenient shorthand.
         val s = input.trim()
+        if (s.isEmpty()) {
+            throw IllegalArgumentException("Empty XPath expression.")
+        }
+        // Trailing `/` after a step name is almost always a typo (`//foo/` instead of
+        // `//foo`); accept only the bare `/` and `//` "select-everything" forms.
+        if (s.length > 2 && s.endsWith("/")) {
+            throw IllegalArgumentException("Trailing '/' in XPath: '$s'.")
+        }
         val normalized = if (s.startsWith("/")) s else "//$s"
         return parseSingleChain(normalized)
     }
@@ -121,26 +129,56 @@ class XPathMatcher(
         var i = 0
         while (i < s.length) {
             val axis: Axis = when {
+                s.startsWith("///", i) -> throw IllegalArgumentException(
+                    "Too many consecutive slashes at position $i in XPath: '$s'.",
+                )
                 s.startsWith("//", i) -> { i += 2; Axis.DESCENDANT_OR_SELF }
                 s.startsWith("/", i) -> { i += 1; Axis.CHILD }
                 else -> Axis.CHILD
             }
             val nameStart = i
             while (i < s.length && s[i] != '/' && s[i] != '[') i++
-            val tagName = s.substring(nameStart, i).ifEmpty { "*" }
+            // Trim allows tolerant locators like `// ActionButton`; an empty name becomes
+            // the wildcard `*` so `/foo/` and `//` keep working.
+            val tagName = s.substring(nameStart, i).trim().ifEmpty { "*" }
+
+            if (tagName == "..") {
+                throw IllegalArgumentException(
+                    "Parent axis '..' is not supported in XPath: '$s'.",
+                )
+            }
 
             val predicates = mutableListOf<Pair<String, String>>()
             var positional: Int? = null
             while (i < s.length && s[i] == '[') {
                 val end = findMatchingBracket(s, i)
-                require(end > i) { "Unbalanced predicate at $i in $s" }
+                require(end > i) { "Unbalanced predicate at $i in '$s'." }
                 val raw = s.substring(i + 1, end).trim()
-                if (raw.toIntOrNull() != null) {
-                    positional = raw.toInt()
+                if (raw.isEmpty()) {
+                    throw IllegalArgumentException("Empty predicate '[]' in XPath: '$s'.")
+                }
+                val asInt = raw.toIntOrNull()
+                if (asInt != null) {
+                    if (positional != null) {
+                        throw IllegalArgumentException(
+                            "Multiple positional predicates in one step: '$s'.",
+                        )
+                    }
+                    if (asInt < 1) {
+                        throw IllegalArgumentException(
+                            "Position must be >= 1, got $asInt in XPath: '$s'.",
+                        )
+                    }
+                    positional = asInt
                 } else {
-                    // Split by " and " (case-insensitive, surrounded by whitespace).
+                    if (containsTopLevelOr(raw)) {
+                        throw IllegalArgumentException(
+                            "'or' is not supported in XPath predicates: '$raw'. " +
+                                "Run separate queries and merge the results instead.",
+                        )
+                    }
                     val parts = splitByAnd(raw)
-                    for (p in parts) parsePredicate(p)?.let(predicates::add)
+                    for (p in parts) predicates += parsePredicate(p)
                 }
                 i = end + 1
             }
@@ -177,6 +215,26 @@ class XPathMatcher(
         return -1
     }
 
+    private fun containsTopLevelOr(s: String): Boolean {
+        val lower = s.lowercase()
+        var inSingle = false
+        var inDouble = false
+        var i = 0
+        while (i < s.length) {
+            val c = s[i]
+            when {
+                inSingle -> if (c == '\'') inSingle = false
+                inDouble -> if (c == '"') inDouble = false
+                c == '\'' -> inSingle = true
+                c == '"' -> inDouble = true
+                !inSingle && !inDouble &&
+                    i + 3 < s.length && lower.startsWith(" or ", i) -> return true
+            }
+            i++
+        }
+        return false
+    }
+
     private fun splitByAnd(s: String): List<String> {
         val out = mutableListOf<String>()
         val lower = s.lowercase()
@@ -204,17 +262,37 @@ class XPathMatcher(
         return out.filter { it.isNotEmpty() }
     }
 
-    private fun parsePredicate(raw: String): Pair<String, String>? {
-        // Expected forms: @attr='value' / @attr="value" / @attr=value
+    private fun parsePredicate(raw: String): Pair<String, String> {
+        // Expected forms: @attr='value' / @attr="value" / @attr=value (lenient).
+        // Every bad shape throws — silent drop would make missing-@ typos invisible.
         val r = raw.trim()
-        if (!r.startsWith("@")) return null
+        if (!r.startsWith("@")) {
+            throw IllegalArgumentException(
+                "Unsupported predicate '$r'. " +
+                    "Predicates must be '@attr=\"value\"' (chain with ' and ') " +
+                    "or positional '[N]'. Function predicates like text() or " +
+                    "contains() are not part of the supported subset.",
+            )
+        }
         val eq = r.indexOf('=')
-        if (eq < 0) return null
+        if (eq < 0) {
+            throw IllegalArgumentException("Predicate '$r' is missing '=value'.")
+        }
         val attr = r.substring(1, eq).trim()
+        if (attr.isEmpty()) {
+            throw IllegalArgumentException("Predicate '$r' has empty attribute name.")
+        }
         var value = r.substring(eq + 1).trim()
-        if ((value.startsWith("'") && value.endsWith("'")) ||
+        val startsQuote = value.firstOrNull() == '\'' || value.firstOrNull() == '"'
+        val endsQuote = value.lastOrNull() == '\'' || value.lastOrNull() == '"'
+        val sameQuote = (value.startsWith("'") && value.endsWith("'")) ||
             (value.startsWith("\"") && value.endsWith("\""))
-        ) {
+        if ((startsQuote || endsQuote) && !sameQuote) {
+            throw IllegalArgumentException(
+                "Mismatched quotes in predicate value '$value'.",
+            )
+        }
+        if (sameQuote && value.length >= 2) {
             value = value.substring(1, value.length - 1)
         }
         return attr to value

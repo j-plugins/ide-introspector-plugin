@@ -8,27 +8,52 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * Characterisation + spec tests for [XPathMatcher].
+ * Tests for [XPathMatcher].
  *
- * The fixture below is a small synthetic Swing-like tree:
+ * Two goals:
+ *   1. **Spec coverage**: every code path of the parser and evaluator has a test.
+ *   2. **Documentation by example**: each query mirrors a realistic locator a plugin user
+ *      would write against intellij-ui-test-robot. If a test reads weirdly, the matcher is
+ *      probably weird too.
+ *
+ * ## Fixture: a small but IDE-like Swing tree
  *
  * ```
- * frame   (JFrame)
- * ├── panel   (JPanel, accessibleName="Main")
- * │   ├── btn1    (JButton, text="OK", name="okButton")
- * │   ├── btn2    (JButton, text="Cancel")
- * │   └── label   (JBLabel, text="Hello")
- * └── btn3    (JButton, text="Detail")
+ * frame      (com.intellij.openapi.wm.impl.IdeFrameImpl)
+ * ├── menuBar       (javax.swing.JMenuBar)
+ * │   ├── fileMenu     (ActionMenu, text="File")
+ * │   └── editMenu     (ActionMenu, text="Edit")
+ * ├── toolbar       (ActionToolbarImpl, name="MainToolbar", accessibleName="Main Toolbar")
+ * │   ├── btnRun       (ActionButton, accessibleName="Run", toolTipText="Run 'Main'")
+ * │   ├── btnDebug     (ActionButton, accessibleName="Debug")
+ * │   └── btnStop      (ActionButton, accessibleName="Stop")
+ * ├── projectView   (InternalDecoratorImpl, name="Project")
+ * │   ├── projectLabel (JBLabel, text="playground")
+ * │   └── tree         (Tree)
+ * └── dialog        (DialogWrapper$DialogWrapperDialog, accessibleName="Settings")
+ *     ├── settingsLabel (JBLabel, text="Settings")
+ *     ├── okBtn         (JButton,  text="OK",     accessibleName="OK")
+ *     ├── cancelBtn     (JButton,  text="Cancel", accessibleName="Cancel")
+ *     └── applyBtn      (JButton,  text="Apply",  accessibleName="Apply")
  * ```
  *
- * The XPath subset under test mirrors `intellij-ui-test-robot` — see the KDoc
- * on [XPathMatcher] for the supported axes / predicates.
+ * Document order (DFS, children left-to-right):
+ *   frame, menuBar, fileMenu, editMenu,
+ *   toolbar, btnRun, btnDebug, btnStop,
+ *   projectView, projectLabel, tree,
+ *   dialog, settingsLabel, okBtn, cancelBtn, applyBtn.
  *
- * Seeds (`rootIds`) are the root nodes themselves, not a virtual document root.
- * Consequence:
- *   - `/JButton`  → JButtons that are *direct children of the root frame*  → [btn3]
- *   - `//JButton` → JButtons anywhere in the tree (including the root)     → [btn1, btn2, btn3]
- *   - `//JFrame`  → matches the root via descendant-or-self                → [frame]
+ * ## How to read these tests
+ *
+ * Most assertions use [ids] which strips the query result down to component IDs. That keeps
+ * each test a single readable line:
+ *
+ * ```
+ * assertEquals(listOf("okBtn"), ids("//JButton[@text='OK']"))
+ * ```
+ *
+ * If you want to add a new test, copy the closest existing one — the fixture is dense
+ * enough that most realistic IDE queries can be expressed against it.
  */
 class XPathMatcherTest {
 
@@ -56,133 +81,336 @@ class XPathMatcherTest {
     )
 
     private val nodes: Map<String, ComponentInfo> = listOf(
-        node("frame", "javax.swing.JFrame", children = listOf("panel", "btn3")),
         node(
-            "panel", "javax.swing.JPanel", accessibleName = "Main",
-            children = listOf("btn1", "btn2", "label"),
+            "frame",
+            "com.intellij.openapi.wm.impl.IdeFrameImpl",
+            children = listOf("menuBar", "toolbar", "projectView", "dialog"),
         ),
-        node("btn1", "javax.swing.JButton", text = "OK", name = "okButton"),
-        node("btn2", "javax.swing.JButton", text = "Cancel"),
-        node("label", "com.intellij.ui.components.JBLabel", text = "Hello"),
-        node("btn3", "javax.swing.JButton", text = "Detail"),
+        // --- Menu bar ---
+        node(
+            "menuBar", "javax.swing.JMenuBar",
+            children = listOf("fileMenu", "editMenu"),
+        ),
+        node(
+            "fileMenu", "com.intellij.openapi.actionSystem.impl.ActionMenu",
+            text = "File",
+        ),
+        node(
+            "editMenu", "com.intellij.openapi.actionSystem.impl.ActionMenu",
+            text = "Edit",
+        ),
+        // --- Main toolbar ---
+        node(
+            "toolbar", "com.intellij.openapi.actionSystem.impl.ActionToolbarImpl",
+            name = "MainToolbar", accessibleName = "Main Toolbar",
+            children = listOf("btnRun", "btnDebug", "btnStop"),
+        ),
+        node(
+            "btnRun", "com.intellij.openapi.actionSystem.impl.ActionButton",
+            accessibleName = "Run", toolTipText = "Run 'Main'",
+        ),
+        node(
+            "btnDebug", "com.intellij.openapi.actionSystem.impl.ActionButton",
+            accessibleName = "Debug",
+        ),
+        node(
+            "btnStop", "com.intellij.openapi.actionSystem.impl.ActionButton",
+            accessibleName = "Stop",
+        ),
+        // --- Project tool window ---
+        node(
+            "projectView", "com.intellij.openapi.wm.impl.InternalDecoratorImpl",
+            name = "Project",
+            children = listOf("projectLabel", "tree"),
+        ),
+        node(
+            "projectLabel", "com.intellij.ui.components.JBLabel",
+            text = "playground",
+        ),
+        node("tree", "com.intellij.ui.treeStructure.Tree"),
+        // --- Settings dialog ---
+        node(
+            "dialog", "com.intellij.openapi.ui.DialogWrapper\$DialogWrapperDialog",
+            accessibleName = "Settings",
+            children = listOf("settingsLabel", "okBtn", "cancelBtn", "applyBtn"),
+        ),
+        node(
+            "settingsLabel", "com.intellij.ui.components.JBLabel",
+            text = "Settings",
+        ),
+        node("okBtn", "javax.swing.JButton", text = "OK", accessibleName = "OK"),
+        node("cancelBtn", "javax.swing.JButton", text = "Cancel", accessibleName = "Cancel"),
+        node("applyBtn", "javax.swing.JButton", text = "Apply", accessibleName = "Apply"),
     ).associateBy { it.id }
 
     private val roots = listOf("frame")
 
-    private fun ids(xpath: String, limit: Int = 100): List<String> =
+    private fun ids(xpath: String, limit: Int = 1000): List<String> =
         XPathMatcher(nodes, roots).query(xpath, limit).map { it.id }
 
-    // ---------- Axes ----------
-
-    @Test
-    fun `absolute child step looks among root's children`() {
-        assertEquals(listOf("panel"), ids("/JPanel"))
-        assertEquals(listOf("btn3"), ids("/JButton"))
+    private fun expectError(xpath: String, vararg expectedFragments: String) {
+        try {
+            ids(xpath)
+            fail("Expected IllegalArgumentException for: $xpath")
+        } catch (e: IllegalArgumentException) {
+            val msg = e.message ?: ""
+            for (frag in expectedFragments) {
+                assertTrue(
+                    "Error message must contain '$frag', got: $msg",
+                    msg.contains(frag),
+                )
+            }
+        }
     }
 
-    @Test
-    fun `descendant-or-self includes the root`() {
-        assertEquals(listOf("frame"), ids("//JFrame"))
-    }
+    // ====================================================================================
+    // SECTION 1. Smoke
+    // ====================================================================================
 
     @Test
-    fun `descendant-or-self finds nodes at any depth`() {
-        assertEquals(listOf("btn1", "btn2", "btn3"), ids("//JButton"))
-    }
-
-    @Test
-    fun `bareword is treated as descendant-or-self`() {
-        // No leading `/` → parser prepends `//`.
-        assertEquals(listOf("btn1", "btn2", "btn3"), ids("JButton"))
-    }
-
-    @Test
-    fun `star wildcard matches any element`() {
-        // Document order: frame, then panel and its subtree, then btn3.
+    fun `match all descendants`() {
         assertEquals(
-            listOf("frame", "panel", "btn1", "btn2", "label", "btn3"),
+            listOf(
+                "frame", "menuBar", "fileMenu", "editMenu",
+                "toolbar", "btnRun", "btnDebug", "btnStop",
+                "projectView", "projectLabel", "tree",
+                "dialog", "settingsLabel", "okBtn", "cancelBtn", "applyBtn",
+            ),
             ids("//*"),
         )
     }
 
     @Test
-    fun `div is wildcard alias used by remote-robot`() {
+    fun `div is alias for star`() {
+        assertEquals(ids("//*"), ids("//div"))
+    }
+
+    // ====================================================================================
+    // SECTION 2. Axes
+    // ====================================================================================
+
+    @Test
+    fun `slash is child axis - selects direct children of the seed`() {
+        // The frame's direct children are menuBar, toolbar, projectView, dialog.
         assertEquals(
-            listOf("frame", "panel", "btn1", "btn2", "label", "btn3"),
-            ids("//div"),
+            listOf("menuBar", "toolbar", "projectView", "dialog"),
+            ids("/*"),
         )
     }
 
     @Test
-    fun `child after child descends one level at a time`() {
-        assertEquals(listOf("panel"), ids("/JPanel"))
-        assertEquals(listOf("btn1", "btn2"), ids("/JPanel//JButton"))
+    fun `double slash is descendant-or-self axis - includes the seed itself`() {
+        // The seed frame is a JFrame-like; descendant-or-self matches the seed too.
+        assertEquals(listOf("frame"), ids("//IdeFrameImpl"))
     }
 
     @Test
-    fun `mixed child + descendant`() {
-        assertEquals(listOf("btn1", "btn2"), ids("/JPanel/JButton"))
-    }
-
-    // ---------- Name matching ----------
-
-    @Test
-    fun `localName matches simple class name`() {
-        assertEquals(listOf("btn1", "btn2", "btn3"), ids("//JButton"))
+    fun `bareword is shorthand for descendant-or-self`() {
+        assertEquals(ids("//JButton"), ids("JButton"))
     }
 
     @Test
-    fun `localName also matches fully qualified class name`() {
-        assertEquals(listOf("btn1", "btn2", "btn3"), ids("//javax.swing.JButton"))
+    fun `dot is self axis`() {
+        assertEquals(listOf("frame"), ids("/."))
+        assertEquals(listOf("frame"), ids("//."))
+    }
+
+    @Test
+    fun `dot keeps predicates`() {
+        // self::*[@class='IdeFrameImpl']
+        assertEquals(listOf("frame"), ids("/.[@class='IdeFrameImpl']"))
+        assertEquals(emptyList<String>(), ids("/.[@class='JBLabel']"))
+    }
+
+    @Test
+    fun `child then descendant`() {
+        // toolbar is a direct child of frame; all ActionButtons are inside the toolbar.
+        assertEquals(
+            listOf("btnRun", "btnDebug", "btnStop"),
+            ids("/ActionToolbarImpl//ActionButton"),
+        )
+    }
+
+    @Test
+    fun `descendant then child`() {
+        // Find every dialog, then its direct JButton children.
+        assertEquals(
+            listOf("okBtn", "cancelBtn", "applyBtn"),
+            ids("//DialogWrapper\$DialogWrapperDialog/JButton"),
+        )
+    }
+
+    @Test
+    fun `child axis through multiple levels`() {
+        assertEquals(listOf("projectLabel"), ids("/InternalDecoratorImpl/JBLabel"))
+    }
+
+    // ====================================================================================
+    // SECTION 3. Name matching
+    // ====================================================================================
+
+    @Test
+    fun `tagName matches simple class name`() {
+        assertEquals(
+            listOf("okBtn", "cancelBtn", "applyBtn"),
+            ids("//JButton"),
+        )
+    }
+
+    @Test
+    fun `tagName matches fully qualified class name`() {
+        assertEquals(
+            listOf("okBtn", "cancelBtn", "applyBtn"),
+            ids("//javax.swing.JButton"),
+        )
+    }
+
+    @Test
+    fun `tagName respects inner classes via dollar`() {
+        // Same FQN as in real JVM class names — escape the $ in the test source only.
+        assertEquals(
+            listOf("dialog"),
+            ids("//com.intellij.openapi.ui.DialogWrapper\$DialogWrapperDialog"),
+        )
     }
 
     @Test
     fun `name match is case-sensitive`() {
-        // Intentional: Swing class names are mixed case; lowercased queries do NOT match.
-        // If this ever changes, document the compat impact with intellij-ui-test-robot.
+        // Intentional: Swing class names are mixed case; lowercased queries do not match.
         assertEquals(emptyList<String>(), ids("//jbutton"))
-    }
-
-    // ---------- Attribute predicates ----------
-
-    @Test
-    fun `class predicate uses simple name`() {
-        assertEquals(listOf("label"), ids("//*[@class='JBLabel']"))
+        assertEquals(emptyList<String>(), ids("//ACTIONBUTTON"))
     }
 
     @Test
-    fun `fqClass predicate uses fully qualified name`() {
+    fun `star matches everything but is filtered by predicates`() {
+        assertEquals(listOf("projectView"), ids("//*[@name='Project']"))
+    }
+
+    @Test
+    fun `whitespace around tagName is tolerated`() {
+        // `// foo` used to silently match nothing because " foo" never equalled any class.
+        // Now the parser trims it — typo-friendly.
+        assertEquals(ids("//ActionButton"), ids("// ActionButton"))
+        assertEquals(ids("//ActionButton"), ids("//ActionButton "))
+    }
+
+    // ====================================================================================
+    // SECTION 4. Predicates — per attribute
+    // ====================================================================================
+
+    @Test
+    fun `predicate at class - simple name`() {
         assertEquals(
-            listOf("label"),
+            listOf("projectLabel", "settingsLabel"),
+            ids("//*[@class='JBLabel']"),
+        )
+    }
+
+    @Test
+    fun `predicate at fqClass - fully qualified name`() {
+        assertEquals(
+            listOf("projectLabel", "settingsLabel"),
             ids("//*[@fqClass='com.intellij.ui.components.JBLabel']"),
         )
     }
 
     @Test
-    fun `name predicate matches Swing component name property`() {
-        assertEquals(listOf("btn1"), ids("//*[@name='okButton']"))
+    fun `predicate at name - Swing component name property`() {
+        assertEquals(listOf("toolbar"), ids("//*[@name='MainToolbar']"))
+        assertEquals(listOf("projectView"), ids("//*[@name='Project']"))
     }
 
     @Test
-    fun `accessibleName predicate`() {
-        assertEquals(listOf("panel"), ids("//*[@accessibleName='Main']"))
+    fun `predicate at accessibleName`() {
+        assertEquals(listOf("btnRun"), ids("//*[@accessibleName='Run']"))
+        assertEquals(listOf("dialog"), ids("//*[@accessibleName='Settings']"))
     }
 
     @Test
-    fun `text predicate`() {
-        assertEquals(listOf("btn1"), ids("//*[@text='OK']"))
+    fun `predicate at text`() {
+        assertEquals(listOf("okBtn"), ids("//*[@text='OK']"))
+        assertEquals(listOf("fileMenu"), ids("//*[@text='File']"))
     }
 
     @Test
-    fun `double-quoted predicate value`() {
-        assertEquals(listOf("btn1"), ids("//*[@text=\"OK\"]"))
+    fun `predicate at toolTipText`() {
+        assertEquals(listOf("btnRun"), ids("//*[@toolTipText=\"Run 'Main'\"]"))
     }
+
+    @Test
+    fun `predicate against null property is never a match`() {
+        // tree has no text/accessibleName/etc. — predicate must filter it out, not crash.
+        assertEquals(emptyList<String>(), ids("//Tree[@text='whatever']"))
+    }
+
+    // ====================================================================================
+    // SECTION 5. Predicates — quoting
+    // ====================================================================================
+
+    @Test
+    fun `single-quoted value`() {
+        assertEquals(listOf("okBtn"), ids("//*[@text='OK']"))
+    }
+
+    @Test
+    fun `double-quoted value`() {
+        assertEquals(listOf("okBtn"), ids("//*[@text=\"OK\"]"))
+    }
+
+    @Test
+    fun `single quote inside double-quoted value`() {
+        // Standard XPath quoting: use the other quote type when value contains one.
+        assertEquals(listOf("btnRun"), ids("//*[@toolTipText=\"Run 'Main'\"]"))
+    }
+
+    @Test
+    fun `value with no quotes at all is accepted`() {
+        // Lenient, undocumented but works. Equivalent to '@text=OK'.
+        assertEquals(listOf("okBtn"), ids("//*[@text=OK]"))
+    }
+
+    @Test
+    fun `value with spaces around equals`() {
+        assertEquals(listOf("okBtn"), ids("//*[@text = 'OK']"))
+    }
+
+    @Test
+    fun `empty value matches null but not empty string`() {
+        // No node has text == "" in our fixture, so empty.
+        assertEquals(emptyList<String>(), ids("//*[@text='']"))
+    }
+
+    @Test
+    fun `value containing equals sign`() {
+        // The `=` after `text` is the separator; subsequent `=` is part of the value.
+        // No such node in the fixture, but we verify it parses without error.
+        assertEquals(emptyList<String>(), ids("//*[@text='a=b']"))
+    }
+
+    @Test
+    fun `unclosed quote surfaces as unbalanced bracket`() {
+        // A `'` without a matching `'` swallows the `]` terminator too, so the bracket
+        // checker fires first. The error is still actionable — just at the bracket level.
+        expectError("//*[@text='OK]", "Unbalanced")
+    }
+
+    @Test
+    fun `value with quote glued to bare text is rejected`() {
+        // `''OK` — the leading pair closes itself, leaving `OK` outside quotes. The bracket
+        // scanner is happy (quotes balanced), but parsePredicate catches the mismatch
+        // between the quoted prefix and the unquoted suffix.
+        expectError("//*[@text=''OK]", "Mismatched", "quote")
+    }
+
+    // ====================================================================================
+    // SECTION 6. Predicates — combinations
+    // ====================================================================================
 
     @Test
     fun `combined predicates with and`() {
         assertEquals(
-            listOf("btn1"),
-            ids("//JButton[@text='OK' and @name='okButton']"),
+            listOf("okBtn"),
+            ids("//JButton[@text='OK' and @accessibleName='OK']"),
         )
     }
 
@@ -190,61 +418,100 @@ class XPathMatcherTest {
     fun `combined predicates short-circuit on mismatch`() {
         assertEquals(
             emptyList<String>(),
-            ids("//JButton[@text='OK' and @name='wrong']"),
+            ids("//JButton[@text='OK' and @accessibleName='Cancel']"),
         )
     }
 
-    // ---------- Positional predicate ----------
-
     @Test
-    fun `positional predicate respects document order`() {
-        // Document order of JButtons: btn1 (in panel), btn2 (in panel), btn3 (sibling of panel).
-        // This used to be broken when the matcher walked the tree BFS instead of DFS.
-        assertEquals(listOf("btn1"), ids("//JButton[1]"))
-        assertEquals(listOf("btn2"), ids("//JButton[2]"))
-        assertEquals(listOf("btn3"), ids("//JButton[3]"))
+    fun `and is case-insensitive`() {
+        assertEquals(
+            ids("//JButton[@text='OK' and @accessibleName='OK']"),
+            ids("//JButton[@text='OK' AND @accessibleName='OK']"),
+        )
+        assertEquals(
+            ids("//JButton[@text='OK' and @accessibleName='OK']"),
+            ids("//JButton[@text='OK' And @accessibleName='OK']"),
+        )
     }
 
     @Test
-    fun `positional predicate out of range yields empty`() {
+    fun `and inside a quoted value is not a separator`() {
+        // Pathological: literal " and " inside a value would otherwise be split.
+        // No such node in the fixture, but we verify it doesn't split into two predicates.
+        // The two-predicate split would throw on the malformed second half — silence here
+        // means we kept the single literal.
+        assertEquals(emptyList<String>(), ids("//*[@text='Run and Debug']"))
+    }
+
+    @Test
+    fun `multiple bracket predicates accumulate`() {
+        // [@a='x'][@b='y'] is equivalent to [@a='x' and @b='y'].
+        assertEquals(
+            listOf("okBtn"),
+            ids("//JButton[@text='OK'][@accessibleName='OK']"),
+        )
+    }
+
+    @Test
+    fun `or is not supported`() {
+        // robot doesn't support `or` either — fail loudly instead of returning weird results.
+        expectError("//*[@text='OK' or @text='Cancel']", "or")
+    }
+
+    // ====================================================================================
+    // SECTION 7. Predicates — positional
+    // ====================================================================================
+
+    @Test
+    fun `positional 1 picks first match in document order`() {
+        assertEquals(listOf("okBtn"), ids("//JButton[1]"))
+    }
+
+    @Test
+    fun `positional N picks Nth match`() {
+        assertEquals(listOf("cancelBtn"), ids("//JButton[2]"))
+        assertEquals(listOf("applyBtn"), ids("//JButton[3]"))
+    }
+
+    @Test
+    fun `positional out of range yields empty`() {
         assertEquals(emptyList<String>(), ids("//JButton[99]"))
     }
 
     @Test
-    fun `positional predicate applies after attribute predicates`() {
-        // [@text='OK'][1] — first JButton with text='OK' is btn1.
-        // (XPath 1.0 semantics: positional applies to the already-filtered set.)
-        assertEquals(listOf("btn1"), ids("//JButton[@text='OK']"))
-    }
-
-    // ---------- Self axis ----------
-
-    @Test
-    fun `dot is self axis`() {
-        // From the root seed, `.` (or `/.` or `//.`) selects the seed itself.
-        assertEquals(listOf("frame"), ids("/."))
+    fun `positional after attribute predicate`() {
+        // Among ActionButtons in the toolbar, [1] is btnRun.
+        assertEquals(listOf("btnRun"), ids("//ActionButton[1]"))
     }
 
     @Test
-    fun `dot keeps its predicates`() {
-        // Regression: `.[predicate]` used to silently drop the predicate, so this matched
-        // the root unconditionally instead of filtering it out.
-        assertEquals(
-            emptyList<String>(),
-            ids("/.[@class='JBLabel']"),
-        )
+    fun `positional and attribute predicate combined`() {
+        // First JButton whose text equals 'OK' is okBtn (only one match anyway).
+        assertEquals(listOf("okBtn"), ids("//JButton[@text='OK'][1]"))
     }
 
     @Test
-    fun `dot with matching predicate keeps the node`() {
-        assertEquals(listOf("frame"), ids("/.[@class='JFrame']"))
+    fun `zero index is rejected`() {
+        expectError("//JButton[0]", "Position")
     }
 
-    // ---------- Limit ----------
+    @Test
+    fun `negative index is rejected`() {
+        expectError("//JButton[-1]", "Position")
+    }
 
     @Test
-    fun `limit caps result size`() {
-        assertEquals(listOf("btn1", "btn2"), ids("//JButton", limit = 2))
+    fun `multiple positional in same step is rejected`() {
+        expectError("//JButton[1][2]", "positional")
+    }
+
+    // ====================================================================================
+    // SECTION 8. Limit
+    // ====================================================================================
+
+    @Test
+    fun `limit caps results`() {
+        assertEquals(listOf("okBtn", "cancelBtn"), ids("//JButton", limit = 2))
     }
 
     @Test
@@ -252,30 +519,214 @@ class XPathMatcherTest {
         assertEquals(emptyList<String>(), ids("//JButton", limit = 0))
     }
 
-    // ---------- Errors / diagnostics ----------
+    @Test
+    fun `limit larger than match count yields all matches`() {
+        assertEquals(3, ids("//JButton", limit = 999).size)
+    }
+
+    // ====================================================================================
+    // SECTION 9. Errors and diagnostics
+    // ====================================================================================
 
     @Test
-    fun `unknown attribute surfaces an actionable error`() {
-        try {
-            ids("//*[@unknown='x']")
-            fail("expected IllegalArgumentException for unknown attribute")
-        } catch (e: IllegalArgumentException) {
-            val msg = e.message ?: ""
-            assertTrue("error must name the bad attribute: $msg", msg.contains("@unknown"))
-            assertTrue(
-                "error must list supported attributes: $msg",
-                msg.contains("@class") && msg.contains("@text"),
-            )
-        }
+    fun `empty xpath is rejected`() {
+        expectError("", "Empty")
     }
 
     @Test
-    fun `unbalanced predicate throws`() {
-        try {
-            ids("//*[@class='x'")
-            fail("expected IllegalArgumentException for unbalanced bracket")
-        } catch (e: IllegalArgumentException) {
-            // ok
-        }
+    fun `whitespace-only xpath is rejected`() {
+        expectError("   ", "Empty")
+    }
+
+    @Test
+    fun `unknown attribute names supported ones in the message`() {
+        expectError(
+            "//*[@unknown='x']",
+            "@unknown",
+            "@class",
+            "@text",
+        )
+    }
+
+    @Test
+    fun `unbalanced bracket is rejected`() {
+        expectError("//*[@class='x'", "Unbalanced")
+    }
+
+    @Test
+    fun `empty bracket is rejected`() {
+        expectError("//*[]", "Empty predicate")
+    }
+
+    @Test
+    fun `predicate without leading at is rejected`() {
+        // Forgetting @ is the single most common XPath mistake; silent fail would be cruel.
+        expectError("//*[class='JBLabel']", "@")
+    }
+
+    @Test
+    fun `predicate without equals is rejected`() {
+        expectError("//*[@class]", "=")
+    }
+
+    @Test
+    fun `function-style predicate is rejected`() {
+        // text(), contains() etc. aren't part of the supported subset.
+        expectError("//*[text()='OK']", "@")
+    }
+
+    @Test
+    fun `parent axis is not supported`() {
+        expectError("//JButton/..", "..")
+    }
+
+    @Test
+    fun `trailing slash is rejected`() {
+        expectError("//JButton/", "Trailing")
+    }
+
+    // ====================================================================================
+    // SECTION 10. Realistic locator examples
+    //
+    // These are the kind of queries a plugin user writes against intellij-ui-test-robot.
+    // If any of these break in the future, real test code somewhere will break too.
+    // ====================================================================================
+
+    @Test
+    fun `example - the Run toolbar button`() {
+        // Common style: any descendant ActionButton whose accessibleName is 'Run'.
+        assertEquals(listOf("btnRun"), ids("//ActionButton[@accessibleName='Run']"))
+    }
+
+    @Test
+    fun `example - the OK button in a dialog`() {
+        assertEquals(
+            listOf("okBtn"),
+            ids("//DialogWrapper\$DialogWrapperDialog//JButton[@text='OK']"),
+        )
+    }
+
+    @Test
+    fun `example - any label with specific text`() {
+        assertEquals(listOf("projectLabel"), ids("//JBLabel[@text='playground']"))
+    }
+
+    @Test
+    fun `example - the dialog by accessibleName`() {
+        assertEquals(listOf("dialog"), ids("//*[@accessibleName='Settings']"))
+    }
+
+    @Test
+    fun `example - all buttons in main toolbar`() {
+        assertEquals(
+            listOf("btnRun", "btnDebug", "btnStop"),
+            ids("//ActionToolbarImpl[@name='MainToolbar']//ActionButton"),
+        )
+    }
+
+    @Test
+    fun `example - menu by class and text`() {
+        assertEquals(
+            listOf("fileMenu"),
+            ids("//ActionMenu[@text='File']"),
+        )
+    }
+
+    @Test
+    fun `example - second action button`() {
+        assertEquals(listOf("btnDebug"), ids("//ActionButton[2]"))
+    }
+
+    @Test
+    fun `example - first dialog button`() {
+        assertEquals(
+            listOf("okBtn"),
+            ids("//DialogWrapper\$DialogWrapperDialog//JButton[1]"),
+        )
+    }
+
+    @Test
+    fun `example - locate by toolTipText`() {
+        assertEquals(listOf("btnRun"), ids("//*[@toolTipText=\"Run 'Main'\"]"))
+    }
+
+    @Test
+    fun `example - chain dialog then button by text`() {
+        assertEquals(
+            listOf("applyBtn"),
+            ids("//*[@accessibleName='Settings']//JButton[@text='Apply']"),
+        )
+    }
+
+    @Test
+    fun `example - first JBLabel in the project view`() {
+        assertEquals(
+            listOf("projectLabel"),
+            ids("//InternalDecoratorImpl//JBLabel[1]"),
+        )
+    }
+
+    @Test
+    fun `example - any descendant with multiple constraints`() {
+        assertEquals(
+            listOf("dialog"),
+            ids("//*[@class='DialogWrapper\$DialogWrapperDialog' and @accessibleName='Settings']"),
+        )
+    }
+
+    // ====================================================================================
+    // SECTION 11. Unicode and special characters in values
+    // ====================================================================================
+
+    @Test
+    fun `unicode value matches`() {
+        // Add a synthetic node so we don't need to mutate the main fixture; check directly.
+        val unicode = node("u1", "javax.swing.JLabel", text = "Привет")
+        val miniNodes = mapOf("u1" to unicode)
+        val matcher = XPathMatcher(miniNodes, listOf("u1"))
+        assertEquals(listOf("u1"), matcher.query("//*[@text='Привет']", 10).map { it.id })
+    }
+
+    @Test
+    fun `dot inside value is not interpreted`() {
+        val n = node("v1", "javax.swing.JLabel", text = "a.b.c")
+        val matcher = XPathMatcher(mapOf("v1" to n), listOf("v1"))
+        assertEquals(listOf("v1"), matcher.query("//*[@text='a.b.c']", 10).map { it.id })
+    }
+
+    @Test
+    fun `slash inside value is not interpreted`() {
+        val n = node("v2", "javax.swing.JLabel", text = "src/main/kotlin")
+        val matcher = XPathMatcher(mapOf("v2" to n), listOf("v2"))
+        assertEquals(listOf("v2"), matcher.query("//*[@text='src/main/kotlin']", 10).map { it.id })
+    }
+
+    // ====================================================================================
+    // SECTION 12. Multiple roots
+    // ====================================================================================
+
+    @Test
+    fun `multiple seed roots are all traversed`() {
+        val a = node("a", "javax.swing.JLabel", text = "alpha")
+        val b = node("b", "javax.swing.JLabel", text = "beta")
+        val matcher = XPathMatcher(mapOf("a" to a, "b" to b), listOf("a", "b"))
+        assertEquals(listOf("a", "b"), matcher.query("//JLabel", 10).map { it.id })
+    }
+
+    @Test
+    fun `missing seed id is silently skipped`() {
+        // We pre-build the snapshot during walk; a stale rootId shouldn't blow us up.
+        val a = node("a", "javax.swing.JLabel", text = "alpha")
+        val matcher = XPathMatcher(mapOf("a" to a), listOf("a", "ghost"))
+        assertEquals(listOf("a"), matcher.query("//JLabel", 10).map { it.id })
+    }
+
+    @Test
+    fun `missing child id is silently skipped during traversal`() {
+        // Defensive: walker may have hit the 8k cap and left dangling child references.
+        val parent = node("p", "javax.swing.JPanel", children = listOf("missing", "real"))
+        val real = node("real", "javax.swing.JLabel", text = "hi")
+        val matcher = XPathMatcher(mapOf("p" to parent, "real" to real), listOf("p"))
+        assertEquals(listOf("real"), matcher.query("//JLabel", 10).map { it.id })
     }
 }
