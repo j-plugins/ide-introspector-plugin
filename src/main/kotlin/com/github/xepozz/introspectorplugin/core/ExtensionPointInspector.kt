@@ -51,7 +51,7 @@ object ExtensionPointInspector {
 
     /** Reflection-based extraction of all EPs from an [ExtensionsArea]. */
     @Suppress("UNCHECKED_CAST")
-    private fun extractAllEps(area: ExtensionsArea): List<ExtensionPoint<Any>> {
+    internal fun extractAllEps(area: ExtensionsArea): List<ExtensionPoint<Any>> {
         // ExtensionsAreaImpl exposes a method `getExtensionPoints()` returning Map<String, EP>.
         // We use reflection because it isn't in the public API.
         val method = area.javaClass.methods.firstOrNull {
@@ -78,7 +78,7 @@ object ExtensionPointInspector {
         return emptyList()
     }
 
-    private fun extensionPointInfoOf(ep: ExtensionPoint<*>, areaTag: String): ExtensionPointInfo {
+    internal fun extensionPointInfoOf(ep: ExtensionPoint<*>, areaTag: String): ExtensionPointInfo {
         val (kind, beanOrInterface) = kindAndClass(ep)
         val pluginDescriptor = pluginDescriptorOf(ep)
         val dynamic = isDynamic(ep)
@@ -101,7 +101,7 @@ object ExtensionPointInspector {
     }
 
     /** [ExtensionPoint] doesn't expose a `name` on the public interface — it's on the impl. */
-    private fun epName(ep: ExtensionPoint<*>): String = try {
+    internal fun epName(ep: ExtensionPoint<*>): String = try {
         val nameField = ep.javaClass.fields.firstOrNull { it.name == "name" }
         nameField?.get(ep)?.toString()
             ?: ep.javaClass.methods.firstOrNull { it.name == "getName" && it.parameterCount == 0 }
@@ -111,7 +111,7 @@ object ExtensionPointInspector {
         ep.javaClass.simpleName
     }
 
-    private fun kindAndClass(ep: ExtensionPoint<*>): Pair<String, String> {
+    internal fun kindAndClass(ep: ExtensionPoint<*>): Pair<String, String> {
         // ExtensionPointImpl exposes `className` as a @JvmField; `getKind()` is a method. We
         // try the typed field first (fast), then fall back to reflection across name drift
         // (`className` / `myClassName`) and finally to the lazily-resolved Class<*> for EPs
@@ -139,7 +139,7 @@ object ExtensionPointInspector {
 
     /** Last-resort: walk declared fields named "className" / "myClassName" — covers shape drift
      *  across platform versions where the public accessor is removed or renamed. */
-    private fun tryReadClassNameField(ep: ExtensionPoint<*>): String? {
+    internal fun tryReadClassNameField(ep: ExtensionPoint<*>): String? {
         val names = arrayOf("className", "myClassName")
         var cls: Class<*>? = ep.javaClass
         while (cls != null && cls != Any::class.java) {
@@ -158,7 +158,7 @@ object ExtensionPointInspector {
     /** Reads the lazily-resolved Class<*> off ExtensionPointImpl. Does NOT instantiate any
      *  extension — only forces classloading of the bean/interface type, which the platform
      *  has already done for any EP that has at least one registered extension. */
-    private fun tryReadExtensionClass(ep: ExtensionPoint<*>): String? {
+    internal fun tryReadExtensionClass(ep: ExtensionPoint<*>): String? {
         return try {
             val m = ep.javaClass.methods.firstOrNull {
                 it.name == "getExtensionClass" && it.parameterCount == 0
@@ -169,7 +169,7 @@ object ExtensionPointInspector {
         }
     }
 
-    private fun pluginDescriptorOf(ep: ExtensionPoint<*>): Pair<String, String?>? {
+    internal fun pluginDescriptorOf(ep: ExtensionPoint<*>): Pair<String, String?>? {
         return try {
             val method = ep.javaClass.methods.firstOrNull {
                 (it.name == "getPluginDescriptor" || it.name == "getDescriptor") && it.parameterCount == 0
@@ -185,7 +185,7 @@ object ExtensionPointInspector {
         }
     }
 
-    private fun isDynamic(ep: ExtensionPoint<*>): Boolean {
+    internal fun isDynamic(ep: ExtensionPoint<*>): Boolean {
         return try {
             val m = ep.javaClass.methods.firstOrNull { it.name == "isDynamic" && it.parameterCount == 0 }
             (m?.invoke(ep) as? Boolean) ?: false
@@ -255,7 +255,7 @@ object ExtensionPointInspector {
         return out
     }
 
-    private fun readMethod(target: Any, name: String): Any? = try {
+    internal fun readMethod(target: Any, name: String): Any? = try {
         val m = target.javaClass.methods.firstOrNull { it.name == name && it.parameterCount == 0 }
         m?.invoke(target)
     } catch (_: Throwable) {
@@ -263,7 +263,7 @@ object ExtensionPointInspector {
     }
 
     /** Walks the class hierarchy looking for a field, honoring superclasses. */
-    private fun readField(target: Any, name: String): Any? {
+    internal fun readField(target: Any, name: String): Any? {
         var c: Class<*>? = target.javaClass
         while (c != null) {
             val f = c.declaredFields.firstOrNull { it.name == name }
@@ -281,7 +281,7 @@ object ExtensionPointInspector {
     }
 
     /** Pulls the idString out of a PluginDescriptor's PluginId — handles both 'idString' field and toString(). */
-    private fun extractPluginIdString(pd: Any): String? {
+    internal fun extractPluginIdString(pd: Any): String? {
         val pidObj = readMethod(pd, "getPluginId") ?: readField(pd, "pluginId") ?: return null
         // PluginId#toString() returns idString in modern builds, but cover both paths.
         return readMethod(pidObj, "getIdString")?.toString()
@@ -290,7 +290,7 @@ object ExtensionPointInspector {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun readAdditionalAttributes(adapter: Any): Map<String, String> {
+    internal fun readAdditionalAttributes(adapter: Any): Map<String, String> {
         // Two complementary sources for the XML attributes attached to an extension:
         //   1. `extensionElement: XmlElement` — present until IntelliJ nulls it after instance creation
         //      (which is most of the time for services / tool windows by the time we look).

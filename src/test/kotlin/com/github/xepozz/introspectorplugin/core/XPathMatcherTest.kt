@@ -729,4 +729,138 @@ class XPathMatcherTest {
         val matcher = XPathMatcher(mapOf("p" to parent, "real" to real), listOf("p"))
         assertEquals(listOf("real"), matcher.query("//JLabel", 10).map { it.id })
     }
+
+    // ====================================================================================
+    // SECTION 13. Additional corner cases for parser branches
+    //
+    // The cases below target branches that the realistic-locator section can't reach:
+    // triple-slash diagnostics, missing-child resolution on the CHILD axis, positional
+    // predicates against an empty filtered set, malformed predicate values, and the
+    // "value containing a stray quote" mismatch path in `parsePredicate`.
+    // ====================================================================================
+
+    @Test
+    fun `triple slash is rejected with a position-aware message`() {
+        // Targets the explicit `///` guard in parseSingleChain — silent acceptance would
+        // make a typo (`///foo`) look like a no-match, which is the worst kind of bug.
+        expectError("///foo", "Too many", "///foo")
+    }
+
+    @Test
+    fun `missing child id is silently skipped on the child axis`() {
+        // CHILD axis goes through a separate `nodesById[it]?.let(…)` branch from the
+        // descendant traversal; without this test that null-handling branch stays cold.
+        val parent = node("p", "javax.swing.JPanel", children = listOf("ghost", "real"))
+        val real = node("real", "javax.swing.JButton", text = "ok")
+        val matcher = XPathMatcher(mapOf("p" to parent, "real" to real), listOf("p"))
+        assertEquals(listOf("real"), matcher.query("/JButton", 10).map { it.id })
+    }
+
+    @Test
+    fun `positional predicate against empty filtered set yields empty`() {
+        // Attribute predicate filters everything out; the positional then has nothing to
+        // pick from. Exercises the `else emptyList()` arm of the positional branch.
+        assertEquals(emptyList<String>(), ids("//JButton[@text='Nope'][1]"))
+    }
+
+    @Test
+    fun `predicate with empty attribute name is rejected`() {
+        // `[@=value]` — covers the `attr.isEmpty()` guard inside parsePredicate.
+        expectError("//*[@='OK']", "attribute name")
+    }
+
+    @Test
+    fun `predicate value with mismatched leading quote is rejected`() {
+        // The bracket scanner balances the two single quotes inside the brackets, leaving
+        // a value of `'OK'X` (quote at front but trailing non-quote). parsePredicate
+        // catches it with the "Mismatched quotes" diagnostic.
+        expectError("//*[@text='OK'X]", "Mismatched", "quote")
+    }
+
+    @Test
+    fun `value containing the word and inside double quotes is preserved`() {
+        // splitByAnd must not slice on a quoted ` and ` substring; mirrors the existing
+        // single-quote variant but exercises the double-quote branch in the scanner.
+        val n = node("v3", "javax.swing.JLabel", text = "Run and Debug")
+        val matcher = XPathMatcher(mapOf("v3" to n), listOf("v3"))
+        assertEquals(
+            listOf("v3"),
+            matcher.query("//*[@text=\"Run and Debug\"]", 10).map { it.id },
+        )
+    }
+
+    @Test
+    fun `value containing the word or inside double quotes is not treated as an or operator`() {
+        // Same shape as the test above but for the `or` rejection — quoted "or" inside
+        // a value must be returned as data, not flagged as an unsupported operator.
+        val n = node("v4", "javax.swing.JLabel", text = "Run or Debug")
+        val matcher = XPathMatcher(mapOf("v4" to n), listOf("v4"))
+        assertEquals(
+            listOf("v4"),
+            matcher.query("//*[@text=\"Run or Debug\"]", 10).map { it.id },
+        )
+    }
+
+    @Test
+    fun `trailing whitespace inside predicate values is preserved when unquoted`() {
+        // Lenient parsing: `@text=OK` trims around the equals but the value itself is
+        // kept verbatim. The earlier "value with no quotes at all" test established the
+        // happy path; this nails the trim behaviour at the equals boundary.
+        assertEquals(listOf("okBtn"), ids("//*[@text=  OK  ]"))
+    }
+
+    @Test
+    fun `single-character value is accepted when unquoted`() {
+        // Edge case for parsePredicate: value of length 1, no quotes — exercises the
+        // `length >= 2` guard around the same-quote-trim path.
+        val n = node("c1", "javax.swing.JLabel", text = "x")
+        val matcher = XPathMatcher(mapOf("c1" to n), listOf("c1"))
+        assertEquals(listOf("c1"), matcher.query("//*[@text=x]", 10).map { it.id })
+    }
+
+    @Test
+    fun `empty quoted value strips to empty string and matches no node`() {
+        // Quoted empty (`@text=''`) exercises the `value.length >= 2` strip path with the
+        // shortest legal input — value becomes "" after stripping. No fixture node has an
+        // empty text, so the result is empty; the point is "parses cleanly".
+        assertEquals(emptyList<String>(), ids("//*[@text='']"))
+        assertEquals(emptyList<String>(), ids("//*[@text=\"\"]"))
+    }
+
+    @Test
+    fun `step with only a predicate and no name is wildcard`() {
+        // `/[@class='JBLabel']` has an empty tagName before the bracket. The `ifEmpty {"*"}`
+        // arm of the parser turns it into `*[@class='JBLabel']` — wildcard.
+        assertEquals(listOf("projectLabel"), ids("/InternalDecoratorImpl/[@class='JBLabel']"))
+    }
+
+    @Test
+    fun `doubled and produces an empty fragment that is filtered out`() {
+        // splitByAnd splits on ` and `. Two consecutive ` and ` markers (`x and  and y`)
+        // leave an empty middle fragment which the trailing `filter { isNotEmpty }` drops.
+        // Both real predicates still need to match — okBtn satisfies both class and text.
+        assertEquals(
+            listOf("okBtn"),
+            ids("//JButton[@class='JButton' and  and @text='OK']"),
+        )
+    }
+
+    @Test
+    fun `tiny predicate value does not falsely trigger or-detection`() {
+        // containsTopLevelOr peeks 4 chars ahead with `i + 3 < s.length`; a value too
+        // short to contain " or " must not trigger the unsupported-operator throw.
+        // `[@text=o]` is 8 chars — the scanner walks the whole thing without finding " or ".
+        val n = node("t1", "javax.swing.JLabel", text = "o")
+        val matcher = XPathMatcher(mapOf("t1" to n), listOf("t1"))
+        assertEquals(listOf("t1"), matcher.query("//*[@text=o]", 10).map { it.id })
+    }
+
+    @Test
+    fun `value containing literal substring or at the tail does not trigger or-detection`() {
+        // The " or " window requires a trailing space too; a value ending in just "or"
+        // (no following space) must pass through cleanly.
+        val n = node("t2", "javax.swing.JLabel", text = "Mentor")
+        val matcher = XPathMatcher(mapOf("t2" to n), listOf("t2"))
+        assertEquals(listOf("t2"), matcher.query("//*[@text=Mentor]", 10).map { it.id })
+    }
 }

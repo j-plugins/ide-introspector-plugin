@@ -2,6 +2,7 @@ package com.github.xepozz.introspectorplugin.core
 
 import com.github.xepozz.introspectorplugin.model.Bounds
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -233,6 +234,131 @@ class ComponentSerializerTest {
         assertEquals(MyTestAction::class.java.name, action!!.value)
     }
 
+    // ====================================================================================
+    // SECTION 6. Corner cases
+    //
+    // The cases below pin down the "small null branch" paths that the happy-path tests
+    // above can't reach: non-JComponent inputs, Accessible without an accessibleRole, a
+    // JTextComponent that throws on getText, an `*ActionButton` class without a getAction
+    // method, and the truncate-zero-limit short-circuit.
+    // ====================================================================================
+
+    @Test
+    fun `toolTipText is null for non-JComponent inputs`() {
+        // A bare AWT Component is not a JComponent, so the `(component as? JComponent)`
+        // cast yields null and toolTipText must not be probed.
+        val registry = freshRegistry()
+        val info = onEdt {
+            val plain = NonJComponent()
+            ComponentSerializer.toInfo(plain, registry, includeProperties = false, truncatePropertyValueAt = 200)
+        }
+        assertNull("non-JComponent must have null toolTipText", info.toolTipText)
+    }
+
+    @Test
+    fun `text is null for non-AbstractButton non-JLabel non-JTextComponent components`() {
+        // Drives the `else -> null` arm of `extractText`. A plain AWT Component is the
+        // simplest fixture that hits none of the typed branches.
+        val registry = freshRegistry()
+        val info = onEdt {
+            val plain = NonJComponent()
+            ComponentSerializer.toInfo(plain, registry, includeProperties = false, truncatePropertyValueAt = 200)
+        }
+        assertNull("plain component must have null text", info.text)
+    }
+
+    @Test
+    fun `accessibleRole is null when AccessibleContext returns null role`() {
+        // Exercises the second `?.` link in `accessible?.accessibleRole?.toString()`.
+        // We use a JComponent subclass whose AccessibleContext deliberately answers null
+        // for getAccessibleRole.
+        val registry = freshRegistry()
+        val info = onEdt {
+            val c = NoRoleAccessibleJComponent()
+            ComponentSerializer.toInfo(c, registry, includeProperties = false, truncatePropertyValueAt = 200)
+        }
+        assertNull("accessibleRole must be null when AccessibleContext returns null role", info.accessibleRole)
+    }
+
+    @Test
+    fun `children list is empty for non-Container components`() {
+        // collectChildIds short-circuits on non-Container; the only way to reach that arm
+        // is to pass an AWT Component that is not a Container.
+        val registry = freshRegistry()
+        val info = onEdt {
+            val plain = NonJComponent()
+            ComponentSerializer.toInfo(plain, registry, includeProperties = false, truncatePropertyValueAt = 200)
+        }
+        assertTrue("non-Container must report no children", info.children.isEmpty())
+    }
+
+    @Test
+    fun `text is null when JTextComponent_getText throws`() {
+        // Defensive catch in extractText: a JTextComponent whose getText() throws must
+        // surface as null text, not propagate the exception.
+        val registry = freshRegistry()
+        val info = onEdt {
+            val broken = object : JTextField() {
+                override fun getText(): String = throw RuntimeException("boom")
+            }
+            ComponentSerializer.toInfo(broken, registry, includeProperties = false, truncatePropertyValueAt = 200)
+        }
+        assertNull("broken JTextComponent must surface null text", info.text)
+    }
+
+    @Test
+    fun `properties empty for non-JComponent inputs even when includeProperties is true`() {
+        // collectProperties first checks `component is JComponent`. A bare Component must
+        // skip that block entirely; the only remaining branch is the ActionButton-named
+        // reflection lookup which also yields nothing for an arbitrary class name.
+        val registry = freshRegistry()
+        val info = onEdt {
+            val plain = NonJComponent()
+            ComponentSerializer.toInfo(plain, registry, includeProperties = true, truncatePropertyValueAt = 200)
+        }
+        assertTrue("non-JComponent must have no collected properties", info.properties.isEmpty())
+    }
+
+    @Test
+    fun `action property absent for ActionButton-like class without getAction method`() {
+        // Class name contains "ActionButton" so the reflection probe runs, but no
+        // `getAction()` method exists, so the result is silently empty rather than
+        // throwing NoSuchMethodException.
+        val registry = freshRegistry()
+        val info = onEdt {
+            val odd = BareActionButton()
+            ComponentSerializer.toInfo(odd, registry, includeProperties = true, truncatePropertyValueAt = 200)
+        }
+        assertNull(
+            "no 'action' property must be reported when getAction is missing",
+            info.properties.firstOrNull { it.name == "action" },
+        )
+    }
+
+    @Test
+    fun `client property string is returned untruncated when limit is zero or negative`() {
+        // truncate short-circuits when limit <= 0, returning the original string verbatim.
+        // The shortest path to that branch is a long client property with truncateAt=0.
+        val registry = freshRegistry()
+        val long = "x".repeat(1000)
+        val infoZero = onEdt {
+            val panel = JPanel().apply { putClientProperty("place", long) }
+            ComponentSerializer.toInfo(panel, registry, includeProperties = true, truncatePropertyValueAt = 0)
+        }
+        val placeZero = infoZero.properties.firstOrNull { it.name == "place" }
+        assertNotNull(placeZero)
+        assertEquals("limit=0 must disable truncation", 1000, placeZero!!.value.length)
+        assertFalse("limit=0 must not append ellipsis", placeZero.value.endsWith("…"))
+
+        val infoNeg = onEdt {
+            val panel = JPanel().apply { putClientProperty("place", long) }
+            ComponentSerializer.toInfo(panel, registry, includeProperties = true, truncatePropertyValueAt = -5)
+        }
+        val placeNeg = infoNeg.properties.firstOrNull { it.name == "place" }
+        assertNotNull(placeNeg)
+        assertEquals("negative limit must disable truncation", 1000, placeNeg!!.value.length)
+    }
+
     // -- helper types ----------------------------------------------------------------------
 
     /**
@@ -243,5 +369,40 @@ class ComponentSerializerTest {
 
     private class MyTestAction : AbstractAction() {
         override fun actionPerformed(e: java.awt.event.ActionEvent?) { /* no-op */ }
+    }
+
+    /**
+     * A non-Container, non-JComponent Component subclass. Reachable AWT base class:
+     * the bare [Component] needs a Toolkit peer to render, but `ComponentSerializer`
+     * only reads its bounds / name / accessibility fields, all of which are populated
+     * by the AWT Component constructor.
+     */
+    private class NonJComponent : Component()
+
+    /**
+     * Class name contains "ActionButton" so [ComponentSerializer.collectProperties] takes
+     * the reflection path — but `getAction()` is not declared, so `methods.firstOrNull`
+     * returns null. The class extends [JPanel] (no inherited `getAction()`) to keep the
+     * shape predictable.
+     */
+    private class BareActionButton : JPanel()
+
+    /**
+     * A JComponent whose AccessibleContext reports null for `getAccessibleRole`. Drives
+     * the null-arm of `accessible?.accessibleRole?.toString()`.
+     */
+    private class NoRoleAccessibleJComponent : JComponent() {
+        override fun getAccessibleContext(): javax.accessibility.AccessibleContext {
+            return object : javax.accessibility.AccessibleContext() {
+                override fun getAccessibleRole(): javax.accessibility.AccessibleRole? = null
+                override fun getAccessibleStateSet(): javax.accessibility.AccessibleStateSet =
+                    javax.accessibility.AccessibleStateSet()
+
+                override fun getAccessibleIndexInParent(): Int = -1
+                override fun getAccessibleChildrenCount(): Int = 0
+                override fun getAccessibleChild(i: Int): javax.accessibility.Accessible? = null
+                override fun getLocale(): java.util.Locale = java.util.Locale.getDefault()
+            }
+        }
     }
 }
