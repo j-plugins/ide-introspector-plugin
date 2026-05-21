@@ -18,23 +18,13 @@ Two tiers:
 
 ### Tier 1 — pre-built MCP tools
 
-Registered via the `com.intellij.mcpServer.mcpTool` extension point. All become visible
-to MCP clients once the bundled MCP Server plugin is enabled.
+Registered via the `com.intellij.mcpServer.mcpToolset` extension point. All become visible
+to MCP clients once the bundled MCP Server plugin is enabled. There are 13 tools across
+four groups: `ui.*` (5), `screenshot.*` (2), `arch.*` (5), `exec.*` (1, opt-in).
 
-| Tool | Purpose |
-|------|---------|
-| `ui.get_tree` | Full Swing component tree (BFS, capped depth) |
-| `ui.find_by_name` | Substring/regex/exact match on name, text, accessibleName, toolTipText |
-| `ui.find_by_coordinates` | Deepest visible component at (x, y) + ancestor chain |
-| `ui.find_by_xpath` | XPath subset compatible with `intellij-ui-test-robot` |
-| `ui.get_properties` | UI-Inspector-style property bag for a component id |
-| `screenshot.capture` | Component / active frame / all frames / virtual desktop |
-| `screenshot.crop` | Active frame screenshot + crop region |
-| `arch.list_extension_points` | Every EP live from this IDE instance |
-| `arch.list_extensions_for_ep` | Every extension contributed to a given EP |
-| `arch.list_plugins` | Installed plugins with metadata |
-| `arch.get_plugin_details` | Declared EPs + registered extensions for a plugin |
-| `arch.find_extenders_of` | Reverse search: who plugs into this EP / interface? |
+**Full tool reference with every parameter and example:** [`docs/MCP_TOOLS.md`](docs/MCP_TOOLS.md)
+— generated from the source-level `@McpDescription` annotations at build time
+(`./gradlew generateToolsDoc`), so there's only one place to edit.
 
 Component ids returned by `ui.*` tools are stable for the duration of the IDE session and
 can be passed back into `ui.get_properties` / `screenshot.capture`.
