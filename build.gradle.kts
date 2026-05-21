@@ -78,6 +78,13 @@ kotlin {
     jvmToolchain(21)
 }
 
+// Tests should be deterministic across machines: enforce headless mode so a misconfigured
+// local display doesn't change behaviour. Window-dependent tests use Assume.assumeFalse(
+// GraphicsEnvironment.isHeadless()) and skip cleanly when this is set.
+tasks.withType<Test>().configureEach {
+    systemProperty("java.awt.headless", "true")
+}
+
 // Tell the KSP processor where to write the markdown reference. KSP runs as part of
 // compileKotlin so every `./gradlew build` (and `./gradlew buildPlugin`) refreshes the file.
 ksp {

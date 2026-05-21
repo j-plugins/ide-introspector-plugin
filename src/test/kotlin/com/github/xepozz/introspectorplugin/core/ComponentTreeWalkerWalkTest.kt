@@ -5,9 +5,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
 import org.junit.Test
 import java.awt.Component
 import java.awt.Container
+import java.awt.GraphicsEnvironment
 import javax.swing.JButton
 import javax.swing.JDialog
 import javax.swing.JFrame
@@ -232,6 +234,7 @@ class ComponentTreeWalkerWalkTest {
 
     @Test
     fun `walk visits owned windows of a Window root`() {
+        assumeFalse("Requires display server (JFrame/JDialog).", GraphicsEnvironment.isHeadless())
         val frame = JFrame()
         val dialog = JDialog(frame, "owned")
         // Neither shown — both isVisible == false by default. Use includeInvisible=true.
@@ -254,6 +257,7 @@ class ComponentTreeWalkerWalkTest {
 
     @Test
     fun `walk through JFrame visits the JPanel added to contentPane`() {
+        assumeFalse("Requires display server (JFrame).", GraphicsEnvironment.isHeadless())
         val frame = JFrame()
         val panel = JPanel().also { it.name = "myPanel"; it.isVisible = true }
         val button = JButton("a").also { it.name = "myButton"; it.isVisible = true }
@@ -284,6 +288,7 @@ class ComponentTreeWalkerWalkTest {
 
     @Test
     fun `ancestors returns chain from parent up to top-level window`() {
+        assumeFalse("Requires display server (JFrame).", GraphicsEnvironment.isHeadless())
         val frame = JFrame()
         val panel = JPanel().also { it.name = "myPanel" }
         val button = JButton("a").also { it.name = "myButton" }
