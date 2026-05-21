@@ -8,7 +8,6 @@ import com.github.xepozz.introspectorplugin.toolwindow.PlatformExplorerNode
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
-import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
@@ -50,13 +49,11 @@ class DetailViews(
     // ---------- Plugin ----------
 
     private fun renderPlugin(p: PluginInfo): JComponent {
-        val chips = ChipStrip(
-            *buildList<JComponent> {
-                add(Chips.enabled(p.isEnabled))
-                if (p.isBundled) add(Chips.bundled())
-                add(Chips.count("EPs", p.declaredExtensionPointsCount))
-            }.toTypedArray()
-        )
+        val chips = ChipStrip(buildList<JComponent> {
+            add(Chips.enabled(p.isEnabled))
+            if (p.isBundled) add(Chips.bundled())
+            add(Chips.count("EPs", p.declaredExtensionPointsCount))
+        })
         val form = DetailForm()
             .row("Id", copyableMonospace(p.id))
             .row("Version", p.version)
@@ -95,7 +92,7 @@ class DetailViews(
             .row("Declared by", pluginLink(ep.declaredByPluginId, ep.declaredByPluginName))
 
         // Related extensions preview — first 10 implementation classes, clickable to navigate.
-        val extensions = try { resolveExtensionsForEp(ep.name) } catch (_: Throwable) { emptyList() }
+        val extensions = runCatching { resolveExtensionsForEp(ep.name) }.getOrElse { emptyList() }
         if (extensions.isNotEmpty()) {
             form.section("Extensions (${ep.extensionsCount})")
             for (e in extensions.take(10)) {
@@ -114,12 +111,11 @@ class DetailViews(
         }
 
         // External "Open in Platform Explorer (web)" — keeps the existing affordance.
-        val webLink = ActionLink("Open in Platform Explorer (web)") { _ ->
+        form.separator().custom(actionLink("Open in Platform Explorer (web)") {
             BrowserUtil.browse(
                 "https://plugins.jetbrains.com/intellij-platform-explorer/extensions?extensions=${ep.name}"
             )
-        }
-        form.separator().custom(webLink)
+        })
 
         val crumbs = Breadcrumb.render(
             pluginSegment(ep.declaredByPluginId, ep.declaredByPluginName),
@@ -182,23 +178,17 @@ class DetailViews(
         val text = if (!pluginName.isNullOrBlank() && pluginName != pluginId) "$pluginName ($pluginId)"
         else pluginId
         val nav = navigator ?: return JBLabel(text)
-        return ActionLink(text) { _ -> nav.selectPluginById(pluginId) }.apply {
-            border = JBUI.Borders.empty()
-        }
+        return actionLink(text) { nav.selectPluginById(pluginId) }
     }
 
     private fun epLink(epName: String): JComponent {
         val nav = navigator ?: return JBLabel(epName)
-        return ActionLink(epName) { _ -> nav.selectExtensionPointByName(epName) }.apply {
-            border = JBUI.Borders.empty()
-        }
+        return actionLink(epName) { nav.selectExtensionPointByName(epName) }
     }
 
     private fun dependencyLink(d: PluginDependencyInfo): JComponent {
         val nav = navigator ?: return JBLabel(d.pluginId)
-        return ActionLink(d.pluginId) { _ -> nav.selectPluginById(d.pluginId) }.apply {
-            border = JBUI.Borders.empty()
-        }
+        return actionLink(d.pluginId) { nav.selectPluginById(d.pluginId) }
     }
 
     private fun copyableMonospace(text: String): JComponent {

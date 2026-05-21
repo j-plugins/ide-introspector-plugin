@@ -1,5 +1,6 @@
 package com.github.xepozz.introspectorplugin.toolwindow.details
 
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
@@ -27,13 +28,15 @@ object MembersSection {
     fun build(project: Project, fqn: String?): JComponent? {
         if (fqn.isNullOrBlank()) return null
         if (!javaModuleAvailable) return null
+        // We narrow to platform-level expected failures (no Java classes, indexing not ready,
+        // bad PSI): NoClassDefFoundError from the gate, IndexNotReadyException / RuntimeException
+        // from the PSI lookup. JVM errors (OOM, StackOverflow) propagate by design.
         return try {
             JavaMembersPreview.build(project, fqn)
         } catch (_: NoClassDefFoundError) {
             null
-        } catch (_: Throwable) {
-            // Index might be in dumb mode, or the class is broken — show a tiny notice instead
-            // of breaking the whole detail panel.
+        } catch (e: RuntimeException) {
+            thisLogger().debug("MembersSection: failed to render preview for $fqn", e)
             null
         }
     }

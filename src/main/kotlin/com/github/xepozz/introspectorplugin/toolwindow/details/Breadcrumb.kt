@@ -1,8 +1,6 @@
 package com.github.xepozz.introspectorplugin.toolwindow.details
 
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.util.IconLoader
-import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
@@ -39,18 +37,16 @@ object Breadcrumb {
     }
 
     private fun segmentComponent(seg: Segment, terminal: Boolean): JComponent {
-        val label = if (terminal || seg.onClick == null) {
+        val onClick = seg.onClick
+        val component: JComponent = if (terminal || onClick == null) {
             JBLabel(seg.text, seg.icon, JLabel.LEADING).apply {
                 if (terminal) font = font.deriveFont(java.awt.Font.BOLD)
             }
         } else {
-            ActionLink(seg.text) { _ -> seg.onClick.invoke() }.apply {
-                icon = seg.icon
-                border = JBUI.Borders.empty()
-            }
+            actionLink(seg.text, onClick).apply { icon = seg.icon }
         }
-        label.alignmentY = Component.CENTER_ALIGNMENT
-        return label
+        component.alignmentY = Component.CENTER_ALIGNMENT
+        return component
     }
 
     private fun separator(): JComponent = JBLabel(" › ").apply {

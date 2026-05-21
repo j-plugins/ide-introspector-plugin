@@ -1,7 +1,6 @@
 package com.github.xepozz.introspectorplugin.toolwindow.details
 
 import com.intellij.ui.JBColor
-import com.intellij.util.ui.JBUI
 import java.awt.Color
 import java.awt.Component
 import java.awt.Dimension
@@ -92,13 +91,18 @@ object Chips {
 }
 
 /** Convenience to wrap chips into a left-aligned FlowLayout strip used in panel headers. */
-class ChipStrip(vararg chips: JComponent) : JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)) {
+class ChipStrip private constructor(chips: List<JComponent>) : JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)) {
+
     init {
         isOpaque = false
-        border = JBUI.Borders.empty()
         for (c in chips) {
             c.alignmentY = Component.CENTER_ALIGNMENT
             add(c)
         }
+    }
+
+    companion object {
+        operator fun invoke(vararg chips: JComponent): ChipStrip = ChipStrip(chips.toList())
+        operator fun invoke(chips: List<JComponent>): ChipStrip = ChipStrip(chips)
     }
 }

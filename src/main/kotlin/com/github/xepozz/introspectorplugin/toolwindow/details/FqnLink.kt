@@ -2,12 +2,12 @@ package com.github.xepozz.introspectorplugin.toolwindow.details
 
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.ui.components.ActionLink
-import com.intellij.util.ui.JBUI
+import com.intellij.ui.components.JBLabel
 import javax.swing.JComponent
-import javax.swing.JLabel
 
 /**
  * Renders a fully-qualified class name as a clickable link. Clicking attempts to navigate to
@@ -22,64 +22,55 @@ import javax.swing.JLabel
  */
 object FqnLink {
 
+    private val SUPPORTED_EXTENSIONS = listOf("kt", "java", "groovy", "scala")
+
     fun render(project: Project?, fqn: String?): JComponent {
-        val text = fqn?.takeIf { it.isNotBlank() } ?: return JLabel("—")
-        if (project == null) return JLabel(text)
-        val link = ActionLink(text) { _ -> navigateTo(project, text) }
-        link.border = JBUI.Borders.empty()
-        return link
+        val text = fqn?.takeIf { it.isNotBlank() } ?: return JBLabel(DASH)
+        if (project == null) return JBLabel(text)
+        return actionLink(text) { navigateTo(project, text) }
     }
 
     /** Plain label variant when the link semantics don't apply (e.g. unresolved value). */
-    fun text(s: String?): JComponent = JLabel(s?.takeIf { it.isNotBlank() } ?: "—")
+    fun text(s: String?): JComponent = JBLabel(s.orDash())
 
     private fun navigateTo(project: Project, fqn: String) {
-        // Try the precise PSI lookup first via reflection so this class stays loadable when
-        // com.intellij.modules.java is absent. Tightly cached by the platform — cheap on repeats.
         val psiFile = tryFindByPsiFacade(project, fqn) ?: tryFindBySimpleName(project, fqn)
-        psiFile?.virtualFile?.let { vFile ->
-            OpenFileDescriptor(project, vFile).navigate(true)
-        }
+        psiFile?.virtualFile?.let { OpenFileDescriptor(project, it).navigate(true) }
     }
 
-    private fun tryFindByPsiFacade(project: Project, fqn: String): com.intellij.psi.PsiFile? {
-        return try {
-            val facadeClass = Class.forName("com.intellij.psi.JavaPsiFacade")
-            val getInstance = facadeClass.getMethod("getInstance", Project::class.java)
-            val facade = getInstance.invoke(null, project)
+    /**
+     * Resolves via JavaPsiFacade by reflection so this class stays loadable when
+     * com.intellij.modules.java is absent. Catches ClassNotFoundException at the boundary —
+     * other exceptions (LinkageError, IndexOutOfBoundsException, etc.) bubble up and are
+     * caught at the navigateTo level via the [SUPPORTED_EXTENSIONS] fallback below.
+     */
+    private fun tryFindByPsiFacade(project: Project, fqn: String): PsiFile? {
+        val facadeClass = try {
+            Class.forName("com.intellij.psi.JavaPsiFacade")
+        } catch (_: ClassNotFoundException) {
+            return null
+        }
+        return runCatching {
+            val facade = facadeClass.getMethod("getInstance", Project::class.java).invoke(null, project)
             val findClass = facadeClass.getMethod(
                 "findClass", String::class.java, GlobalSearchScope::class.java
             )
-            val psiClass = findClass.invoke(
-                facade, fqn, GlobalSearchScope.allScope(project)
-            ) ?: return null
-            // PsiClass.getNavigationElement().getContainingFile() — uses the same reflection
-            // approach to stay loose on the type.
-            val getNav = psiClass.javaClass.getMethod("getNavigationElement")
-            val nav = getNav.invoke(psiClass)
-            val getContaining = nav.javaClass.methods.firstOrNull { it.name == "getContainingFile" }
-                ?: return null
-            getContaining.invoke(nav) as? com.intellij.psi.PsiFile
-        } catch (_: ClassNotFoundException) {
-            null
-        } catch (_: Throwable) {
-            null
-        }
+            val psiClass = findClass.invoke(facade, fqn, GlobalSearchScope.allScope(project))
+                ?: return@runCatching null
+            val nav = psiClass.javaClass.getMethod("getNavigationElement").invoke(psiClass)
+            nav.javaClass.methods
+                .firstOrNull { it.name == "getContainingFile" }
+                ?.invoke(nav) as? PsiFile
+        }.getOrNull()
     }
 
-    private fun tryFindBySimpleName(project: Project, fqn: String): com.intellij.psi.PsiFile? {
+    private fun tryFindBySimpleName(project: Project, fqn: String): PsiFile? {
         val simple = fqn.substringAfterLast('.').substringAfterLast('$')
         if (simple.isBlank()) return null
-        // Best-effort: try the common source extensions. We don't know whether the class is
-        // Java/Kotlin/Groovy without resolving it; FilenameIndex requires a concrete file name.
-        for (ext in listOf("kt", "java", "groovy", "scala")) {
-            val files = FilenameIndex.getVirtualFilesByName(
-                "$simple.$ext", GlobalSearchScope.allScope(project)
-            )
-            val first = files.firstOrNull() ?: continue
-            val psi = com.intellij.psi.PsiManager.getInstance(project).findFile(first)
-            if (psi != null) return psi
-        }
-        return null
+        val scope = GlobalSearchScope.allScope(project)
+        return SUPPORTED_EXTENSIONS
+            .asSequence()
+            .flatMap { FilenameIndex.getVirtualFilesByName("$simple.$it", scope).asSequence() }
+            .firstNotNullOfOrNull { PsiManager.getInstance(project).findFile(it) }
     }
 }

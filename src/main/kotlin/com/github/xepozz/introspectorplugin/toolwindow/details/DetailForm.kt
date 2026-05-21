@@ -5,16 +5,28 @@ import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import java.awt.BorderLayout
-import java.awt.Color
 import java.awt.Component
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
 import javax.swing.BorderFactory
 import javax.swing.JComponent
-import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.SwingConstants
+
+/** Em-dash used to indicate "no value" in form rows. Centralised so a future refactor (i18n,
+ *  unicode tweaks, replacement with an icon) only touches one place. */
+internal const val DASH = "—"
+
+/** Renders blank/null strings as [DASH] — used wherever we display a possibly-missing value. */
+internal fun String?.orDash(): String = if (isNullOrBlank()) DASH else this
+
+/** ActionLink with a no-padding border — used everywhere in the details panel so links sit
+ *  flush with surrounding form cells. */
+internal fun actionLink(text: String, onClick: () -> Unit): com.intellij.ui.components.ActionLink =
+    com.intellij.ui.components.ActionLink(text) { _ -> onClick() }.apply {
+        border = JBUI.Borders.empty()
+    }
 
 /**
  * Lightweight 2-column key-value form used in detail views. Built directly on GridBagLayout
@@ -41,7 +53,7 @@ class DetailForm {
     }
 
     fun row(key: String, value: JComponent): DetailForm = apply { rows.add(Row.KeyValue(key, value)) }
-    fun row(key: String, value: String?): DetailForm = row(key, JBLabel(value?.takeIf { it.isNotBlank() } ?: "—"))
+    fun row(key: String, value: String?): DetailForm = row(key, JBLabel(value.orDash()))
     fun section(title: String): DetailForm = apply { rows.add(Row.Section(title)) }
     fun separator(): DetailForm = apply { rows.add(Row.Separator()) }
     fun custom(component: JComponent): DetailForm = apply { rows.add(Row.Custom(component)) }
