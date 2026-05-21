@@ -8,7 +8,12 @@ plugins {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    // kotlinx-serialization-json is bundled with the IDE (and with the com.intellij.mcpServer
+    // plugin). We must use the platform copy at runtime — bundling our own creates two
+    // independent KSerializer classloaders, which makes serializerOrNull(KType) return null
+    // for our @Serializable data classes when MCP's reflection-based bridge looks them up,
+    // and the bridge then throws "Result type X is not serializable".
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     // Phase 2: Kotlin runtime execution via JSR-223 ScriptEngine.
     // kotlin-scripting-jsr223 pulls kotlin-compiler-embeddable transitively, which gives us

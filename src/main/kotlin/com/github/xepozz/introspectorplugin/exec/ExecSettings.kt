@@ -13,8 +13,9 @@ class ExecSettings : PersistentStateComponent<ExecSettings.State> {
     data class State(
         var enabled: Boolean = false,
         var requireConfirmation: Boolean = true,
-        var defaultTimeoutMs: Long = 30_000,
-        var maxTimeoutMs: Long = 5L * 60_000,
+        // Project policy: NEVER raise timeouts above 10 s — see CLAUDE.md.
+        var defaultTimeoutMs: Long = 10_000,
+        var maxTimeoutMs: Long = 10_000,
         var auditEnabled: Boolean = true,
     )
 

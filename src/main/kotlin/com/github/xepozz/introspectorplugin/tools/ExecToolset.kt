@@ -58,7 +58,7 @@ EXAMPLES:
     )
     suspend fun exec_execute_kotlin_in_ide(
         @McpDescription("Kotlin source code; the last expression is the return value") code: String,
-        @McpDescription("Hard execution timeout (ms)") timeoutMs: Long = 30_000,
+        @McpDescription("Hard execution timeout (ms). Hard cap 10000.") timeoutMs: Long = 10_000,
         @McpDescription("Capture stdout into the response") captureStdout: Boolean = true,
         @McpDescription("Capture stderr into the response") captureStderr: Boolean = true,
         @McpDescription("edt | background — where to run") runOn: String = "edt",

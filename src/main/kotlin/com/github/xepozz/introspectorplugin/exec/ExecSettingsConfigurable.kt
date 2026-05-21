@@ -50,8 +50,9 @@ class ExecSettingsConfigurable : Configurable {
         s.enabled = enabledBox?.isSelected ?: false
         s.requireConfirmation = confirmBox?.isSelected ?: true
         s.auditEnabled = auditBox?.isSelected ?: true
-        s.defaultTimeoutMs = defaultTimeoutField?.text?.trim()?.toLongOrNull() ?: 30_000L
-        s.maxTimeoutMs = maxTimeoutField?.text?.trim()?.toLongOrNull() ?: 300_000L
+        // Hard cap: see CLAUDE.md — no timeout above 10 s.
+        s.defaultTimeoutMs = (defaultTimeoutField?.text?.trim()?.toLongOrNull() ?: 10_000L).coerceAtMost(10_000L)
+        s.maxTimeoutMs = (maxTimeoutField?.text?.trim()?.toLongOrNull() ?: 10_000L).coerceAtMost(10_000L)
     }
 
     override fun reset() {

@@ -35,16 +35,20 @@ class UiInspectorToolset : McpToolset {
 Each node carries a stable id ("c_xxxxxxxx") that subsequent calls can reuse for
 ui.get_properties or screenshot.capture.
 
+Defaults are tuned to be cheap (depth 12, no properties). Bump them only when you need
+the extra detail — collecting properties for every node walks reflection across thousands
+of components and can saturate the EDT.
+
 Use rootSelector="tool_window:Project" to scope to a single tool window,
 or "frame" / "dialog" to constrain by top-level kind."""
     )
     suspend fun `ui_get_tree`(
-        @McpDescription("Max BFS depth") maxDepth: Int = 20,
+        @McpDescription("Max BFS depth (default 12 — keep low for the whole frame)") maxDepth: Int = 12,
         @McpDescription("frame | dialog | tool_window:<id> | null") rootSelector: String? = null,
         @McpDescription("Include invisible components") includeInvisible: Boolean = false,
-        @McpDescription("Attach property bag to each node") includeProperties: Boolean = true,
+        @McpDescription("Attach property bag to each node (slow — prefer ui.get_properties for a chosen id)") includeProperties: Boolean = false,
         @McpDescription("Truncate property values longer than this") truncatePropertyValueAt: Int = 200,
-    ): UiTreeResponse = onEdtBlocking(timeoutMs = 5_000) {
+    ): UiTreeResponse = onEdtBlocking {
         buildTree(maxDepth, rootSelector, includeInvisible, includeProperties, truncatePropertyValueAt)
     }
 
@@ -59,7 +63,7 @@ match the query. matchMode = "exact" | "contains" | "regex"."""
         @McpDescription("Whether matching is case sensitive") caseSensitive: Boolean = false,
         @McpDescription("Fields to search in") searchIn: List<String> = DEFAULT_SEARCH_FIELDS,
         @McpDescription("Max matches to return") limit: Int = 50,
-    ): FindComponentsResponse = onEdtBlocking(timeoutMs = 5_000) {
+    ): FindComponentsResponse = onEdtBlocking {
         findByName(query, matchMode, caseSensitive, searchIn, limit)
     }
 
@@ -73,7 +77,7 @@ If returnAncestors=true, the response also includes the parent chain up to the r
         @McpDescription("Y coordinate") y: Int,
         @McpDescription("screen | frame") coordinateSpace: String = "screen",
         @McpDescription("Include parent chain") returnAncestors: Boolean = true,
-    ): FindComponentsResponse = onEdtBlocking(timeoutMs = 5_000) {
+    ): FindComponentsResponse = onEdtBlocking {
         findByCoordinates(x, y, coordinateSpace, returnAncestors)
     }
 
@@ -87,7 +91,7 @@ Example: //div[@class='ActionButton' and @text='Run']"""
     suspend fun `ui_find_by_xpath`(
         @McpDescription("XPath expression") xpath: String,
         @McpDescription("Max matches to return") limit: Int = 50,
-    ): FindComponentsResponse = onEdtBlocking(timeoutMs = 5_000) {
+    ): FindComponentsResponse = onEdtBlocking {
         findByXPath(xpath, limit)
     }
 
@@ -106,7 +110,7 @@ PropertyBeans, accessible context, and client properties."""
             ?: throw com.intellij.mcpserver.McpExpectedError(
                 "Component '$componentId' is no longer attached", kotlinx.serialization.json.JsonObject(emptyMap())
             )
-        return onEdtBlocking(timeoutMs = 5_000) {
+        return onEdtBlocking {
             collectProperties(componentId, component, includeClientProperties, includeAccessibleContext)
         }
     }
