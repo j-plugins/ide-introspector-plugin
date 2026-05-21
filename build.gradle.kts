@@ -225,6 +225,10 @@ tasks.register("generateToolsDoc") {
     }
 }
 
-tasks.named("build") {
-    dependsOn("generateToolsDoc")
+// Wire the generator into both the standard `build` task and `buildPlugin` (the one that
+// produces the distributable zip, which is what most users actually invoke). Listing them
+// separately keeps the dependency explicit — relying on the transitive `buildPlugin → build`
+// path isn't reliable across IntelliJ Platform Gradle Plugin versions.
+listOf("build", "buildPlugin").forEach { taskName ->
+    tasks.named(taskName) { dependsOn("generateToolsDoc") }
 }
