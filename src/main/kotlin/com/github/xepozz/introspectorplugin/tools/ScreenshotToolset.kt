@@ -28,16 +28,43 @@ class ScreenshotToolset : McpToolset {
 
     @McpTool(name = "screenshot.capture")
     @McpDescription(
-        """Captures a screenshot of a component (target="component" + componentId), the active
-IDE frame (target="active_frame"), every visible frame ("all_frames"), or the full virtual
-desktop ("screen"). PNG, returned as base64. The image is auto-downscaled to stay within the
-MCP response size budget; a warning is emitted when this happens."""
+        """
+        |Captures a PNG screenshot of part or all of the IDE and returns it as a base64-encoded
+        |string inside the response payload. The image is auto-downscaled (halving passes) until
+        |the PNG fits the MCP response budget (~1.5 MB); a warning is emitted when this happens.
+        |
+        |target options:
+        |  - "component"    — render one specific component via its off-screen paint(). Requires
+        |                     componentId from a prior ui.find_by_* / ui.get_tree call. Does NOT
+        |                     include popups / tooltips / floating overlays.
+        |  - "active_frame" — render the currently focused IDE frame (same caveat re overlays).
+        |  - "all_frames"   — render every open project frame, tiled horizontally.
+        |  - "screen"       — use java.awt.Robot to capture the full virtual desktop. This is the
+        |                     only target that includes popups, tooltips and other floating UI.
+        |
+        |Use this when: the user asks for a screenshot, or you need to visually verify a
+        |UI state you suspect from a ui.* call.
+        |
+        |Do NOT use this when: a textual UI dump (ui.get_tree / ui.get_properties) would
+        |answer the question — text is cheaper and easier to reason about.
+        |
+        |Returns: { mimeType:"image/png", width:int, height:int, base64:string, warnings:string[] }.
+        |
+        |Examples:
+        |  target="active_frame"                                 — the current IDE window
+        |  target="component", componentId="c_a3f2e1b8"          — one button or panel
+        |  target="screen", scale=0.5                            — full desktop, halved for size
+        """
     )
     suspend fun screenshot_capture(
-        @McpDescription("component | active_frame | all_frames | screen") target: String,
-        @McpDescription("Required when target=component") componentId: String? = null,
-        @McpDescription("png (only png supported in v1)") format: String = "png",
-        @McpDescription("Post-render scale factor") scale: Double = 1.0,
+        @McpDescription("'component' | 'active_frame' | 'all_frames' | 'screen'. See tool description for differences (only 'screen' includes popups).")
+        target: String,
+        @McpDescription("Required when target='component'. Stable id from a prior ui.find_by_* or ui.get_tree call.")
+        componentId: String? = null,
+        @McpDescription("Image format. Only 'png' supported in v1.")
+        format: String = "png",
+        @McpDescription("Post-render scale factor applied before encoding. Use 0.5 or 0.25 to halve/quarter for token budget.")
+        scale: Double = 1.0,
     ): ImagePayload {
         val image: BufferedImage = when (target) {
             "component" -> {
@@ -57,17 +84,42 @@ MCP response size budget; a warning is emitted when this happens."""
 
     @McpTool(name = "screenshot.crop")
     @McpDescription(
-        """Screenshots the active frame and returns a rectangular crop. coordinateSpace = "frame"
-(relative to active frame's top-left) or "screen" (virtual desktop). Auto-fit to MCP budget."""
+        """
+        |Returns a rectangular crop of either the active IDE frame or the virtual desktop.
+        |Cheaper than screenshot.capture+downscale when you only need a small region (e.g.
+        |"the toolbar at the top" or "this dialog's OK button area").
+        |
+        |Use this when: you want a focused crop of a known region (after locating the
+        |interesting bounds via ui.find_by_* / ui.get_tree).
+        |
+        |Do NOT use this when: you need the whole IDE (use screenshot.capture
+        |target='active_frame'), or you need overlays/popups not painted by the active
+        |frame (use screenshot.capture target='screen').
+        |
+        |coordinateSpace:
+        |  - "frame"  (default) — (x,y) measured from active IDE frame's top-left corner.
+        |                         Crop is clipped to the frame; out-of-bounds → error.
+        |  - "screen"           — (x,y) on the virtual desktop (multi-monitor safe).
+        |
+        |Returns: same shape as screenshot.capture — { mimeType:"image/png", width, height,
+        |base64, warnings:string[] }.
+        """
     )
     suspend fun screenshot_crop(
-        @McpDescription("X coordinate") x: Int,
-        @McpDescription("Y coordinate") y: Int,
-        @McpDescription("Crop width") width: Int,
-        @McpDescription("Crop height") height: Int,
-        @McpDescription("frame | screen") coordinateSpace: String = "frame",
-        @McpDescription("png (only png supported)") format: String = "png",
-        @McpDescription("Post-render scale factor") scale: Double = 1.0,
+        @McpDescription("Left edge of crop in pixels (relative to frame or screen per coordinateSpace).")
+        x: Int,
+        @McpDescription("Top edge of crop in pixels.")
+        y: Int,
+        @McpDescription("Crop width in pixels. The intersection with the frame/screen bounds is used.")
+        width: Int,
+        @McpDescription("Crop height in pixels.")
+        height: Int,
+        @McpDescription("'frame' (default, relative to active IDE frame) or 'screen' (virtual desktop).")
+        coordinateSpace: String = "frame",
+        @McpDescription("Image format. Only 'png' supported in v1.")
+        format: String = "png",
+        @McpDescription("Post-render scale factor applied before encoding.")
+        scale: Double = 1.0,
     ): ImagePayload {
         val rect = Rectangle(x, y, width, height)
         val image = if (coordinateSpace == "frame") {

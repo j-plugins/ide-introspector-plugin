@@ -32,36 +32,79 @@ class ExecToolset : McpToolset {
 
     @McpTool(name = "exec.execute_kotlin_in_ide")
     @McpDescription(
-        """Compiles and executes arbitrary Kotlin code inside the running IDE JVM.
-
-IMPLICIT VARIABLES in your code:
-  project: Project?           — current open project (or null)
-  pluginDisposable: Disposable — auto-disposed when the call returns
-
-IMPLICIT HELPERS:
-  read { ... }                — wraps ReadAction.compute
-  write { ... }               — wraps WriteCommandAction.runWriteCommandAction
-  onEdt { ... }               — runs on EDT and blocks until complete
-
-RETURN VALUE: the last expression of your code is serialised to JSON when possible.
-Non-serialisable values (IntelliJ API objects) become .toString() with a warning. Prefer
-returning primitives, Strings, or Map<String, Any?>.
-
-SECURITY: opt-in via Settings → Tools → IDE Introspect MCP. Each call shows a confirmation
-dialog by default (can be suppressed for the session). A textual blacklist rejects
-Runtime.exec, ProcessBuilder, setAccessible(true), System.exit, and sun.* reflection
-before compilation.
-
-EXAMPLES:
-  com.intellij.openapi.wm.ToolWindowManager.getInstance(project!!).toolWindowIds.toList()
-  read { com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project!!).selectedTextEditor?.virtualFile?.path }"""
+        """
+        |Compiles and executes arbitrary Kotlin code inside the running IDE JVM. The escape
+        |hatch for whatever the pre-built ui.* / arch.* / screenshot.* tools cannot do.
+        |
+        |Use this when: no pre-built tool covers your need AND the task can be expressed in
+        |a few lines of Kotlin against the IntelliJ Platform API (list breakpoints, toggle
+        |a setting, inspect a PSI element, walk virtual files, etc.).
+        |
+        |Do NOT use this when:
+        |  - A pre-built tool can answer (ui.*, arch.*, screenshot.*) — use it; it's 100×
+        |    faster than spinning up a Kotlin compiler.
+        |  - You want to run a shell command (Runtime.exec/ProcessBuilder are blocked by the
+        |    safety checker — use the bundled terminal MCP tool instead).
+        |  - The user hasn't enabled this tool: it's off by default and requires per-call
+        |    confirmation, so it's a heavyweight option.
+        |
+        |IMPLICIT BINDINGS in your code (already in scope — no import needed for these names):
+        |  - project: Project?           — current focused project, may be null
+        |  - pluginDisposable: Disposable — register listeners / subscriptions here; auto-
+        |                                   disposed when this call returns
+        |  - read { ... }    — wraps ReadAction.compute<T>; use around any PSI / index read
+        |  - write { ... }   — wraps WriteCommandAction.runWriteCommandAction; undo-aware
+        |  - onEdt { ... }   — wraps ApplicationManager.invokeAndWait; use around Swing access
+        |
+        |RETURN VALUE: the last expression of your code is serialised to JSON. Primitives,
+        |strings, booleans, Maps, and Iterables of these serialise cleanly. IntelliJ API
+        |objects (VirtualFile, PsiElement, Project, ...) are not serialisable — they fall
+        |back to .toString() with a warning. Prefer returning primitives, Strings, or
+        |Map<String, Any?> assembled from the fields you actually need.
+        |
+        |SAFETY:
+        |  - Off by default. Enable in Settings → Tools → IDE Introspect MCP → "Allow Kotlin
+        |    code execution".
+        |  - Each call shows a modal confirmation dialog by default (user can opt out for
+        |    the rest of the session — never across restarts).
+        |  - Textual safety blacklist rejects, before compilation: Runtime.getRuntime().exec,
+        |    ProcessBuilder, setAccessible(true), System.exit, Class.forName("sun.*").
+        |  - Every call recorded to idea.log (category "ide-introspect-mcp-audit").
+        |  - Hard execution timeout — capped at 10 seconds. Short interactive inspections
+        |    only, not long-running operations.
+        |
+        |Returns: { ok:bool, result:JsonElement, stdout:string?, stderr:string?,
+        |error:string?, durationMs:long, warnings:string[] }. On compile/runtime failure
+        |ok=false and 'error' carries the formatted stacktrace; the IDE itself stays up.
+        |
+        |EXAMPLES:
+        |  // List every tool window id in the current project:
+        |  com.intellij.openapi.wm.ToolWindowManager.getInstance(project!!).toolWindowIds.toList()
+        |
+        |  // Path of the file in the active editor:
+        |  read {
+        |    com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project!!)
+        |      .selectedTextEditor?.virtualFile?.path
+        |  }
+        |
+        |  // Number of open editors per file type:
+        |  read {
+        |    com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project!!)
+        |      .openFiles.groupBy { it.fileType.name }.mapValues { it.value.size }
+        |  }
+        """
     )
     suspend fun exec_execute_kotlin_in_ide(
-        @McpDescription("Kotlin source code; the last expression is the return value") code: String,
-        @McpDescription("Hard execution timeout (ms). Hard cap 10000.") timeoutMs: Long = 10_000,
-        @McpDescription("Capture stdout into the response") captureStdout: Boolean = true,
-        @McpDescription("Capture stderr into the response") captureStderr: Boolean = true,
-        @McpDescription("edt | background — where to run") runOn: String = "edt",
+        @McpDescription("Kotlin source. The LAST expression of the wrapped block is the return value (Kotlin 'last expression is the value' semantics).")
+        code: String,
+        @McpDescription("Hard execution timeout in ms. Hard cap is 10000 (anything larger is clamped). Default 10000.")
+        timeoutMs: Long = 10_000,
+        @McpDescription("Capture stdout written during execution into the 'stdout' response field. Default true.")
+        captureStdout: Boolean = true,
+        @McpDescription("Capture stderr written during execution into the 'stderr' response field. Default true.")
+        captureStderr: Boolean = true,
+        @McpDescription("'edt' (default — wrap on EDT, required for Swing access) or 'background' (don't bounce; for PSI reads etc. wrap with read{} yourself).")
+        runOn: String = "edt",
     ): ExecuteKotlinResponse {
         val settings = ExecSettings.getInstance()
         if (!settings.enabled) {

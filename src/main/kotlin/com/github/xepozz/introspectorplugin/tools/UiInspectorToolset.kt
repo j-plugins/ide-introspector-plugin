@@ -31,84 +31,191 @@ class UiInspectorToolset : McpToolset {
 
     @McpTool(name = "ui.get_tree")
     @McpDescription(
-        """Returns the IDE's Swing component tree as JSON (BFS, capped by maxDepth).
-Each node carries a stable id ("c_xxxxxxxx") that subsequent calls can reuse for
-ui.get_properties or screenshot.capture.
-
-Defaults are tuned to be cheap (depth 12, no properties). Bump them only when you need
-the extra detail — collecting properties for every node walks reflection across thousands
-of components and can saturate the EDT.
-
-Use rootSelector="tool_window:Project" to scope to a single tool window,
-or "frame" / "dialog" to constrain by top-level kind."""
+        """
+        |Returns the IDE's live Swing component tree (BFS, capped by maxDepth). Each node
+        |carries a stable id ("c_xxxxxxxx") you can pass to ui.get_properties or
+        |screenshot.capture to drill into a specific component.
+        |
+        |Use this when: you need to see the current UI structure of the IDE — what windows,
+        |panels, toolbars and actions are on screen right now. Typical first step before any
+        |targeted ui.* call when you don't yet know the component id.
+        |
+        |Do NOT use this when: you already know the component id (call ui.get_properties),
+        |you only need to locate one component by visible text (use ui.find_by_name —
+        |much cheaper), or you have screen coordinates (use ui.find_by_coordinates).
+        |
+        |Defaults are tuned for cheapness: depth 12, includeProperties=false. Property
+        |collection per node hits reflection on thousands of components and can saturate
+        |the EDT — fetch them point-by-point via ui.get_properties instead. Hard-capped at
+        |5000 nodes; if truncated the response has truncated=true and a warning.
+        |
+        |Scope with rootSelector: "frame" (top-level frames only), "dialog" (only modal
+        |dialogs), "tool_window:<id>" (a specific tool window's content, e.g.
+        |"tool_window:Project"), or null for everything visible. Narrow the scope whenever
+        |you can — it's the single biggest perf knob.
+        |
+        |Returns: { nodes: ComponentInfo[], rootIds: string[], truncated: boolean, warnings: string[] }.
+        |Each ComponentInfo has id, class (FQCN), name, accessibleName, accessibleRole,
+        |bounds {x,y,width,height}, visible, enabled, text, toolTipText, properties[], children[].
+        """
     )
     suspend fun `ui_get_tree`(
-        @McpDescription("Max BFS depth (default 12 — keep low for the whole frame)") maxDepth: Int = 12,
-        @McpDescription("frame | dialog | tool_window:<id> | null") rootSelector: String? = null,
-        @McpDescription("Include invisible components") includeInvisible: Boolean = false,
-        @McpDescription("Attach property bag to each node (slow — prefer ui.get_properties for a chosen id)") includeProperties: Boolean = false,
-        @McpDescription("Truncate property values longer than this") truncatePropertyValueAt: Int = 200,
+        @McpDescription("Max BFS depth. Default 12. Keep ≤15 for the full frame; full IDE trees easily exceed 5000 nodes.")
+        maxDepth: Int = 12,
+        @McpDescription("Scope filter: 'frame', 'dialog', 'tool_window:<id>' (e.g. 'tool_window:Project'), or null for everything visible.")
+        rootSelector: String? = null,
+        @McpDescription("Include invisible components (those with isVisible()==false). Off by default.")
+        includeInvisible: Boolean = false,
+        @McpDescription("Attach UI-Inspector-style property bag to every node. Expensive — prefer ui.get_properties for a single id.")
+        includeProperties: Boolean = false,
+        @McpDescription("Maximum character length for any single property value before truncation.")
+        truncatePropertyValueAt: Int = 200,
     ): UiTreeResponse = onEdtBlocking {
         buildTree(maxDepth, rootSelector, includeInvisible, includeProperties, truncatePropertyValueAt)
     }
 
     @McpTool(name = "ui.find_by_name")
     @McpDescription(
-        """Searches the entire IDE UI tree for components whose name/text/accessibleName/toolTipText
-match the query. matchMode = "exact" | "contains" | "regex"."""
+        """
+        |Locates Swing components by their text-bearing attributes: `name` (programmatic),
+        |`text` (button/label caption), `accessibleName` (a11y label), `toolTipText`. Walks the
+        |entire UI tree once and returns the first `limit` matches. matchMode controls the
+        |comparison: "exact", "contains" (default, case-insensitive substring), or "regex".
+        |
+        |Use this when: you know what the component says or what its programmatic name is
+        |("Run", "ProjectViewTree", "buildButton") and want its id so you can inspect or
+        |screenshot it.
+        |
+        |Do NOT use this when: you need XML-path-style queries with class+attribute predicates
+        |(use ui.find_by_xpath), or you only know screen coordinates (use
+        |ui.find_by_coordinates), or you need the structural surroundings (use ui.get_tree).
+        |
+        |Returns: { matches: ComponentInfo[], total: int }. Matches include id you can reuse
+        |with ui.get_properties / screenshot.capture(target='component').
+        |
+        |Example: query="Run", matchMode="exact", searchIn=["text"] → finds the Run toolbar button.
+        """
     )
     suspend fun `ui_find_by_name`(
-        @McpDescription("Search query") query: String,
-        @McpDescription("exact | contains | regex") matchMode: String = "contains",
-        @McpDescription("Whether matching is case sensitive") caseSensitive: Boolean = false,
-        @McpDescription("Fields to search in") searchIn: List<String> = DEFAULT_SEARCH_FIELDS,
-        @McpDescription("Max matches to return") limit: Int = 50,
+        @McpDescription("Search string. Treated as substring (contains), exact text, or regex per matchMode.")
+        query: String,
+        @McpDescription("'exact' | 'contains' (default) | 'regex'.")
+        matchMode: String = "contains",
+        @McpDescription("Case sensitivity for 'exact'/'contains'. Ignored for 'regex' (use (?i) for case-insensitive regex).")
+        caseSensitive: Boolean = false,
+        @McpDescription("Which fields to test. Default ['name','text','accessibleName','toolTipText']. Narrow it to speed things up.")
+        searchIn: List<String> = DEFAULT_SEARCH_FIELDS,
+        @McpDescription("Cap on returned matches. Default 50.")
+        limit: Int = 50,
     ): FindComponentsResponse = onEdtBlocking {
         findByName(query, matchMode, caseSensitive, searchIn, limit)
     }
 
     @McpTool(name = "ui.find_by_coordinates")
     @McpDescription(
-        """Finds the deepest visible component under (x, y). coordinateSpace = "screen" | "frame".
-If returnAncestors=true, the response also includes the parent chain up to the root window."""
+        """
+        |Returns the deepest visible component at point (x, y) — equivalent to clicking that
+        |pixel and seeing which Swing component would receive the event. With
+        |returnAncestors=true, also walks up the parent chain so you can see container context.
+        |
+        |Use this when: you have screen coordinates (e.g. from a screenshot, a click log, or
+        |the user pointing at a spot) and need the component there.
+        |
+        |Do NOT use this when: you know the component's name or text — ui.find_by_name is
+        |faster. The coordinate space matters: 'screen' (default) uses virtual-desktop
+        |pixels (multi-monitor friendly); 'frame' uses the active frame's local coords.
+        |
+        |Returns: { matches: ComponentInfo[], total: int } where matches[0] is the deepest
+        |component and (if requested) matches[1..N] are its ancestors up to the window root.
+        """
     )
     suspend fun `ui_find_by_coordinates`(
-        @McpDescription("X coordinate") x: Int,
-        @McpDescription("Y coordinate") y: Int,
-        @McpDescription("screen | frame") coordinateSpace: String = "screen",
-        @McpDescription("Include parent chain") returnAncestors: Boolean = true,
+        @McpDescription("X coordinate in pixels (virtual desktop if coordinateSpace=screen).")
+        x: Int,
+        @McpDescription("Y coordinate in pixels.")
+        y: Int,
+        @McpDescription("'screen' (default, virtual desktop) or 'frame' (active IDE frame, top-left origin).")
+        coordinateSpace: String = "screen",
+        @McpDescription("Include the parent chain from the deepest component up to the root window.")
+        returnAncestors: Boolean = true,
     ): FindComponentsResponse = onEdtBlocking {
         findByCoordinates(x, y, coordinateSpace, returnAncestors)
     }
 
     @McpTool(name = "ui.find_by_xpath")
     @McpDescription(
-        """Finds components by an XPath subset compatible with intellij-ui-test-robot.
-Supported axes: /, //, ., *, div. Predicates: [@class=..], [@name=..],
-[@accessibleName=..], [@text=..], [@toolTipText=..] joined by 'and'; positional [N] (1-based).
-Example: //div[@class='ActionButton' and @text='Run']"""
+        """
+        |Finds components by an XPath subset compatible with intellij-ui-test-robot — handy
+        |when ui.find_by_name's free-text match is too loose and you need to filter by class
+        |AND attribute together.
+        |
+        |Use this when: you need precise structural queries like "the ActionButton whose text
+        |is 'Run'" or "the third row in this tree" — i.e. class + attribute + position
+        |constraints in a single expression.
+        |
+        |Do NOT use this when: a plain substring search is enough (ui.find_by_name is cheaper
+        |and easier), or you have coordinates (ui.find_by_coordinates).
+        |
+        |Supported syntax:
+        |  - axes: '/' (child), '//' (descendant-or-self), '.' (self)
+        |  - element names: simple class name (e.g. 'ActionButton'), 'div' or '*' (any)
+        |  - attribute predicates: [@class=..], [@name=..], [@accessibleName=..], [@text=..],
+        |    [@toolTipText=..]; combine with 'and'
+        |  - positional predicate: [N], 1-based
+        |
+        |Examples:
+        |  //div[@class='ActionButton' and @text='Run']
+        |  //JPanel[@accessibleName='Project view']//JTree
+        |  //JButton[2]
+        |
+        |Returns: { matches: ComponentInfo[], total: int }.
+        """
     )
     suspend fun `ui_find_by_xpath`(
-        @McpDescription("XPath expression") xpath: String,
-        @McpDescription("Max matches to return") limit: Int = 50,
+        @McpDescription("XPath expression in the syntax above. Wrap attribute values in single quotes.")
+        xpath: String,
+        @McpDescription("Cap on returned matches. Default 50.")
+        limit: Int = 50,
     ): FindComponentsResponse = onEdtBlocking {
         findByXPath(xpath, limit)
     }
 
     @McpTool(name = "ui.get_properties")
     @McpDescription(
-        """Returns the full property bag for a previously-located component by its id
-(issue ui.find_by_* or ui.get_tree first to obtain ids). Includes UI-Inspector-style
-PropertyBeans, accessible context, and client properties."""
+        """
+        |Returns the complete property bag for one previously-located component, identified
+        |by its id. Includes basic Swing fields (class, name, bounds, visibility), accessible
+        |context (a11y name/role/description), JComponent client properties (UI hints set via
+        |putClientProperty), and the IntelliJ UI-Inspector PropertyBeans when the internal
+        |API is reachable.
+        |
+        |Use this when: you've already located a component via ui.find_by_name /
+        |ui.find_by_coordinates / ui.find_by_xpath / ui.get_tree and now want everything
+        |the platform knows about it.
+        |
+        |Do NOT use this with a fresh id-less guess — the id must come from a prior ui.*
+        |response in the same IDE session (ids do not survive an IDE restart). If the
+        |component has since been garbage-collected (panel closed), you'll get an
+        |"is no longer attached" error.
+        |
+        |Returns: { componentId, className, properties: [{name,value}...], warnings: string[] }.
+        |Properties are key-value pairs like "bounds": "10,20 100x30", "accessibleName": "Run",
+        |"clientProperty[place]": "MainToolbar", "uiInspector[ActionId]": "RunAction", etc.
+        """
     )
     suspend fun `ui_get_properties`(
-        @McpDescription("Component id from a prior ui.* call") componentId: String,
-        @McpDescription("Include JComponent client properties") includeClientProperties: Boolean = true,
-        @McpDescription("Include accessible context info") includeAccessibleContext: Boolean = true,
+        @McpDescription("Component id (e.g. 'c_a3f2e1b8') obtained from a prior ui.find_by_* or ui.get_tree call in the same IDE session.")
+        componentId: String,
+        @McpDescription("Include JComponent client properties (UI hints stored via putClientProperty).")
+        includeClientProperties: Boolean = true,
+        @McpDescription("Include accessibleContext (a11y name/role/description). Cheap; leave on unless responses get noisy.")
+        includeAccessibleContext: Boolean = true,
     ): PropertiesResponse {
         val component = ComponentRegistry.getInstance().lookup(componentId)
             ?: throw com.intellij.mcpserver.McpExpectedError(
-                "Component '$componentId' is no longer attached", kotlinx.serialization.json.JsonObject(emptyMap())
+                "Component '$componentId' is no longer attached (panel closed or IDE restarted). " +
+                    "Call ui.find_by_* or ui.get_tree again to get a fresh id.",
+                kotlinx.serialization.json.JsonObject(emptyMap())
             )
         return onEdtBlocking {
             collectProperties(componentId, component, includeClientProperties, includeAccessibleContext)
