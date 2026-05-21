@@ -24,3 +24,16 @@ data class GetReferencesArgs(
     val maxReferences: Int = 1_000,
     val truncateTextAt: Int = 80,
 )
+
+@Serializable
+data class FindUsagesArgs(
+    val fileUrl: String? = null,
+    val offset: Int? = null,
+    val line: Int? = null,
+    val column: Int? = null,
+    val scope: String = "project",             // "project" | "file" | "all"
+    val includeImplementations: Boolean = true,
+    val maxUsages: Int = 500,
+    val truncateTextAt: Int = 120,
+    val groupByFile: Boolean = false,
+)

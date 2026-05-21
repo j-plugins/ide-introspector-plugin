@@ -2,6 +2,8 @@ package com.github.xepozz.introspectorplugin.tools
 
 import com.github.xepozz.introspectorplugin.core.PsiReferenceCollector
 import com.github.xepozz.introspectorplugin.core.PsiStructureWalker
+import com.github.xepozz.introspectorplugin.core.PsiUsageSearcher
+import com.github.xepozz.introspectorplugin.model.FindUsagesResponse
 import com.github.xepozz.introspectorplugin.model.GetPsiStructureResponse
 import com.github.xepozz.introspectorplugin.model.GetReferencesResponse
 import com.github.xepozz.introspectorplugin.model.OpenFileInfo
@@ -308,6 +310,107 @@ class PsiToolset : McpToolset {
         }
     }
 
+    @McpTool(name = "psi.find_usages")
+    @McpDescription(
+        """
+        |Finds every usage of the declaration at a given position — the inverse of
+        |psi.get_references. Given a caret position, identifies what declaration the user means
+        |(follow a reference if on a usage; otherwise the nearest named declaration) and returns
+        |all sites that refer to it. Same direction as IntelliJ's Find Usages action.
+        |
+        |Use this when:
+        |  - You want to know "where is this used?" — the agent has identified a declaration
+        |    (a class, method, variable, function) and needs to see all call sites / read sites.
+        |  - You're assessing impact of a rename / removal — every site in `usages[]` would need
+        |    updating.
+        |  - You need overrides / implementations — `includeImplementations=true` (default) folds
+        |    them in (same source as Ctrl+Alt+B "Goto Implementation").
+        |
+        |Do NOT use this when:
+        |  - You only want what a particular use-site points TO — that's psi.get_references with
+        |    scope="at_offset".
+        |  - You need the full PSI tree — psi.get_structure is the right tool.
+        |
+        |Position: pass `offset` OR `line`+`column` (1-based). The caret can be either on a
+        |usage (we follow the reference) or on the declaration itself.
+        |
+        |Scope (default "project"):
+        |  - "file"    — only this file. Cheap and lossless for file-local symbols.
+        |  - "project" — all project sources. Standard Find Usages scope; default.
+        |  - "all"     — includes library sources. Beware: searching for a JDK symbol in `all`
+        |                scope can saturate the 10 s read-action timeout. Use sparingly.
+        |
+        |Local-variable scoping: if the resolved target is a local variable or parameter, the
+        |scope is auto-narrowed to LocalSearchScope(containing-file) regardless of the requested
+        |scope — a project-wide search for a local `i` is meaningless.
+        |
+        |Returns: { target, scope, usages[] (or byFile[] when groupByFile=true), total,
+        |truncated }. `target` confirms which declaration we landed on (psiClass +
+        |declarationName + range). Each UsageInfo has fileUrl, range (absolute, with line/col),
+        |text (the reference's source text), `lineSnippet` (the entire trimmed line of source
+        |around the hit — like IntelliJ's Find Usages tool window), `containingDeclaration`
+        |(the enclosing method/class for context), and `kind`:
+        |  - "reference"      — classic call/read/write site
+        |  - "implementation" — an overriding method / implementing/extending class (when
+        |                        includeImplementations=true)
+        |
+        |Examples:
+        |  fileUrl=null, line=12, column=8                 — Find Usages on the symbol at row 12, col 8 in the active file
+        |  fileUrl="file:///…/Service.kt", offset=420      — explicit file + byte offset
+        |  scope="file"                                    — only same-file references / overrides
+        |  groupByFile=true                                — usages bucketed per file
+        |  includeImplementations=false                    — only references, no overrides/subclasses
+        """
+    )
+    suspend fun psi_find_usages(
+        @McpDescription("VFS URL of the file. null → active editor tab.")
+        fileUrl: String? = null,
+        @McpDescription("Document offset of the position to inspect. Alternative to line+column.")
+        offset: Int? = null,
+        @McpDescription("1-based line number. Alternative to `offset`.")
+        line: Int? = null,
+        @McpDescription("1-based column number. Alternative to `offset`.")
+        column: Int? = null,
+        @McpDescription("\"project\" (default) / \"file\" / \"all\" (includes library sources — slow).")
+        scope: String = "project",
+        @McpDescription("Also include overriding methods / implementing-or-extending classes via DefinitionsScopedSearch. Default true.")
+        includeImplementations: Boolean = true,
+        @McpDescription("Hard cap on returned usages. Default 500.")
+        maxUsages: Int = 500,
+        @McpDescription("Max chars per `text` / `lineSnippet` / target preview. Longer is suffixed with '…'. Default 120.")
+        truncateTextAt: Int = 120,
+        @McpDescription("Group hits by fileUrl into byFile[] instead of a flat usages[] list. Default false.")
+        groupByFile: Boolean = false,
+    ): FindUsagesResponse {
+        require(scope == "project" || scope == "file" || scope == "all") {
+            "scope must be one of: project, file, all — got '$scope'"
+        }
+        require(maxUsages in 1..50_000) { "maxUsages must be in 1..50000" }
+        require(truncateTextAt in 0..4096) { "truncateTextAt must be in 0..4096" }
+
+        val project = requireProject()
+        return readActionBlocking {
+            val (psiFile, _, document) = resolveFile(project, fileUrl)
+            val pos = resolveOffset(document, offset, line, column)
+            DumbService.getInstance(project).computeWithAlternativeResolveEnabled<FindUsagesResponse, RuntimeException> {
+                try {
+                    PsiUsageSearcher.findUsages(
+                        project = project,
+                        psiFile = psiFile,
+                        offset = pos,
+                        scopeKind = scope,
+                        includeImplementations = includeImplementations,
+                        maxUsages = maxUsages,
+                        truncateTextAt = truncateTextAt,
+                        groupByFile = groupByFile,
+                    )
+                } catch (e: PsiUsageSearcher.NoTargetException) {
+                    throw McpExpectedError(e.message ?: "No declaration at offset", JsonObject(emptyMap()))
+                }
+            }
+        }
+    }
+
     // ---------- helpers ----------
 
     private fun describeOpenFile(
@@ -366,7 +469,7 @@ class PsiToolset : McpToolset {
             return offset
         }
         require(line != null && column != null) {
-            "psi.get_references scope=at_offset requires either offset or line+column"
+            "position required: pass either `offset`, or both `line` and `column`"
         }
         require(document != null) { "File has no document — cannot resolve line+column" }
         require(line in 1..document.lineCount + 1) { "line $line out of bounds (1..${document.lineCount + 1})" }
