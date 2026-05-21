@@ -71,10 +71,10 @@ class DetailViews(
             }
         }
 
-        return wrap(
-            pageHeader(p.name, subtitle = p.id, chips = chips),
-            form.build()
+        val crumbs = Breadcrumb.render(
+            Breadcrumb.Segment(p.name, icon = Breadcrumb.PLUGIN_ICON),
         )
+        return wrap(crumbs, pageHeader(p.name, subtitle = p.id, chips = chips), form.build())
     }
 
     // ---------- Extension Point ----------
@@ -121,7 +121,11 @@ class DetailViews(
         }
         form.separator().custom(webLink)
 
-        return wrap(pageHeader(ep.name, subtitle = "Extension point", chips = chips), form.build())
+        val crumbs = Breadcrumb.render(
+            pluginSegment(ep.declaredByPluginId, ep.declaredByPluginName),
+            Breadcrumb.Segment(ep.name, icon = Breadcrumb.EP_ICON),
+        )
+        return wrap(crumbs, pageHeader(ep.name, subtitle = "Extension point", chips = chips), form.build())
     }
 
     // ---------- Extension ----------
@@ -147,7 +151,12 @@ class DetailViews(
         }
 
         val simple = title.substringAfterLast('.').substringAfterLast('$')
-        return wrap(pageHeader(simple, subtitle = title, chips = null), form.build())
+        val crumbs = Breadcrumb.render(
+            pluginSegment(e.providedByPluginId, e.providedByPluginName),
+            epSegment(e.extensionPointName),
+            Breadcrumb.Segment(simple, icon = Breadcrumb.EXT_ICON),
+        )
+        return wrap(crumbs, pageHeader(simple, subtitle = title, chips = null), form.build())
     }
 
     // ---------- Dependency ----------
@@ -156,7 +165,10 @@ class DetailViews(
         val chips = ChipStrip(Chips.optional(d.optional))
         val form = DetailForm()
             .row("Plugin id", pluginLink(d.pluginId, null))
-        return wrap(pageHeader(d.pluginId, subtitle = "Dependency", chips = chips), form.build())
+        val crumbs = Breadcrumb.render(
+            Breadcrumb.Segment(d.pluginId, icon = Breadcrumb.DEP_ICON),
+        )
+        return wrap(crumbs, pageHeader(d.pluginId, subtitle = "Dependency", chips = chips), form.build())
     }
 
     // ---------- helpers ----------
@@ -201,17 +213,32 @@ class DetailViews(
         return label
     }
 
-    private fun wrap(header: JComponent, body: JComponent): JComponent {
+    private fun wrap(vararg parts: JComponent): JComponent {
         val panel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             isOpaque = false
         }
-        header.alignmentX = Component.LEFT_ALIGNMENT
-        body.alignmentX = Component.LEFT_ALIGNMENT
-        panel.add(header)
-        panel.add(body)
+        for (p in parts) {
+            p.alignmentX = Component.LEFT_ALIGNMENT
+            panel.add(p)
+        }
         return panel
     }
+
+    private fun pluginSegment(pluginId: String, pluginName: String?): Breadcrumb.Segment {
+        val text = pluginName?.takeIf { it.isNotBlank() && it != pluginId } ?: pluginId
+        return Breadcrumb.Segment(
+            text = text,
+            icon = Breadcrumb.PLUGIN_ICON,
+            onClick = navigator?.let { nav -> { nav.selectPluginById(pluginId) } },
+        )
+    }
+
+    private fun epSegment(epName: String): Breadcrumb.Segment = Breadcrumb.Segment(
+        text = epName,
+        icon = Breadcrumb.EP_ICON,
+        onClick = navigator?.let { nav -> { nav.selectExtensionPointByName(epName) } },
+    )
 
     private fun emptyState(text: String): JComponent {
         val panel = JPanel(BorderLayout()).apply {
