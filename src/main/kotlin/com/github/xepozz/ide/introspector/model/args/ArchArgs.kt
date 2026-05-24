@@ -75,4 +75,10 @@ data class ListServicesArgs(
     val nameContains: String? = null,
     val onlyPreloaded: Boolean = false,
     val limit: Int = 500,
+@Serializable
+data class ListListenersArgs(
+    val topicContains: String? = null,
+    val providedByPluginId: String? = null,
+    val scope: String = "both",              // "application" | "project" | "both"
+    val limit: Int = 300,
 )

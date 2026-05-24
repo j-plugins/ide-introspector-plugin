@@ -1,11 +1,13 @@
 package com.github.xepozz.ide.introspector.tools
 
+import com.github.xepozz.ide.introspector.core.ListenerInspector
 import com.github.xepozz.ide.introspector.core.PluginInventory
 import com.github.xepozz.ide.introspector.core.RequirementsAnalyzer
 import com.github.xepozz.ide.introspector.model.CheckRequirementsResponse
 import com.github.xepozz.ide.introspector.model.ExtensionInfo
 import com.github.xepozz.ide.introspector.model.ListExtensionPointsResponse
 import com.github.xepozz.ide.introspector.model.ListExtensionsResponse
+import com.github.xepozz.ide.introspector.model.ListListenersResponse
 import com.github.xepozz.ide.introspector.model.ListPluginsResponse
 import com.github.xepozz.ide.introspector.model.ListServicesResponse
 import com.github.xepozz.ide.introspector.model.PluginDetails
@@ -515,6 +517,60 @@ class ArchitectureToolset : McpToolset {
             }
             .filter { !onlyPreloaded || it.preload != "FALSE" }
         return ListServicesResponse(all.take(limit), all.size)
+    @McpTool(name = "arch.list_listeners")
+    @McpDescription(
+        """
+        |Enumerates MessageBus listeners declared in plugin.xml across all loaded plugins
+        |(both <applicationListeners> and <projectListeners>). For each declaration you get
+        |the topic class FQN, the listener implementation FQN, its scope, the contributing
+        |plugin id, and the test-mode / headless-mode activation flags.
+        |
+        |Use this when: a plugin developer wants to know "who is subscribed to topic X?",
+        |"what listeners does plugin Y register?", or "why isn't my listener firing — is
+        |something else consuming the event first?". Also useful for auditing
+        |unexpected reactions to platform topics (BulkFileListener, FileEditorManagerListener,
+        |DumbService.DUMB_MODE, VirtualFileManager.VFS_CHANGES, …).
+        |
+        |Do NOT use this when: you want listeners registered programmatically via
+        |MessageBus.connect().subscribe(...) — those are NOT declared in plugin.xml and are
+        |out of scope (see the platform's MessageBusImpl for that route). Also don't use
+        |this to invoke or fire events — read-only inventory only.
+        |
+        |Returns: { listeners: ListenerInfo[], total: int }. Each ListenerInfo carries
+        |topicClass (FQN), listenerClass (FQN), scope ('application'|'project'),
+        |providedByPluginId, providedByPluginName, activeInTestMode, activeInHeadlessMode.
+        |Vanilla IDEA Community has ~200-400 plugin.xml-declared listeners — narrow with
+        |topicContains or providedByPluginId before reading the whole response.
+        |
+        |Examples:
+        |  topicContains="FileEditorManagerListener"             — who watches file-editor events
+        |  scope="project"                                       — project-scope listeners only
+        |  providedByPluginId="org.jetbrains.kotlin"             — every listener the Kotlin plugin registers
+        |  topicContains="VFS_CHANGES", scope="application"      — app-scope VFS subscribers
+        """
+    )
+    suspend fun arch_list_listeners(
+        @McpDescription("Case-insensitive substring filter on the topic class FQN (e.g. 'FileEditorManagerListener', 'VFS_CHANGES', 'BulkFileListener'). Strongly recommended — full list can be 400+.")
+        topicContains: String? = null,
+        @McpDescription("Restrict to listeners declared by this plugin id exactly (e.g. 'com.intellij', 'org.jetbrains.kotlin'). Get ids from arch.list_plugins.")
+        providedByPluginId: String? = null,
+        @McpDescription("'application', 'project', or 'both'. Default 'both'.")
+        scope: String = "both",
+        @McpDescription("Cap on returned listeners. Default 300.")
+        limit: Int = 300,
+    ): ListListenersResponse {
+        if (scope !in VALID_LISTENER_SCOPES) {
+            throw McpExpectedError(
+                "Invalid scope: '$scope'. Must be one of 'application', 'project', 'both'.",
+                JsonObject(emptyMap()),
+            )
+        }
+        val clampedLimit = limit.coerceIn(1, 5_000)
+        val all = ListenerInspector.getInstance().list()
+            .filter { scope == "both" || it.scope == scope }
+            .filter { providedByPluginId == null || it.providedByPluginId == providedByPluginId }
+            .filter { topicContains == null || it.topicClass.contains(topicContains, ignoreCase = true) }
+        return ListListenersResponse(all.take(clampedLimit), all.size)
     }
 
     private fun actionsFor(pluginId: String): List<String> = runCatching {
@@ -522,4 +578,8 @@ class ArchitectureToolset : McpToolset {
         val pid = PluginId.getId(pluginId)
         am.getPluginActions(pid).toList()
     }.getOrElse { emptyList() }
+
+    companion object {
+        private val VALID_LISTENER_SCOPES = setOf("application", "project", "both")
+    }
 }
