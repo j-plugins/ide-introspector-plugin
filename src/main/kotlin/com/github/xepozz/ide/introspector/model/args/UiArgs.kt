@@ -2,9 +2,11 @@ package com.github.xepozz.ide.introspector.model.args
 
 import kotlinx.serialization.Serializable
 
-// Note: `ui.list_tool_windows` and `ui.list_dialogs` take only inline primitive arguments
-// declared directly on their @McpTool methods (includeInvisible, nameContains, includeInvisible),
-// so they do not need dedicated @Serializable args classes here.
+// The args classes below are used by the legacy `ui.get_tree` / `ui.find_by_*` /
+// `ui.get_properties` entry points only. The newer `ui.list_tool_windows` and
+// `ui.list_dialogs` tools take inline primitive arguments declared directly on their
+// @McpTool methods (includeInvisible, nameContains, includeInvisible) and do not need
+// dedicated @Serializable args classes here.
 
 @Serializable
 data class GetUiTreeArgs(

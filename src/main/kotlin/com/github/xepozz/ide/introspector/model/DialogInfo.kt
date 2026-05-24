@@ -3,19 +3,22 @@ package com.github.xepozz.ide.introspector.model
 import kotlinx.serialization.Serializable
 
 /**
- * Lightweight semantic descriptor of one open dialog window. See [DialogsResponse].
+ * Semantic descriptor of one open dialog window. See [DialogsResponse].
  *
- * NOTE: Placeholder shape kept to unblock compilation while the `ui-semantic-listing`
- * feature is still in flight — see `docs/plans/ui-semantic-listing.md`.
+ * `id` is a [com.github.xepozz.ide.introspector.core.ComponentRegistry] handle that the
+ * caller can reuse with `ui.get_properties`, `ui.get_tree` (via `rootSelector="dialog"`),
+ * or `screenshot.capture(target='component')`. The id is stable across calls within one
+ * IDE session.
  */
 @Serializable
 data class DialogInfo(
-    val componentId: String,
+    val id: String,
     val title: String? = null,
-    val bounds: Bounds? = null,
-    val modal: Boolean = false,
-    val resizable: Boolean = false,
-    val contentClass: String? = null,
+    val isModal: Boolean,
+    val isResizable: Boolean,
+    val isShowing: Boolean,
+    val bounds: Bounds,
+    val contentClass: String,
 )
 
 @Serializable
