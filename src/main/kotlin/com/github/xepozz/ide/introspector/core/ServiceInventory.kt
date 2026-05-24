@@ -24,21 +24,32 @@ object ServiceInventory {
         return out
     }
 
+    /**
+     * Container-descriptor field names per scope. The canonical names ship in 252.x.
+     * 251.x builds called them `app` / `project` (no module-scoped container) — mirror
+     * [ListenerInspector]'s legacy-alias fallback so this tool doesn't silently return an
+     * empty list against earlier platform builds. See CLAUDE.md "Common pitfalls" /
+     * `ListenerInspector.kt:62-70`.
+     */
+    private val APP_CONTAINER_FIELDS = listOf("appContainerDescriptor", "app")
+    private val PROJECT_CONTAINER_FIELDS = listOf("projectContainerDescriptor", "project")
+    private val MODULE_CONTAINER_FIELDS = listOf("moduleContainerDescriptor")
+
     private fun collectFromPlugin(descriptor: PluginDescriptor, scope: String): List<ServiceInfo> {
         val out = mutableListOf<ServiceInfo>()
         val pluginId = descriptor.pluginId?.idString ?: "unknown"
         val pluginName = try { descriptor.name } catch (_: Throwable) { null }
 
         if (scope == "application" || scope == "all") {
-            out += runCatching { collectScope(descriptor, "appContainerDescriptor", "application", pluginId, pluginName) }
+            out += runCatching { collectScope(descriptor, APP_CONTAINER_FIELDS, "application", pluginId, pluginName) }
                 .getOrElse { emptyList() }
         }
         if (scope == "project" || scope == "all") {
-            out += runCatching { collectScope(descriptor, "projectContainerDescriptor", "project", pluginId, pluginName) }
+            out += runCatching { collectScope(descriptor, PROJECT_CONTAINER_FIELDS, "project", pluginId, pluginName) }
                 .getOrElse { emptyList() }
         }
         if (scope == "module" || scope == "all") {
-            out += runCatching { collectScope(descriptor, "moduleContainerDescriptor", "module", pluginId, pluginName) }
+            out += runCatching { collectScope(descriptor, MODULE_CONTAINER_FIELDS, "module", pluginId, pluginName) }
                 .getOrElse { emptyList() }
         }
         return out
@@ -46,12 +57,14 @@ object ServiceInventory {
 
     private fun collectScope(
         descriptor: Any,
-        containerProperty: String,
+        containerFields: List<String>,
         scopeTag: String,
         pluginId: String,
         pluginName: String?,
     ): List<ServiceInfo> {
-        val container = readContainerDescriptor(descriptor, containerProperty) ?: return emptyList()
+        val container = containerFields.asSequence()
+            .mapNotNull { readContainerDescriptor(descriptor, it) }
+            .firstOrNull() ?: return emptyList()
         val descriptors = readServicesList(container) ?: return emptyList()
         val out = mutableListOf<ServiceInfo>()
         for (sd in descriptors) {
