@@ -92,13 +92,20 @@ object UiActionInvoker {
             )
         }
 
-        // Drive `update()` explicitly and read the resulting presentation. `ActionUtil
-        // .lastUpdateAndCheckDumb` is deprecated in 252 and its dumb-aware guard now skips
-        // the update() call entirely for non-dumb-aware actions in DumbMode — meaning
-        // `event.presentation.isEnabled` can stay stale (whatever the action's template
-        // presentation initialised with) and we'd execute a disabled action.
+        // Drive update() via `ActionUtil.updateAction` rather than bare `action.update()`.
+        // The platform helper wraps update() in SlowOperations.startSection("action.update")
+        // and applyTextOverride; it also handles LightEdit-compatible disabling and the
+        // WOULD_BE_ENABLED_IF_NOT_DUMB_MODE client property — none of which bare update()
+        // would do. We deliberately do NOT use `lastUpdateAndCheckDumb(_, _, true)`: in
+        // 252 the helper internally calls `performDumbAwareUpdate(_, _, true)` which
+        // short-circuits without invoking update() (the `beforeActionPerformedUpdate`
+        // boolean is a kill switch), so update() never fires and `event.presentation
+        // .isEnabled` stays at its default `true` — which would cause the invoker to
+        // execute an action whose update() was supposed to disable it. `updateAction`
+        // is the public, non-short-circuiting wrapper and has the same SlowOperations
+        // / commit / dumb-mode guards.
         val enabled = try {
-            action.update(event)
+            ActionUtil.updateAction(action, event)
             event.presentation.isEnabled
         } catch (t: Throwable) {
             return Result(

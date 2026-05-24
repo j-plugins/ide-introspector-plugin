@@ -417,12 +417,18 @@ class UiInspectorToolset : McpToolset {
     ): InvokeActionResponse {
         val settings = UiActionSettings.getInstance()
         if (!settings.enabled) {
+            // Plan requires EVERY call to be audited — including probes against a disabled
+            // tool. Without this, an attacker (or confused agent) checking whether the
+            // tool is enabled leaves no trace in idea.log.
+            AuditLogger.recordUiAction(actionId, componentId, null, "tool-disabled", 0, null)
             throw McpExpectedError(
                 "ui.invoke_action_on is disabled. Enable in Settings → Tools → IDE Introspector → 'Allow UI action invocation'.",
                 JsonObject(emptyMap()),
             )
         }
         if (actionId.isBlank()) {
+            // Same rationale as above — record the bad-input attempt before bailing.
+            AuditLogger.recordUiAction(actionId, componentId, null, "blank-action-id", 0, null)
             throw McpExpectedError("actionId must not be blank", JsonObject(emptyMap()))
         }
 
