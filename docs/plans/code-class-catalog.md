@@ -177,24 +177,21 @@ data class ListClassesResponse(
 
 ## IntelliJ APIs used
 
-- `JavaPsiFacade.getInstance(project).findPackage(fqn)` → `PsiPackage`.
-- `PsiPackage.getClasses(GlobalSearchScope)` — top-level classes in this package.
-- `PsiPackage.subPackages` — for recursive walk.
-- `ModuleManager.getInstance(project).findModuleByName(name)`.
-- `GlobalSearchScope.moduleScope(module)` / `projectScope(project)` / `allScope(project)`.
+- `JavaPsiFacade.getInstance(project).findPackage(fqn)` → `PsiPackage`;
+  `PsiPackage.getClasses(scope)` + `PsiPackage.subPackages` for recursion.
+- `ModuleManager.findModuleByName(name)`;
+  `GlobalSearchScope.moduleScope` / `projectScope` / `allScope`.
 - `ModuleRootManager.getInstance(module).fileIndex.iterateContent { vf -> … }` —
   module-wide VFS iteration when filtering test/generated.
 - `ProjectFileIndex.isInTestSourceContent(vf)` / `isInGeneratedSourceContent(vf)`.
-- `PsiManager.findFile(vf)` cast to `PsiClassOwner` → `.classes` returns every
-  top-level `PsiClass` (Kotlin's `KtFile` implements `PsiClassOwner` via light
-  classes, so the same code handles `.java` and `.kt` uniformly).
+- `PsiManager.findFile(vf)` cast to `PsiClassOwner` → `.classes` returns top-level
+  `PsiClass`es uniformly for `.java` and `.kt` (Kotlin's `KtFile` is a `PsiClassOwner`
+  via light classes).
 - Kotlin file facade detection: `org.jetbrains.kotlin.asJava.classes.KtLightClassForFacade`
-  — accessed defensively (reflective `Class.forName` guard) so the tool still works
-  in pure-Java projects. When matched → `kind="kotlinFileFacade"`.
-- `DumbService.isDumb(project)` — surface a hint note when indexing is in progress.
+  — accessed behind `Class.forName` guard so the tool still works in pure-Java IDEs.
+- `DumbService.isDumb(project)` — surface a `note` when indexing is in progress.
 
-All stable platform API. `KtLightClassForFacade` is Kotlin-plugin-only and accessed
-behind a guard.
+All stable platform API except `KtLightClassForFacade` (Kotlin-plugin-only, guarded).
 
 ## Threading & EDT model
 

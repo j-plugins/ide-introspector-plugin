@@ -311,12 +311,10 @@ Add one line to `src/main/resources/META-INF/mcp-integration.xml`:
 
 ## References
 
-- Existing similar code: `PsiToolset.caretOffsetOf` and `PsiToolset.resolveOffset` in
-  `src/main/kotlin/com/github/xepozz/ide/introspector/tools/PsiToolset.kt` — same
-  EDT-bounce + offset-resolution pattern.
-- `EdtHelpers.onEdtBlocking` in `src/main/kotlin/com/github/xepozz/ide/introspector/util/EdtHelpers.kt`.
+- `PsiToolset.caretOffsetOf` / `PsiToolset.resolveOffset` in
+  `src/main/kotlin/.../tools/PsiToolset.kt` — same EDT-bounce + offset-resolution.
+- `EdtHelpers.onEdtBlocking` in `src/main/kotlin/.../util/EdtHelpers.kt`.
 - IntelliJ Community: `platform/platform-impl/src/com/intellij/openapi/editor/impl/CaretModelImpl.kt`,
   `platform/analysis-impl/src/com/intellij/codeInsight/daemon/impl/DaemonCodeAnalyzerImpl.java`.
-- JetBrains' built-in MCP server has `open_file_in_editor`, `replace_text_in_file`,
-  `get_open_in_editor_file_text`. None expose caret control or
-  folding/inlay/gutter state — confirms the gap this group fills.
+- JetBrains built-in MCP: `open_file_in_editor`, `replace_text_in_file`,
+  `get_open_in_editor_file_text` — none expose caret or folding/inlay/gutter state.

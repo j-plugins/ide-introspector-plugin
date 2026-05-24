@@ -2,19 +2,17 @@
 
 ## Purpose & motivation
 
-Two related PSI navigation tools filling gaps in `psi.*` AND in JetBrains' MCP
-server (which has neither). `psi.type_hierarchy` mirrors IntelliJ's Hierarchy
-tool window (Ctrl+H) — given a class, return its supertype / subtype tree.
+Two PSI navigation tools filling gaps in `psi.*` AND JetBrains' MCP server.
+`psi.type_hierarchy` mirrors IntelliJ's Ctrl+H Hierarchy window — given a class
+(FQN or position), return its supertype / subtype tree.
 `psi.goto_implementation` mirrors Ctrl+Alt+B — given a position on an
 interface, abstract class, or method, return concrete implementors / overrides.
+`psi.find_usages` with `includeImplementations=true` partially overlaps goto-impl
+but lumps overrides into a usages list, has no FQN entry point, and returns no
+multi-level tree.
 
-Today `psi.find_usages` with `includeImplementations=true` partially overlaps
-goto-impl but lumps overrides into a usages list, has no FQN entry point, and
-returns no multi-level tree.
-
-**Success criterion**: an agent answers (1) "supertype chain of
-`com.intellij.openapi.editor.Editor`?" and (2) "concrete impls of
-`FileEditorProvider`?" in one MCP call each.
+**Success criterion**: an agent answers "supertype chain of `Editor`?" and
+"concrete impls of `FileEditorProvider`?" in one MCP call each.
 
 ## Tool specification
 

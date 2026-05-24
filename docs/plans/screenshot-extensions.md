@@ -2,18 +2,18 @@
 
 ## Purpose & motivation
 
-JetBrains' built-in MCP server in 2025.2+ exposes **zero** screenshot tools —
-this group is fully our niche. The current `ScreenshotToolset` (`capture` /
-`crop`) lets an agent see the IDE but cannot point at a target ("where is the
-breadcrumb bar?") or verify a visual change ("did Toggle Sidebar actually
-toggle?"). Two helpers close that loop: `highlight` overlays a colored bbox
-around a known componentId on a fresh capture; `diff` does a pure-CPU pixel diff
-between two caller-supplied base64 PNGs and returns the composite + stats + bbox.
+JetBrains' built-in MCP server (2025.2+) ships **zero** screenshot tools — this
+group is fully our niche. Today's `ScreenshotToolset` (`capture` / `crop`) lets
+an agent see the IDE but cannot point at a target ("where is the breadcrumb
+bar?") or verify a visual change ("did Toggle Sidebar actually toggle?"). Two
+helpers close that loop: `highlight` overlays a colored bbox around a known
+componentId on a fresh capture; `diff` runs a pure-CPU pixel diff between two
+caller-supplied base64 PNGs and returns a composite + stats + bbox.
 
 **Success criteria**: (1) one MCP call `highlight(componentId=…)` produces a PNG
 with a red rectangle around the Swing component, no client-side image work.
 (2) `diff(before, after)` returns `differingPixels`, `diffPercentage`, and a
-tight `bbox` so an agent can decide "did this action have a visible effect?"
+tight `bbox` so an agent can answer "did this action have a visible effect?"
 without a multimodal round trip.
 
 ## Tool specification
@@ -159,36 +159,27 @@ boundary.
 
 ## IntelliJ APIs used
 
-- `ComponentRegistry.getInstance().lookup(id)` — existing.
-- `WindowManager.findVisibleFrame()` — existing usage in `ScreenshotToolset`.
-- `com.intellij.mcpserver.McpExpectedError` — existing.
-- `Component.getLocationOnScreen()` (JDK) — EDT-only; throws
-  `IllegalComponentStateException` if not displayable. Wrap with EDT bounce +
-  `runCatching`.
-- AWT only: `Graphics2D`, `BasicStroke`, `Color`, `Font`, `BufferedImage`,
-  `Robot`, `Rectangle`, `Base64`. No `@ApiStatus.Internal` surface.
+`ComponentRegistry.getInstance().lookup(id)`, `WindowManager.findVisibleFrame()`,
+`McpExpectedError`, `Component.getLocationOnScreen()` (EDT-only, throws
+`IllegalComponentStateException` when not displayable — wrap in EDT bounce +
+`runCatching`). Pure AWT beyond that: `Graphics2D`, `BasicStroke`, `Color`,
+`Font`, `BufferedImage`, `Robot`, `Rectangle`, `Base64`. No `@ApiStatus.Internal`.
 
-## Threading, timeout & caching
+## Threading, timeout, caching
 
-**`highlight`** — base render uses `onEdtBlocking { … }` for capture AND
-`getLocationOnScreen()` (Swing contract). The overlay draw (`drawRect` /
-`drawString` on the returned `BufferedImage`) runs OFF EDT to keep the critical
-section minimal:
+`highlight` — base render uses `onEdtBlocking { … }` for capture AND
+`getLocationOnScreen()` (Swing contract). The overlay (`drawRect` / `drawString`
+on the returned `BufferedImage`) runs OFF EDT to keep the critical section
+minimal: `val (base, origin, bounds, warns) = onEdtBlocking{…}; val annotated =
+ScreenshotCapture.drawHighlight(base, bounds, color, …); return finalise(annotated, scale)`.
 
-```
-val (base, screenOrigin, compBounds, warns) = onEdtBlocking { … }
-val annotated = ScreenshotCapture.drawHighlight(base, compBounds, color, …)
-return finalise(annotated, scale)
-```
-
-**`diff`** — pure CPU; no EDT / PSI / VFS. Decode → diff → encode on the ktor
+`diff` — pure CPU; no EDT / PSI / VFS. Decode → diff → encode on the ktor
 coroutine.
 
-**Timeout (10 s hard cap per CLAUDE.md)** — `highlight` is dominated by the
-existing `capture` cost plus ~1 ms overlay; `fitWithinBudget`'s 4-pass downscale
-already bounds total work. `diff` is O(width × height): a 4K image (~8 MP) at
-~20 ns/pixel ARGB diff ≈ 150 ms, plus ~200 ms encode → worst case <500 ms. Same
-`fitWithinBudget` cap on the output. No caching (per-call data).
+**10 s cap** (CLAUDE.md) easily met: `highlight` ≈ existing `capture` cost + ~1
+ms overlay (already bounded by `fitWithinBudget`'s 4-pass downscale). `diff` is
+O(w × h): 4K (~8 MP) at ~20 ns/pixel ≈ 150 ms diff + ~200 ms encode = <500 ms
+worst case. No caching — per-call data.
 
 ## Edge cases
 

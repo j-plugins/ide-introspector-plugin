@@ -37,35 +37,33 @@ suspend fun log_tail(
 `@McpDescription` (verbatim, trim-margin):
 
 ```
-|Returns the last N lines of the IDE's idea.log, optionally filtered by severity,
-|category substring, or a Java regex on the raw line. Tails efficiently — reads
-|only the last ~1 MB of the file from the end, even when idea.log is hundreds of
-|MB. Never instantiates services, never touches PSI, no EDT bouncing — pure I/O.
+|Returns the last N lines of the IDE's idea.log, optionally filtered by
+|severity, category substring, or a Java regex. Tails efficiently — reads only
+|the last ~1 MB from the end, even when idea.log is hundreds of MB. Never
+|instantiates services, never touches PSI, no EDT — pure I/O.
 |
-|Use this when: debugging plugin behavior, reading the `ide-introspector-audit`
+|Use this when: debugging plugin behavior, reading the ide-introspector-audit
 |entries written by exec.execute_kotlin_in_ide, watching recent output after an
-|action, hunting an exception by category, or grepping for a message. Pair with
-|log.errors_since when you only care about WARN+ since a time.
+|action, hunting an exception by category, or grepping for a message.
 |
-|Do NOT use this when: you want only errors/warnings since a time (use
+|Do NOT use this when: you only want errors/warnings since a time (use
 |log.errors_since — it groups stacktraces), or you want logs from a different
-|IDE / different user — this reads only PathManager.getLogPath()/idea.log.
+|IDE/user — this reads only PathManager.getLogPath()/idea.log.
 |
 |Returns: { logPath, lines: LogLine[], totalLinesScanned, truncated, redacted }
-|where LogLine = { timestamp ('yyyy-MM-dd HH:mm:ss,SSS' as IDEA prints it),
-|thread, severity, category, message, raw, parsed }. Stacktrace continuation
-|lines are separate LogLine entries with parsed=false; for grouping use
-|log.errors_since. `redacted=true` if a secret pattern (Bearer/token/auth) was
-|masked.
+|where LogLine = { timestamp ('yyyy-MM-dd HH:mm:ss,SSS'), thread, severity,
+|category, message, raw, parsed }. Stacktrace continuation lines are separate
+|LogLine entries with parsed=false; for grouping use log.errors_since.
+|`redacted=true` if a secret pattern was masked.
 |
-|Rotation: only the current idea.log is read; older idea.log.1 etc. are ignored
-|even when the current file has fewer than `lines` lines after a fresh rotation.
+|Rotation: only current idea.log is read; older idea.log.1 etc. are ignored
+|even when the current file has fewer than `lines` lines after fresh rotation.
 |
 |Examples:
-|  lines=200                                         — last 200 lines, no filter
-|  lines=500, severity="WARN"                        — last 500 WARN-or-worse
-|  categoryContains="ide-introspector-audit"         — our own audit trail
-|  regex="ClassNotFound|NoSuchMethod"                — linkage failures
+|  lines=200                                  — last 200 lines, no filter
+|  lines=500, severity="WARN"                 — last 500 WARN-or-worse
+|  categoryContains="ide-introspector-audit"  — our own audit trail
+|  regex="ClassNotFound|NoSuchMethod"         — linkage failures
 ```
 
 ### `log.errors_since`
