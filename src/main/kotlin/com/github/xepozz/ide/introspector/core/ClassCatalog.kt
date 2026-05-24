@@ -91,6 +91,12 @@ object ClassCatalog {
             }
             if (vf.isDirectory) return@ContentIterator true
             if (!isLikelyClassSourceFile(vf)) return@ContentIterator true
+            // Source-content guard — `iterateContent` visits resource roots and any other
+            // non-source content under the module's content roots; `.java` / `.kt` files
+            // living under `src/main/resources` or test-data trees would otherwise leak in.
+            // Also makes `packageName ?: ""` extraction below trustworthy — non-source files
+            // have no package association.
+            if (!fileIndex.isInSourceContent(vf)) return@ContentIterator true
             if (!includeTests && fileIndex.isInTestSourceContent(vf)) return@ContentIterator true
             if (!includeGenerated && fileIndex.isInGeneratedSources(vf)) return@ContentIterator true
 
@@ -192,7 +198,13 @@ object ClassCatalog {
             if (timedOut) break@outer
             if (recursive) {
                 runCatching {
-                    for (sub in pkg.subPackages) {
+                    // IMPORTANT: pass the scoped overload — the no-arg `pkg.subPackages`
+                    // ignores `includeLibraries=false` and BFSes into every JDK / library
+                    // subpackage (hundreds under `java.*`), burning the wall-clock deadline
+                    // resolving packages whose `getClasses(scope)` then correctly returns
+                    // empty. `getSubPackages(scope)` filters out subpackages that have no
+                    // members visible in our project scope.
+                    for (sub in pkg.getSubPackages(scope)) {
                         val name = sub.qualifiedName
                         if (seen.add(name)) queue.addLast(sub)
                     }
