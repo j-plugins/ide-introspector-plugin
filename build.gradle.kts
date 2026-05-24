@@ -1,4 +1,5 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import java.io.File
 
 plugins {
     id("org.jetbrains.kotlin.jvm")
@@ -44,27 +45,33 @@ dependencies {
     // and the bridge then throws "Result type X is not serializable".
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
-    // Phase 2: Kotlin runtime execution via JSR-223 ScriptEngine.
-    // kotlin-scripting-jsr223 pulls kotlin-compiler-embeddable transitively, which gives us
-    // a self-contained compiler inside the plugin's classloader, isolated from the IDE's
-    // bundled Kotlin plugin.
+    // Phase 2: Kotlin runtime execution via embedded K2 compiler — same approach as
+    // LivePlugin. We bundle kotlin-compiler-embeddable + scripting jars in the plugin zip,
+    // but a post-prepareSandbox task (see below) MOVES them out of `lib/` into a sibling
+    // `kotlin-compiler/` folder so the IntelliJ PluginClassLoader never sees them. At
+    // runtime our KotlinExecutor builds a dedicated UrlClassLoader over those jars and
+    // drives K2JVMCompiler.exec() through reflection — exactly like LivePlugin.
     //
-    // `runtimeOnly` (NOT `implementation`) is critical for two reasons:
-    //   1. The code uses only javax.script.* (standard JDK) — kotlin-scripting-jsr223 is
-    //      discovered through META-INF/services at runtime, so we never need it at compile.
-    //   2. kotlin-compiler-embeddable bundles its OWN copy of IntelliJ platform resources
-    //      (kotlinx-coroutines 1.8.x, an older `messages/JavaPsiBundle.properties`, etc.).
-    //      If those land on testRuntimeClasspath, they shadow the real IDE's copies and
-    //      every BasePlatformTestCase setUp dies at NoSuchMethodError / missing-resource.
-    //      Marking it `runtimeOnly` keeps it on the production plugin jar but OFF the test
-    //      classpath — so the IDE-provided coroutines and resources win in tests.
-    runtimeOnly("org.jetbrains.kotlin:kotlin-scripting-jsr223:2.1.20") {
-        // Same shadowing problem: scripting transitively brings upstream coroutines 1.8.x
-        // which override the IDE's JetBrains-patched build, breaking the test JVM at
-        // `ContextKt.<clinit>` (NoSuchMethodError on limitedParallelism / runBlockingWith…).
-        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
-        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
-    }
+    // `runtimeOnly` keeps these off the test classpath (they bundle older IntelliJ resources
+    // that shadow the IDE's modern ones during BasePlatformTestCase). The
+    // testRuntimeClasspath excludes below are defensive duplicates of the same intent.
+    runtimeOnly("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.21")
+    runtimeOnly("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:2.3.21")
+    runtimeOnly("org.jetbrains.kotlin:kotlin-scripting-jvm:2.3.21")
+    runtimeOnly("org.jetbrains.kotlin:kotlin-scripting-common:2.3.21")
+    runtimeOnly("org.jetbrains.kotlin:kotlin-stdlib:2.3.21")
+    runtimeOnly("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
+    // Our wrapper subproject — its jar carries EmbeddedCompiler.kt and is relocated
+    // alongside the kotlin-* jars into `kotlin-compiler/` post-prepareSandbox.
+    runtimeOnly(project(":kotlin-compiler-wrapper"))
+
+    // `@KotlinScript` annotation lives in kotlin-scripting-common; we need it at compile
+    // time on our `IntrospectorScript` template class. The annotation class isn't on the
+    // runtime classpath after the relocate task — but the JVM doesn't require annotation
+    // classes to be loaded for instances to exist (RuntimeRetention only matters when
+    // reflection tries to read it). The script compiler reads the annotation via its own
+    // classpath in kotlin-compiler/, so no conflict.
+    compileOnly("org.jetbrains.kotlin:kotlin-scripting-common:2.3.21")
 
     // docs/MCP_TOOLS.md generator — runs as part of compileKotlin; see doc-processor/.
     ksp(project(":doc-processor"))
@@ -89,12 +96,68 @@ dependencies {
 // safe because tests don't exec Kotlin scripts.
 configurations.testRuntimeClasspath {
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-compiler-embeddable")
-    exclude(group = "org.jetbrains.kotlin", module = "kotlin-scripting-jsr223")
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-scripting-compiler-embeddable")
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-scripting-compiler-impl-embeddable")
+    exclude(group = "org.jetbrains.kotlin", module = "kotlin-scripting-jvm")
+    exclude(group = "org.jetbrains.kotlin", module = "kotlin-scripting-common")
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-script-runtime")
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-daemon-embeddable")
 }
+
+// Move kotlin-compiler-embeddable + scripting + kotlin-stdlib/reflect + our wrapper jar
+// from `<sandbox>/plugins/ide-introspector/lib/` into a sibling `kotlin-compiler/` after
+// prepareSandbox. The IntelliJ PluginClassLoader only walks `lib/` — relocating these
+// keeps them OFF the plugin classpath, so there are no kotlin class duplicates between
+// our bundled compiler and the IDE's bundled Kotlin plugin. KotlinExecutor reads them via
+// `pluginPath/kotlin-compiler/` at runtime into a dedicated UrlClassLoader.
+//
+// Same approach as LivePlugin's "Move kotlin compiler jars from plugin classpath into a
+// separate folder so that there are no conflicts" task in its build.gradle.
+// The path is computed inside doLast purely with java.io.File ops (no Project script
+// references) but Gradle's configuration cache still flags closure capture. Opting out
+// for this task only is the pragmatic move — relocation is fast enough that recomputing
+// on every build is not a problem.
+val sandboxRootPath: String = layout.projectDirectory.dir(".intellijPlatform/sandbox").asFile.absolutePath
+val relocateKotlinCompilerJars = tasks.register("relocateKotlinCompilerJars") {
+    notCompatibleWithConfigurationCache("Walks live sandbox plugin tree")
+    dependsOn("prepareSandbox")
+    doLast {
+        val root = File(sandboxRootPath)
+        val pluginDir: File = root.takeIf { it.isDirectory }
+            ?.walkTopDown()
+            ?.firstOrNull { it.name == "ide-introspector" && it.parentFile?.name == "plugins" }
+            ?: error("relocateKotlinCompilerJars: no sandbox plugin dir found under $sandboxRootPath")
+        val libDir = pluginDir.resolve("lib")
+        val targetDir = pluginDir.resolve("kotlin-compiler").apply { mkdirs() }
+        val relocatablePrefixes = listOf(
+            "kotlin-compiler-embeddable",
+            "kotlin-scripting-compiler",
+            "kotlin-scripting-common",
+            "kotlin-scripting-jvm",
+            "kotlin-daemon-embeddable",
+            "kotlin-script-runtime",
+            "kotlin-stdlib",
+            "kotlin-reflect",
+            "kotlinx-coroutines",
+            "kotlin-compiler-wrapper",
+            // org.jetbrains.annotations — required by Kotlin compiler's AnnotationCodegen
+            // to emit @Nullable on generated bytecode; bundled as a Kotlin compiler
+            // transitive but must live next to the compiler, NOT in plugin classpath.
+            "annotations-",
+        )
+        val moved = mutableListOf<String>()
+        libDir.listFiles()?.forEach { f ->
+            if (f.isFile && f.name.endsWith(".jar") && relocatablePrefixes.any { f.name.startsWith(it) }) {
+                val dest = targetDir.resolve(f.name)
+                if (dest.exists()) dest.delete()
+                check(f.renameTo(dest)) { "Failed to move ${f.name} to kotlin-compiler/" }
+                moved += f.name
+            }
+        }
+        logger.lifecycle("Relocated ${moved.size} kotlin-* jars to ${targetDir.relativeTo(pluginDir)}/: ${moved.joinToString()}")
+    }
+}
+tasks.named("prepareSandbox").configure { finalizedBy(relocateKotlinCompilerJars) }
 
 intellijPlatform {
     pluginConfiguration {

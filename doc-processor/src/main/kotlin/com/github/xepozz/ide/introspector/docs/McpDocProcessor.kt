@@ -168,5 +168,5 @@ class McpDocProcessor(private val env: SymbolProcessorEnvironment) : SymbolProce
 
 class McpDocProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
-        _root_ide_package_.com.github.xepozz.ide.introspector.docs.McpDocProcessor(environment)
+        McpDocProcessor(environment)
 }

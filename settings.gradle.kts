@@ -3,6 +3,7 @@ import org.jetbrains.intellij.platform.gradle.extensions.intellijPlatform
 rootProject.name = "ide-introspector"
 
 include(":doc-processor")
+include(":kotlin-compiler-wrapper")
 
 pluginManagement {
     plugins {

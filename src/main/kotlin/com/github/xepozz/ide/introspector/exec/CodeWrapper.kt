@@ -35,9 +35,7 @@ object CodeWrapper {
                     ApplicationManager.getApplication().invokeAndWait { result = block() }
                     @Suppress("UNCHECKED_CAST") return result as T
                 }
-                return kotlin.run {
-                    $userCode
-                }
+                return $userCode
             }
         }
     """.trimIndent()

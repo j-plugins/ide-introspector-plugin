@@ -1,5 +1,4 @@
 <idea-plugin>
-    <depends optional="true" config-file="kotlin-exec.xml">org.jetbrains.kotlin</depends>
     <depends optional="true" config-file="java-introspect.xml">com.intellij.modules.java</depends>
 
     <extensions defaultExtensionNs="com.intellij">
@@ -9,5 +8,11 @@
         <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.ServicesToolset"/>
         <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.EventsToolset"/>
         <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.PsiToolset"/>
+        <!-- ExecToolset was previously gated by `kotlin-exec.xml` depending on the Kotlin
+             plugin. Kotlin scripting here uses kotlin-scripting-jsr223 via standard
+             javax.script — bundled in our plugin classloader, no Kotlin IDE plugin needed.
+             K2-mode plugin gating was therefore both unnecessary and silently disabling
+             exec on modern IDEs. Registered unconditionally now. -->
+        <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.ExecToolset"/>
     </extensions>
 </idea-plugin>
