@@ -6,6 +6,7 @@ import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Enumerates MessageBus listeners declared in `plugin.xml` (`<applicationListeners>` /
@@ -80,7 +81,10 @@ class ListenerInspector {
     ) {
         val container = containerFields.asSequence()
             .mapNotNull { ExtensionPointInspector.readField(descriptor, it) }
-            .firstOrNull() ?: return
+            .firstOrNull() ?: run {
+                warnContainerMissOnce(scope, descriptor, containerFields)
+                return
+            }
         val listeners = ExtensionPointInspector.readField(container, "listeners") as? List<*> ?: return
         for (ld in listeners) {
             if (ld == null) continue
@@ -88,6 +92,41 @@ class ListenerInspector {
             out += info
         }
     }
+
+    /**
+     * One-shot `WARN` per scope (one for `application`, one for `project`) when neither
+     * canonical nor legacy container-descriptor field resolves on the FIRST plugin we hit
+     * in that state — guards against a silent empty list if JetBrains renames the field
+     * a third time in a future build. Subsequent misses are swallowed so a stub descriptor
+     * (Android Studio fork, custom test descriptor, …) can't spam the log.
+     *
+     * The warning names the descriptor class, the fields tried, and the IDE build so a
+     * user can file an actionable bug. `ApplicationInfo` is looked up reflectively because
+     * unit tests drive `collectScope` without the IntelliJ runtime.
+     */
+    private fun warnContainerMissOnce(scope: String, descriptor: Any, fields: List<String>) {
+        val flag = if (scope == "application") appContainerMissLogged else projectContainerMissLogged
+        if (!flag.compareAndSet(false, true)) return
+        val build = runCatching {
+            val klass = Class.forName(
+                "com.intellij.openapi.application.ApplicationInfo",
+                false,
+                ListenerInspector::class.java.classLoader,
+            )
+            val info = klass.getMethod("getInstance").invoke(null)
+            klass.getMethod("getBuild").invoke(info)?.toString()
+        }.getOrNull() ?: "unknown"
+        thisLogger().warn(
+            "[ListenerInspector] $scope-scope container descriptor not found on " +
+                "${descriptor.javaClass.name}; tried fields ${fields.joinToString(", ")}. " +
+                "Likely a JetBrains field rename — arch.list_listeners will return an empty " +
+                "list for the $scope scope on this build ($build)."
+        )
+    }
+
+    /** One-shot latches — see [warnContainerMissOnce]. */
+    private val appContainerMissLogged = AtomicBoolean(false)
+    private val projectContainerMissLogged = AtomicBoolean(false)
 
     /**
      * Converts a single platform `ListenerDescriptor` (or any shape with matching field
