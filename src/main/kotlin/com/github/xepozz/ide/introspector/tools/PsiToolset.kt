@@ -1,14 +1,18 @@
 package com.github.xepozz.ide.introspector.tools
 
+import com.github.xepozz.ide.introspector.core.PsiOutlineCollector
 import com.github.xepozz.ide.introspector.core.PsiReferenceCollector
 import com.github.xepozz.ide.introspector.core.PsiStructureWalker
+import com.github.xepozz.ide.introspector.core.PsiSymbolResolver
 import com.github.xepozz.ide.introspector.core.PsiUsageSearcher
 import com.github.xepozz.ide.introspector.model.FindUsagesResponse
+import com.github.xepozz.ide.introspector.model.GetOutlineResponse
 import com.github.xepozz.ide.introspector.model.GetPsiStructureResponse
 import com.github.xepozz.ide.introspector.model.GetReferencesResponse
 import com.github.xepozz.ide.introspector.model.OpenFileInfo
 import com.github.xepozz.ide.introspector.model.OpenFilesResponse
 import com.github.xepozz.ide.introspector.util.PositionResolver
+import com.github.xepozz.ide.introspector.model.SymbolAtResponse
 import com.github.xepozz.ide.introspector.util.onEdtBlocking
 import com.github.xepozz.ide.introspector.util.readActionBlocking
 import com.intellij.mcpserver.McpExpectedError
@@ -412,6 +416,159 @@ class PsiToolset : McpToolset {
                     throw McpExpectedError(e.message ?: "No declaration at offset", JsonObject(emptyMap()))
                 }
             }
+        }
+    }
+
+    @McpTool(name = "psi.symbol_at")
+    @McpDescription(
+        """
+        |Returns ONE compact description of the symbol at a given position. Cheap one-shot:
+        |no full PSI walk, no project-wide search. Equivalent to JetBrains' `get_symbol_info`
+        |but with a richer kind taxonomy and explicit reference-vs-declaration disambiguation.
+        |
+        |Use this when:
+        |  - The user asks "what is this thing?" / "what's under the cursor?".
+        |  - You want a single FQN before calling psi.find_usages or code.get_class_source.
+        |  - You need to disambiguate "cursor on a usage vs. on the declaration itself" —
+        |    `isReference` answers this; when true, name/kind/fqn describe the resolved DECLARATION.
+        |
+        |Do NOT use this when:
+        |  - You need every reference in the file (use psi.get_references with scope="file").
+        |  - You want the full PSI subtree at this position (use psi.get_structure).
+        |  - You want all declarations in the file (use psi.get_outline).
+        |
+        |Position: pass `offset` OR `line`+`column` (1-based).
+        |
+        |Returns: SymbolAtResponse { fileUrl, offset, position {line,column}, symbol: SymbolInfo? }.
+        |SymbolInfo carries:
+        |  - name                — simple name; null for anonymous
+        |  - kind                — class | interface | enum | annotation | record | object |
+        |                          companion | method | constructor | field | property |
+        |                          parameter | variable | typeAlias | enumConstant | import |
+        |                          label | unknown
+        |  - fqn                 — FQN for top-level / member declarations; null for locals
+        |  - psiClass            — simple PSI class name ("KtNamedFunction", "PsiMethod")
+        |  - declarationRange    — absolute range of the DECLARATION in its file
+        |  - declarationFileUrl  — VFS URL of the declaration's file (may differ from request
+        |                          fileUrl when isReference=true — e.g. a jar:// URL)
+        |  - containingDeclarationName — enclosing method/class/file name for context
+        |  - modifiers           — PSI modifier set (public/protected/private/static/final/...)
+        |  - returnType          — only for method/constructor
+        |  - typeText            — only for field/property/variable/parameter
+        |  - isReference         — true if cursor is on a USAGE; name/kind/fqn describe the
+        |                          resolved declaration. false if cursor is on the declaration itself.
+        |  - docText             — KDoc / JavaDoc snippet, truncated. Null when includeDoc=false
+        |                          or no doc present. Raw text — markdown is not rendered.
+        |
+        |When the position resolves to nothing (whitespace, comment, EOF, binary file):
+        |symbol = null with a warning.
+        |
+        |Examples:
+        |  fileUrl=null, line=12, column=8     — symbol under caret at row 12 col 8 of active tab
+        |  fileUrl="file:///…/Foo.kt", offset=420
+        |  includeDoc=false                    — skip KDoc lookup for speed
+        """
+    )
+    suspend fun psi_symbol_at(
+        @McpDescription("VFS URL of the file. null → active editor tab.")
+        fileUrl: String? = null,
+        @McpDescription("Document offset. Alternative to line+column.")
+        offset: Int? = null,
+        @McpDescription("1-based line. Alternative to `offset`.")
+        line: Int? = null,
+        @McpDescription("1-based column. Alternative to `offset`.")
+        column: Int? = null,
+        @McpDescription("Include KDoc / JavaDoc text. Default true.")
+        includeDoc: Boolean = true,
+        @McpDescription("Max chars of doc text. Longer is suffixed with '…'. Default 400.")
+        truncateDocAt: Int = 400,
+    ): SymbolAtResponse {
+        require(truncateDocAt in 0..4096) { "truncateDocAt must be in 0..4096" }
+
+        val project = requireProject()
+        return readActionBlocking {
+            val (psiFile, vf, document) = resolveFile(project, fileUrl)
+            val resolvedOffset = resolveOffset(document, offset, line, column)
+            DumbService.getInstance(project).computeWithAlternativeResolveEnabled<SymbolAtResponse, RuntimeException> {
+                val resp = PsiSymbolResolver.resolveAt(
+                    psiFile = psiFile,
+                    hostDocument = document,
+                    offset = resolvedOffset,
+                    includeDoc = includeDoc,
+                    truncateDocAt = truncateDocAt,
+                )
+                // The resolver uses psiFile.virtualFile.url for fileUrl which equals vf.url —
+                // but tests should also work when the file was loaded via PSI without a backing
+                // VirtualFile (rare). Ensure we always return a fileUrl from the resolved request.
+                if (resp.fileUrl.isEmpty()) resp.copy(fileUrl = vf.url) else resp
+            }
+        }
+    }
+
+    @McpTool(name = "psi.get_outline")
+    @McpDescription(
+        """
+        |Returns the Structure View / Outline of a file — only top-level and nested declarations
+        |(classes, interfaces, methods, fields, properties, top-level functions) as a tree. Skips
+        |bodies, statements, expressions, comments — about an order of magnitude cheaper than
+        |psi.get_structure. Matches what the Structure tool window displays.
+        |
+        |Use this when:
+        |  - The user asks "what methods are in this file?" / "show me the structure of foo.kt".
+        |  - You want a navigable index of declarations before drilling in with
+        |    code.get_class_source or psi.symbol_at.
+        |  - You need a per-language outline that respects language structure-view contributions.
+        |
+        |Do NOT use this when:
+        |  - You need the AST including expressions / tokens (use psi.get_structure).
+        |  - You need one specific symbol (use psi.symbol_at).
+        |  - The file is binary / plain text without a structure view — the response will be
+        |    empty with a warning.
+        |
+        |Backed by IntelliJ's `StructureViewBuilder` / `StructureViewModel` — the same per-language
+        |extension that powers the Structure tool window. Each language plugin contributes its
+        |own treeBuilder.
+        |
+        |Returns: GetOutlineResponse { fileUrl, fileType, language, nodes: OutlineNode[], nodeCount,
+        |truncated, warnings }. Each OutlineNode carries name, kind (same taxonomy as
+        |psi.symbol_at), fqn, psiClass, declarationRange, modifiers, returnType (methods),
+        |typeText (fields/properties), children[].
+        |
+        |Cost: O(declarations). Capped at maxNodes (default 500).
+        |
+        |Examples:
+        |  fileUrl=null                              — outline of active tab
+        |  fileUrl="file:///…/Foo.kt"                — explicit file
+        |  includeFields=false                       — methods-only outline
+        |  includeInherited=true                     — fold in superclass members
+        """
+    )
+    suspend fun psi_get_outline(
+        @McpDescription("VFS URL of the file. null → active editor tab.")
+        fileUrl: String? = null,
+        @McpDescription("Include fields/properties. Default true.")
+        includeFields: Boolean = true,
+        @McpDescription("Include inherited members. Default false.")
+        includeInherited: Boolean = false,
+        @McpDescription("Max outline depth. Default 6.")
+        maxDepth: Int = 6,
+        @McpDescription("Hard cap on outline nodes. Default 500.")
+        maxNodes: Int = 500,
+    ): GetOutlineResponse {
+        require(maxDepth in 1..50) { "maxDepth must be in 1..50" }
+        require(maxNodes in 1..10_000) { "maxNodes must be in 1..10000" }
+
+        val project = requireProject()
+        return readActionBlocking {
+            val (psiFile, vf, _) = resolveFile(project, fileUrl)
+            val resp = PsiOutlineCollector.collect(
+                psiFile = psiFile,
+                includeFields = includeFields,
+                includeInherited = includeInherited,
+                maxDepth = maxDepth,
+                maxNodes = maxNodes,
+            )
+            if (resp.fileUrl.isEmpty()) resp.copy(fileUrl = vf.url) else resp
         }
     }
 

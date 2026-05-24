@@ -218,3 +218,90 @@ data class FindUsagesResponse(
     val truncated: Boolean = false,
     val warnings: List<String> = emptyList(),
 )
+
+// ============================================================================
+// psi.symbol_at + psi.get_outline
+// ============================================================================
+
+/** 1-based line / column pair — surfaces the position [com.github.xepozz.ide.introspector.tools.PsiToolset.psi_symbol_at] resolved to, regardless of how the caller asked for it. */
+@Serializable
+data class LineColumn(val line: Int, val column: Int)
+
+/**
+ * Compact description of one PSI symbol returned by `psi.symbol_at`.
+ *
+ * Kind taxonomy (mirrors what IntelliJ's Structure tool window distinguishes):
+ *   class | interface | enum | annotation | record | object | companion |
+ *   method | constructor | field | property | parameter | variable |
+ *   typeAlias | enumConstant | import | label | unknown
+ *
+ * Reference vs. declaration disambiguation: when the caret sits on a usage, `isReference=true`
+ * and the rest of the fields (name/kind/fqn/declarationRange/declarationFileUrl/…) describe
+ * the resolved DECLARATION. When the caret is on the declaration itself, `isReference=false`
+ * and those fields describe the declaration directly. Either way, the caller gets one
+ * declaration-level description per call — no follow-up resolve.
+ *
+ * `fqn` is populated for top-level / member declarations. Locals (variable, parameter) have
+ * `fqn=null`; their context comes from `containingDeclarationName`.
+ */
+@Serializable
+data class SymbolInfo(
+    val name: String?,
+    val kind: String,
+    val fqn: String? = null,
+    val psiClass: String,
+    val declarationRange: TextRangeInfo,
+    val declarationFileUrl: String,
+    val containingDeclarationName: String? = null,
+    val modifiers: List<String> = emptyList(),
+    /** Only set for method / constructor. */
+    val returnType: String? = null,
+    /** Only set for field / property / variable / parameter. */
+    val typeText: String? = null,
+    val isReference: Boolean = false,
+    val docText: String? = null,
+)
+
+@Serializable
+data class SymbolAtResponse(
+    val fileUrl: String,
+    val offset: Int,
+    val position: LineColumn,
+    val symbol: SymbolInfo? = null,
+    val warnings: List<String> = emptyList(),
+)
+
+/**
+ * One node in the outline tree returned by `psi.get_outline`.
+ *
+ * Each node is a declaration the Structure tool window would show — bodies / statements /
+ * expressions are deliberately omitted. The recursive [children] list is the same outline
+ * shape, capped collectively by the outer response's `maxNodes`. Kind values use the same
+ * vocabulary as [SymbolInfo.kind].
+ *
+ * `fqn` is null for local-scope / anonymous nodes; `returnType` is populated only for
+ * methods / constructors; `typeText` only for fields / properties.
+ */
+@Serializable
+data class OutlineNode(
+    val name: String,
+    val kind: String,
+    val fqn: String? = null,
+    val psiClass: String,
+    val declarationRange: TextRangeInfo,
+    val modifiers: List<String> = emptyList(),
+    val returnType: String? = null,
+    val typeText: String? = null,
+    val children: List<OutlineNode> = emptyList(),
+)
+
+@Serializable
+data class GetOutlineResponse(
+    val fileUrl: String,
+    val fileType: String,
+    val language: String,
+    val nodes: List<OutlineNode> = emptyList(),
+    val nodeCount: Int = 0,
+    val truncated: Boolean = false,
+    val warnings: List<String> = emptyList(),
+)
