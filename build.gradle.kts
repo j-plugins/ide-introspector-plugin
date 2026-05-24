@@ -72,6 +72,17 @@ dependencies {
         exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
     }
 
+    // exec.compile_check uses the modular Kotlin scripting host API
+    // (`BasicJvmScriptingHost` + `JvmScriptCompiler`) to get structured per-diagnostic
+    // reports (severity / line / column / factory id) that the JSR-223 `Compilable`
+    // surface collapses to a single `ScriptException`. The artifacts are already on
+    // the runtime classpath transitively via `kotlin-scripting-jsr223`; we add them
+    // as `compileOnly` so we can reference the types directly without putting a
+    // second classloader-bound copy on the production jar.
+    compileOnly("org.jetbrains.kotlin:kotlin-scripting-jvm-host:2.1.20")
+    compileOnly("org.jetbrains.kotlin:kotlin-scripting-common:2.1.20")
+    compileOnly("org.jetbrains.kotlin:kotlin-scripting-jvm:2.1.20")
+
     // docs/MCP_TOOLS.md generator — runs as part of compileKotlin; see doc-processor/.
     ksp(project(":doc-processor"))
 

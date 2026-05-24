@@ -15,6 +15,18 @@ object CodeWrapper {
     const val GENERATED_PACKAGE = "com.github.xepozz.ide.introspector.exec.generated"
     const val GENERATED_CLASS = "Plugin"
 
+    /**
+     * Number of preamble lines [wrap] emits before the `$userCode` interpolation point.
+     * Diagnostics emitted by the compiler on wrapped scripts report line numbers in the
+     * WRAPPED-script coordinate system. To convert a wrapped-script line N back to
+     * a user-snippet line, subtract this constant: userLine = N - USER_CODE_OFFSET_LINES.
+     *
+     * Counted from the template string below: lines from `package …` up to and including
+     * the `return kotlin.run {` opener — i.e. every line that exists BEFORE the
+     * `$userCode` interpolation slot.
+     */
+    const val USER_CODE_OFFSET_LINES = 20
+
     fun wrap(userCode: String): String = """
         package $GENERATED_PACKAGE
 

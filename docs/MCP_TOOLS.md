@@ -961,10 +961,13 @@ This guarantees that "compiles here" implies "compiles under exec.execute_*".
 wrap=false: the input is compiled as a raw top-level .kts script — use this
 to lint a self-contained file that already has its own imports.
 
-Diagnostic line/column with wrap=true refer to the WRAPPED script (the
-wrapper prepends ~20 lines of imports + helper declarations). Raw line
-numbers are surfaced as-is in v1; subtract the wrapper offset client-side
-if you need user-snippet coordinates.
+Diagnostic line/column with wrap=true refer to the WRAPPED script. The
+wrapper prepends exactly 20 lines of imports + helper declarations before
+the user-snippet interpolation point (see CodeWrapper.USER_CODE_OFFSET_LINES).
+To recover the user-snippet line for a diagnostic emitted inside the user
+code window, subtract 20 from the reported line client-side. Diagnostics
+with line <= 20 originate in the wrapper preamble (likely a wrapper bug
+rather than a user-code issue) — report those upstream.
 
 Returns: {
   ok: Boolean,                          // true iff zero ERROR/FATAL diagnostics

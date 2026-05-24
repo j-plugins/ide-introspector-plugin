@@ -1,11 +1,10 @@
 package com.github.xepozz.ide.introspector.exec
 
 import com.github.xepozz.ide.introspector.model.CompileCheckResponse
-import com.github.xepozz.ide.introspector.model.CompileDiagnostic
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Ignore
 import org.junit.Test
@@ -58,6 +57,9 @@ class KotlinCompileOnlyTest {
         assertFalse("syntax error must fail: $r", r.ok)
         val errs = r.diagnostics.filter { it.severity == "ERROR" || it.severity == "FATAL" }
         assertTrue("expected at least one ERROR/FATAL: $r", errs.isNotEmpty())
+        // Modular host should populate position info for syntax errors.
+        val withPos = errs.find { it.line != null }
+        assertNotNull("at least one ERROR should carry line/column: $errs", withPos)
     }
 
     @Test
@@ -68,6 +70,19 @@ class KotlinCompileOnlyTest {
         val msg = r.diagnostics.joinToString("\n") { it.message }
         assertTrue("expected message to mention 'unresolved' or 'Unresolved': $msg",
             msg.contains("nresolved"))
+    }
+
+    @Test
+    fun `multiple unresolved references produce multiple diagnostics`() = runBlocking {
+        // Two distinct unresolved references; the modular host preserves both reports
+        // (JSR-223's `Compilable.compile` only ever threw on the first error).
+        val r = KotlinCompileOnly.check(code = "foo.bar(); baz.qux()", wrap = false)
+        assertFalse("compile must fail: $r", r.ok)
+        val errs = r.diagnostics.filter { it.severity == "ERROR" || it.severity == "FATAL" }
+        assertTrue(
+            "expected at least 2 ERROR diagnostics (one per unresolved reference); got ${errs.size}: $errs",
+            errs.size >= 2,
+        )
     }
 
     @Test @Ignore("wrap=true needs IDE classpath — verify inside runIde/BasePlatformTestCase")
@@ -89,9 +104,11 @@ class KotlinCompileOnlyTest {
             wrap = false,
             timeoutMs = 1L,
             compileFn = {
-                // Block past the 1 ms deadline.
-                delay(50)
-                // Never reached.
+                // Block past the 1 ms deadline. Must be a blocking sleep (the test seam
+                // now runs on a JDK Future, not a coroutine) — and must respond to
+                // Thread.interrupt() so future.cancel(true) actually releases the worker.
+                try { Thread.sleep(500) } catch (_: InterruptedException) { /* expected */ }
+                // Never reached if cancellation interrupts; if it didn't, fall through.
                 KotlinCompileOnly.CompileOutcome(ok = true, diagnostics = emptyList())
             },
         )
@@ -128,8 +145,4 @@ class KotlinCompileOnlyTest {
             r.ok && errs.isEmpty()
         )
     }
-
-    @Suppress("unused")
-    private fun synthesize(severity: String, msg: String): CompileDiagnostic =
-        CompileDiagnostic(severity = severity, message = msg)
 }
