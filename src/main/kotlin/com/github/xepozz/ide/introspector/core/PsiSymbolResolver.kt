@@ -100,38 +100,76 @@ object PsiSymbolResolver {
     /**
      * Returns (target, isReference) — null when nothing meaningful is at the offset.
      * Records polyvariant warnings into [warnings].
+     *
+     * Resolution order:
+     *   1. Injected file under the caret → try `findReferenceAt` in the injected coordinate
+     *      space first (SQL identifier inside a Kotlin string literal, regex inside a JS
+     *      string, etc.). `PsiFile.findReferenceAt` only walks the receiver's own PSI tree —
+     *      it does NOT recurse into injections — so we must call it explicitly on the
+     *      injected file.
+     *   2. Host file's `findReferenceAt` — classic Ctrl-click on a same-file usage.
+     *   3. Walk up to the nearest [PsiNamedElement] from the injected (or host) leaf — caret
+     *      on a declaration itself.
      */
     private fun resolveTargetAt(
         psiFile: PsiFile,
         offset: Int,
         warnings: MutableList<String>,
     ): Pair<PsiElement, Boolean>? {
-        // Reference path: same as PsiUsageSearcher.resolveTarget — host-coordinate offsets,
-        // injection-aware lookups inside findReferenceAt / findElementAt.
+        val project = psiFile.project
+        val injManager = InjectedLanguageManager.getInstance(project)
+
+        // (1) Injection-aware reference lookup: if a leaf inside an injected fragment sits at
+        // the host offset, attempt to resolve a reference in the injected file's coordinate
+        // space before falling back to the host file. This honours the plan's edge case #3.
+        val injectedLeaf = injManager.findInjectedElementAt(psiFile, offset)
+        if (injectedLeaf != null) {
+            val injectedFile = injectedLeaf.containingFile
+            if (injectedFile != null && injectedFile !== psiFile) {
+                val injectedOffset = injectedLeaf.textRange?.startOffset?.let { startInInjected ->
+                    // The leaf's textRange is already in the injected file's coordinates;
+                    // bias by the difference between the host offset and the injected leaf's
+                    // host-mapped offset to land at the exact caret column inside the injection.
+                    val hostRangeOfLeaf = injManager.injectedToHost(injectedLeaf, injectedLeaf.textRange)
+                    val delta = (offset - hostRangeOfLeaf.startOffset).coerceAtLeast(0)
+                    (startInInjected + delta).coerceIn(0, injectedFile.textLength)
+                } ?: 0
+                val injectedRef = injectedFile.findReferenceAt(injectedOffset)
+                if (injectedRef != null) {
+                    val resolved = resolveReference(injectedRef, warnings)
+                    if (resolved != null) return resolved to true
+                }
+            }
+        }
+
+        // (2) Host reference path: same as PsiUsageSearcher.resolveTarget.
         val ref: PsiReference? = psiFile.findReferenceAt(offset)
         if (ref != null) {
-            val resolved = if (ref is PsiPolyVariantReference) {
-                val all = ref.multiResolve(true).mapNotNull { it.element }
-                if (all.size > 1) {
-                    warnings += "${all.size - 1} other resolutions available — use psi.get_references for the full set"
-                }
-                all.firstOrNull()
-            } else {
-                ref.resolve()
-            }
+            val resolved = resolveReference(ref, warnings)
             if (resolved != null) return resolved to true
         }
 
-        // Declaration path: walk up to the nearest named ancestor. Injection-aware: the
-        // injected leaf wins when one is registered (SQL token inside a Kotlin string).
-        val project = psiFile.project
-        val leaf = InjectedLanguageManager.getInstance(project).findInjectedElementAt(psiFile, offset)
+        // (3) Declaration path: walk up to the nearest named ancestor. Prefer the injected
+        // leaf when one exists (SQL token inside a Kotlin string).
+        val leaf = injectedLeaf
             ?: psiFile.findElementAt(offset)
             ?: return null
 
         val named = PsiTreeUtil.getNonStrictParentOfType(leaf, PsiNamedElement::class.java)
             ?: return null
         return named to false
+    }
+
+    private fun resolveReference(ref: PsiReference, warnings: MutableList<String>): PsiElement? {
+        return if (ref is PsiPolyVariantReference) {
+            val all = ref.multiResolve(true).mapNotNull { it.element }
+            if (all.size > 1) {
+                warnings += "${all.size - 1} other resolutions available — use psi.get_references for the full set"
+            }
+            all.firstOrNull()
+        } else {
+            ref.resolve()
+        }
     }
 
     /**

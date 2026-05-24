@@ -1362,7 +1362,10 @@ Examples:
   fileUrl=null                              — outline of active tab
   fileUrl="file:///…/Foo.kt"                — explicit file
   includeFields=false                       — methods-only outline
-  includeInherited=true                     — fold in superclass members
+  includeInherited=true                     — fold in inherited members via the
+                                              structure-view NodeProvider (Java only
+                                              today; other languages may contribute
+                                              none — a warning is appended).
 
 **Parameters**
 
