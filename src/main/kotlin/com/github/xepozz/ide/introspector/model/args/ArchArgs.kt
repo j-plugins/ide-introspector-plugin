@@ -68,4 +68,11 @@ data class CheckThreadingRequirementsArgs(
     val scope: String = "project",
     val includeImplementations: Boolean = true,
     val maxCallSites: Int = 500,
+@Serializable
+data class ListServicesArgs(
+    val scope: String = "all",               // "application" | "project" | "module" | "all"
+    val providedByPluginId: String? = null,
+    val nameContains: String? = null,
+    val onlyPreloaded: Boolean = false,
+    val limit: Int = 500,
 )

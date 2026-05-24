@@ -5,6 +5,7 @@ import com.github.xepozz.ide.introspector.model.ExtensionInfo
 import com.github.xepozz.ide.introspector.model.ExtensionPointInfo
 import com.github.xepozz.ide.introspector.model.PluginDependencyInfo
 import com.github.xepozz.ide.introspector.model.PluginInfo
+import com.github.xepozz.ide.introspector.model.ServiceInfo
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -24,6 +25,7 @@ class PluginInventory {
         val plugins: List<PluginInfo>,
         val extensionPoints: List<ExtensionPointInfo>,
         val extensionsByEp: Map<String, List<ExtensionInfo>>,
+        val services: List<ServiceInfo>,
     )
 
     private val cache = TtlCache<Snapshot>(ttlMs = CACHE_TTL_MS) { collect() }
@@ -36,6 +38,9 @@ class PluginInventory {
     fun extensionPoints(): List<ExtensionPointInfo> = snapshot().extensionPoints
     fun extensionsByEp(): Map<String, List<ExtensionInfo>> = snapshot().extensionsByEp
     fun extensionsForEp(name: String): List<ExtensionInfo> = extensionsByEp()[name] ?: emptyList()
+    fun services(): List<ServiceInfo> = snapshot().services
+    fun servicesByPlugin(pluginId: String): List<ServiceInfo> =
+        services().filter { it.providedByPluginId == pluginId }
 
     private fun collect(): Snapshot {
         val now = System.currentTimeMillis()
@@ -75,7 +80,9 @@ class PluginInventory {
             )
         }.sortedBy { it.name.lowercase() }
 
-        return Snapshot(now, plugins, eps, extensionsByEp)
+        val services = runCatching { ServiceInventory.listServices("all") }.getOrElse { emptyList() }
+
+        return Snapshot(now, plugins, eps, extensionsByEp, services)
     }
 
     /** Lazily computes the extensions for a single EP and updates the cache map. */

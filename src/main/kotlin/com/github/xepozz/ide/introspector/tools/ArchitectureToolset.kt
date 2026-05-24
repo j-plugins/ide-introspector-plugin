@@ -7,6 +7,7 @@ import com.github.xepozz.ide.introspector.model.ExtensionInfo
 import com.github.xepozz.ide.introspector.model.ListExtensionPointsResponse
 import com.github.xepozz.ide.introspector.model.ListExtensionsResponse
 import com.github.xepozz.ide.introspector.model.ListPluginsResponse
+import com.github.xepozz.ide.introspector.model.ListServicesResponse
 import com.github.xepozz.ide.introspector.model.PluginDetails
 import com.github.xepozz.ide.introspector.util.PositionResolver
 import com.github.xepozz.ide.introspector.util.readActionBlocking
@@ -450,6 +451,71 @@ class ArchitectureToolset : McpToolset {
             "No focused project. Open a project in this IDE first (arch.check_* tools need PSI access).",
             JsonObject(emptyMap())
         )
+
+    @McpTool(name = "arch.list_services")
+    @McpDescription(
+        """
+        |Enumerates IntelliJ services (application/project/module-scoped) declared by every
+        |loaded plugin. Per service: serviceInterface FQN, serviceImplementation FQN, scope,
+        |preload mode, test/headless/overriding implementations, and the contributing plugin id.
+        |Reads from PluginDescriptor.containerDescriptor.services — never instantiates a service
+        |(safe even for half-broken third-party plugins).
+        |
+        |Use this when: a user asks "what services does plugin X expose?", "where is the
+        |implementation of service Y?", "which services are application-level vs project-level?",
+        |"what preloads at startup?" — i.e. service-layer plugin-architecture exploration. This
+        |is the service-shaped counterpart of arch.list_extension_points.
+        |
+        |Follow-up tools:
+        |  - arch.get_plugin_details      — full inventory for one plugin (EPs + extensions)
+        |  - arch.list_extension_points   — for non-service extensibility hooks
+        |
+        |Do NOT use this when: you want extension points (use arch.list_extension_points),
+        |plugin metadata (arch.list_plugins / arch.get_plugin_details), or actions
+        |(arch.list_actions). Service implementation classes are NOT auto-instantiated by this
+        |tool: do not use it to "fetch" a service instance. @Service-annotated light services
+        |registered without plugin.xml are NOT enumerated here (see arch.find_extenders_of).
+        |
+        |Returns: { services: ServiceInfo[], total: int } where each ServiceInfo has
+        |serviceInterface (FQCN; equals serviceImplementation when XML omits the interface),
+        |serviceImplementation (FQCN), scope ('application'|'project'|'module'), preload
+        |('FALSE'|'TRUE'|'NOT_HEADLESS'|'NOT_LIGHT_EDIT'|'AWAIT'), overrides (boolean),
+        |testServiceImplementation (FQCN or null), headlessImplementation (FQCN or null),
+        |providedByPluginId, providedByPluginName.
+        |
+        |Vanilla IDEA Community has 1000+ services — narrow with nameContains ("Psi", "Project",
+        |"Editor") and/or providedByPluginId before reading, or rely on limit (default 500).
+        |
+        |Examples:
+        |  scope="application", nameContains="Psi"                   — application-scoped PSI services
+        |  providedByPluginId="org.jetbrains.kotlin"                 — every service the Kotlin plugin registers
+        |  scope="project", onlyPreloaded=true                       — project services that preload eagerly
+        |  nameContains="ToolWindow", scope="all"                    — services matching ToolWindow at any scope
+        """
+    )
+    suspend fun arch_list_services(
+        @McpDescription("Service scope filter: 'application', 'project', 'module', or 'all'. Default 'all'.")
+        scope: String = "all",
+        @McpDescription("Restrict to services contributed by this plugin id (e.g. 'com.intellij', 'org.jetbrains.kotlin').")
+        providedByPluginId: String? = null,
+        @McpDescription("Case-insensitive substring filter on serviceInterface OR serviceImplementation FQN. Strongly recommended — IDEA ships 1000+ services.")
+        nameContains: String? = null,
+        @McpDescription("Include services with preload != FALSE only. Default false.")
+        onlyPreloaded: Boolean = false,
+        @McpDescription("Cap on returned services. Default 500.")
+        limit: Int = 500,
+    ): ListServicesResponse {
+        val all = PluginInventory.getInstance().services()
+            .filter { scope == "all" || it.scope == scope }
+            .filter { providedByPluginId == null || it.providedByPluginId == providedByPluginId }
+            .filter {
+                val q = nameContains ?: return@filter true
+                it.serviceInterface.contains(q, ignoreCase = true) ||
+                    it.serviceImplementation.contains(q, ignoreCase = true)
+            }
+            .filter { !onlyPreloaded || it.preload != "FALSE" }
+        return ListServicesResponse(all.take(limit), all.size)
+    }
 
     private fun actionsFor(pluginId: String): List<String> = runCatching {
         val am = ActionManagerEx.getInstanceEx()
