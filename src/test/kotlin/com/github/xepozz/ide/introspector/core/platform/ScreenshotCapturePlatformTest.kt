@@ -31,7 +31,7 @@ import java.awt.image.BufferedImage
  *   * `captureComponent` — covered by `ScreenshotCaptureSwingTest`.
  *   * `captureRect` — uses `java.awt.Robot`, which requires a display device. Marked `@Ignore`
  *     below so the limitation is visible in the test report.
- *   * `fitWithinBudget` / `encodedSize` — covered by `ImageBudgetTest`.
+ *   * `writePngToTempFile` / `pruneOldScreenshots` — covered by `util.ImageEncodingTest`.
  */
 class ScreenshotCapturePlatformTest : BasePlatformTestCase() {
 

@@ -3,11 +3,16 @@ package com.github.xepozz.ide.introspector.core
 import com.github.xepozz.ide.introspector.core.internal.TtlCache
 import com.github.xepozz.ide.introspector.model.ExtensionInfo
 import com.github.xepozz.ide.introspector.model.ExtensionPointInfo
+import com.github.xepozz.ide.introspector.model.ListenerInfo
 import com.github.xepozz.ide.introspector.model.PluginDependencyInfo
 import com.github.xepozz.ide.introspector.model.PluginInfo
+import com.github.xepozz.ide.introspector.model.ServiceInfo
+import com.github.xepozz.ide.introspector.model.TopicInfo
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
+import com.intellij.openapi.extensions.PluginId
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Application-level cache of plugin + EP + extension data. Both the MCP arch.* tools
@@ -24,18 +29,66 @@ class PluginInventory {
         val plugins: List<PluginInfo>,
         val extensionPoints: List<ExtensionPointInfo>,
         val extensionsByEp: Map<String, List<ExtensionInfo>>,
+        val servicesByPluginId: Map<String, List<ServiceInfo>>,
+        val listenersByPluginId: Map<String, List<ListenerInfo>>,
     )
 
     private val cache = TtlCache<Snapshot>(ttlMs = CACHE_TTL_MS) { collect() }
+    // Light-service walk is non-deterministic (depends on what's been touched in the IDE).
+    // Kept on a shorter TTL and separate from the deterministic snapshot.
+    private val lightServiceCache = TtlCache<List<ServiceInfo>>(ttlMs = LIGHT_SERVICE_TTL_MS) {
+        val xmlImpls = snapshot().servicesByPluginId.values.asSequence()
+            .flatten().map { it.implementationClass }.toSet()
+        ServiceInspector.listLightInstantiated(xmlImpls)
+    }
+    // Topics scanning walks every plugin's classpath and is expensive — kept OUT of the
+    // main snapshot. Computed on demand per plugin and cached forever (until refresh()),
+    // since a plugin's declared topics don't change while the IDE is running.
+    private val topicsByPluginCache = ConcurrentHashMap<String, List<TopicInfo>>()
 
     fun snapshot(forceRefresh: Boolean = false): Snapshot = cache.get(forceRefresh)
 
-    fun refresh() { cache.invalidate(); cache.get() }
+    fun refresh() {
+        cache.invalidate()
+        lightServiceCache.invalidate()
+        topicsByPluginCache.clear()
+        cache.get()
+    }
 
     fun plugins(): List<PluginInfo> = snapshot().plugins
     fun extensionPoints(): List<ExtensionPointInfo> = snapshot().extensionPoints
     fun extensionsByEp(): Map<String, List<ExtensionInfo>> = snapshot().extensionsByEp
     fun extensionsForEp(name: String): List<ExtensionInfo> = extensionsByEp()[name] ?: emptyList()
+
+    fun services(): List<ServiceInfo> = snapshot().servicesByPluginId.values.flatten()
+    fun listeners(): List<ListenerInfo> = snapshot().listenersByPluginId.values.flatten()
+    fun servicesByPlugin(pluginId: String): List<ServiceInfo> =
+        snapshot().servicesByPluginId[pluginId] ?: emptyList()
+    fun listenersByPlugin(pluginId: String): List<ListenerInfo> =
+        snapshot().listenersByPluginId[pluginId] ?: emptyList()
+    /**
+     * Returns topics declared by [pluginId], scanning the plugin's classpath on first
+     * request and caching the result. Returns empty if the plugin id is unknown or its
+     * descriptor exposes no classloader.
+     */
+    fun topicsByPlugin(pluginId: String): List<TopicInfo> = topicsByPluginCache.computeIfAbsent(pluginId) {
+        val descriptor = PluginManagerCore.getPlugin(PluginId.getId(pluginId)) ?: return@computeIfAbsent emptyList()
+        TopicInspector.listForPlugin(descriptor)
+    }
+
+    /**
+     * Flattens topics across *already-scanned* plugins. Does NOT trigger scans for
+     * unseen plugins — call [topicsByPlugin] (or [scanTopicsForPlugins]) first.
+     */
+    fun topics(): List<TopicInfo> = topicsByPluginCache.values.flatten()
+
+    /** Forces topic scanning for the given plugin ids (each cached on first call). */
+    fun scanTopicsForPlugins(pluginIds: Collection<String>) {
+        for (id in pluginIds) topicsByPlugin(id)
+    }
+
+    /** Light services already created in this IDE session. Non-deterministic, separate TTL. */
+    fun lightInstantiatedServices(): List<ServiceInfo> = lightServiceCache.get()
 
     private fun collect(): Snapshot {
         val now = System.currentTimeMillis()
@@ -51,6 +104,15 @@ class PluginInventory {
         // Count EPs and extensions per plugin for the PluginInfo summary fields.
         val declaredCountByPluginId = eps.groupingBy { it.declaredByPluginId }.eachCount()
 
+        val servicesByPluginId = mutableMapOf<String, MutableList<ServiceInfo>>()
+        for (s in ServiceInspector.listAll()) {
+            servicesByPluginId.getOrPut(s.providedByPluginId) { mutableListOf() }.add(s)
+        }
+        val listenersByPluginId = mutableMapOf<String, MutableList<ListenerInfo>>()
+        for (l in ListenerInspector.listAll()) {
+            listenersByPluginId.getOrPut(l.providedByPluginId) { mutableListOf() }.add(l)
+        }
+
         @Suppress("UnstableApiUsage")
         val plugins = PluginManagerCore.plugins.map { descriptor ->
             val depList = descriptor.dependencies
@@ -60,9 +122,10 @@ class PluginInventory {
                         optional = dep.isOptional,
                     )
                 }
+            val id = descriptor.pluginId.idString
             PluginInfo(
-                id = descriptor.pluginId.idString,
-                name = descriptor.name ?: descriptor.pluginId.idString,
+                id = id,
+                name = descriptor.name ?: id,
                 version = descriptor.version,
                 vendor = descriptor.vendor,
                 isBundled = descriptor.isBundled,
@@ -70,12 +133,22 @@ class PluginInventory {
                 sinceBuild = descriptor.sinceBuild,
                 untilBuild = descriptor.untilBuild,
                 dependencies = depList,
-                declaredExtensionPointsCount = declaredCountByPluginId[descriptor.pluginId.idString] ?: 0,
+                declaredExtensionPointsCount = declaredCountByPluginId[id] ?: 0,
                 registeredExtensionsCount = 0,             // computed lazily when needed
+                servicesCount = servicesByPluginId[id]?.size ?: 0,
+                listenersCount = listenersByPluginId[id]?.size ?: 0,
+                topicsCount = topicsByPluginCache[id]?.size ?: 0,
             )
         }.sortedBy { it.name.lowercase() }
 
-        return Snapshot(now, plugins, eps, extensionsByEp)
+        return Snapshot(
+            takenAtMs = now,
+            plugins = plugins,
+            extensionPoints = eps,
+            extensionsByEp = extensionsByEp,
+            servicesByPluginId = servicesByPluginId.mapValues { it.value.toList() },
+            listenersByPluginId = listenersByPluginId.mapValues { it.value.toList() },
+        )
     }
 
     /** Lazily computes the extensions for a single EP and updates the cache map. */
@@ -103,6 +176,7 @@ class PluginInventory {
 
     companion object {
         const val CACHE_TTL_MS = 30_000L
+        const val LIGHT_SERVICE_TTL_MS = 10_000L
         fun getInstance(): PluginInventory = service()
 
         /** [IdeaPluginDescriptor.isEnabled] is deprecated; check via [PluginManagerCore.isDisabled]. */
