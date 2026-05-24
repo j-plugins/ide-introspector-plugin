@@ -22,17 +22,13 @@ multi-level tree.
 @McpTool(name = "psi.type_hierarchy")
 @McpDescription("""…verbatim below…""")
 suspend fun psi_type_hierarchy(
-    target: String? = null,                 // FQN; takes precedence over position
-    fileUrl: String? = null,                // null → active editor tab
-    offset: Int? = null,                    // OR line+column
-    line: Int? = null, column: Int? = null,
-    direction: String = "both",             // "up" | "down" | "both"
-    scope: String = "project",              // "file" | "project" | "all"
+    target: String? = null, fileUrl: String? = null,
+    offset: Int? = null, line: Int? = null, column: Int? = null,
+    direction: String = "both", scope: String = "project",
     maxDepth: Int = 5, maxNodes: Int = 200,
 ): TypeHierarchyResponse
 ```
-Per-parameter `@McpDescription` strings are concise (one line each, matching
-the descriptions in the args table further down).
+Per-parameter `@McpDescription` strings are one-liners matching the args table below.
 
 
 `@McpDescription` (verbatim — trim-margin, the reflection bridge strips margins):
@@ -83,27 +79,25 @@ the descriptions in the args table further down).
 @McpTool(name = "psi.goto_implementation")
 @McpDescription("""…verbatim below…""")
 suspend fun psi_goto_implementation(
-    fileUrl: String? = null,            // null → active editor tab
-    offset: Int? = null,                // OR line+column
-    line: Int? = null, column: Int? = null,
-    scope: String = "project",          // "file" | "project" | "all"
-    maxResults: Int = 200,
+    fileUrl: String? = null,
+    offset: Int? = null, line: Int? = null, column: Int? = null,
+    scope: String = "project", maxResults: Int = 200,
 ): GotoImplementationResponse
 ```
 
 `@McpDescription` (verbatim):
 
 ```
-|Returns every concrete implementation / override of the symbol at a given
-|position — interfaces and abstract classes resolve to their concrete extenders,
-|abstract / interface methods resolve to their concrete overrides. Equivalent
-|to IntelliJ's Ctrl+Alt+B "Goto Implementation".
+|Returns every concrete implementation / override of the symbol at a position —
+|interfaces and abstract classes resolve to concrete extenders, abstract /
+|interface methods resolve to concrete overrides. Equivalent to IntelliJ's
+|Ctrl+Alt+B "Goto Implementation".
 |
 |Use this when:
-|  - You see an interface or abstract method and need the concrete implementors.
+|  - You see an interface / abstract method and need the concrete implementors.
 |  - The agent is tracing a call graph through an abstraction boundary.
-|  - You want a focused answer to "what overrides this method?" without the
-|    noise of usages / reference sites that psi.find_usages would return.
+|  - You want "what overrides this method?" without the noise of usages /
+|    reference sites that psi.find_usages would return.
 |
 |Do NOT use this when:
 |  - You want call sites of a method — use psi.find_usages.
@@ -111,24 +105,22 @@ suspend fun psi_goto_implementation(
 |  - The caret is on a concrete final method — there are no overrides.
 |
 |Position: pass `offset` OR `line`+`column`. The caret may be on a class /
-|interface declaration or reference (returns subclasses / implementors), or on
-|a method declaration / call site (returns overriding methods). Reported in
-|`target.kind` ("class" | "method").
+|interface decl or ref (returns subclasses / implementors), or on a method decl
+|or call site (returns overriding methods). Reported in `target.kind`
+|("class" | "method").
 |
-|Scope (default "project"):
-|  - "project" — project sources only. What Ctrl+Alt+B uses by default.
-|  - "all"     — includes library sources; on a JDK / platform symbol this can
-|                saturate the 10s read-action timeout. Warning is appended.
-|  - "file"    — same file only.
+|Scope (default "project"): "project" (default — matches Ctrl+Alt+B), "all"
+|(includes library sources; on JDK / platform symbols can saturate the 10s
+|timeout — warning appended), "file" (rare).
 |
 |Returns: { target: ImplementationTarget, implementations: ImplementationInfo[],
 |scope, total, truncated, warnings[] }. Sorted by (fileUrl, range). For method
-|targets `signature` uses the *erasure* shown in the overrider's source —
-|generic substitution is not normalised across interface/impl boundaries.
+|targets `signature` uses the *erasure* shown in the overrider's source — no
+|cross-boundary generic unification.
 |
 |Examples:
 |  fileUrl=null, line=10, column=18         — overrides of method at row 10
-|  fileUrl=null, line=5,  column=12         — implementors of interface name on row 5
+|  fileUrl=null, line=5,  column=12         — implementors of interface at row 5
 |  scope="all", maxResults=50               — include library overrides, capped
 ```
 
@@ -184,25 +176,24 @@ Validation: `direction` ∈ {up,down,both}; `scope` ∈ {file,project,all};
 
 ## IntelliJ APIs used (Java + Kotlin paths)
 
-| Need | API | Notes |
-|------|-----|-------|
-| FQN → class | `JavaPsiFacade.getInstance(project).findClass(fqn, allScope)` | stable |
-| Supertypes | `PsiClass.getSupers(): Array<PsiClass>`, recurse for depth | stable |
-| Subtypes | `ClassInheritorsSearch.search(psiClass, scope, /*checkDeep=*/false)` | same query Hierarchy uses |
-| Method overrides | `OverridingMethodsSearch.search(psiMethod, scope, true)` | stable |
-| Class impls | `DefinitionsScopedSearch.search(element, scope, true)` | backs Ctrl+Alt+B |
-| Scope | `GlobalSearchScope.{fileScope,projectScope,allScope}` / `LocalSearchScope` | stable |
-| Modifiers | reuse `core/PsiModifiers.kt` | local |
+- FQN → class: `JavaPsiFacade.getInstance(project).findClass(fqn, allScope)` (stable).
+- Supertypes: `PsiClass.getSupers(): Array<PsiClass>`, recurse for depth (stable).
+- Subtypes: `ClassInheritorsSearch.search(psiClass, scope, /*checkDeep=*/false)` —
+  same query the Hierarchy window uses; recurse manually to bound depth.
+- Method overrides: `OverridingMethodsSearch.search(psiMethod, scope, true)` (stable).
+- Class impls (interfaces / abstract classes): `DefinitionsScopedSearch.search(element, scope, true)` —
+  backs Ctrl+Alt+B; covers Kotlin via `KtClassOrObject` light wrappers.
+- Scope: `GlobalSearchScope.{fileScope,projectScope,allScope}` / `LocalSearchScope`.
+- Modifiers: reuse `core/PsiModifiers.kt`.
 
-**Kotlin uniformity**: `KtClass` / `KtClassOrObject` / `KtNamedFunction` are
-exposed to all the above via the platform light-class adapters (`KtLightClass`,
-`KtLightMethod`) — no Kotlin-plugin link-time dep. Sealed detection: simple-name
-probe on `"KtClass"` for `SEALED_KEYWORD` plus `PsiClass.hasModifierProperty("sealed")`
-for Java 17+ sealed — same no-link-time-dep pattern as `PsiUsageSearcher.isLocalVariableLike`.
+**Kotlin uniformity**: `KtClass` / `KtClassOrObject` / `KtNamedFunction` flow
+through the platform light-class adapters (`KtLightClass`, `KtLightMethod`) —
+no Kotlin link-time dep needed. Sealed detection: simple-name probe on
+`"KtClass"` for `SEALED_KEYWORD` plus `PsiClass.hasModifierProperty("sealed")`
+for Java 17+ sealed (same pattern as `PsiUsageSearcher.isLocalVariableLike`).
 Position resolution reuses `PsiToolset.resolveFile` / `resolveOffset` and
-`PsiUsageSearcher.resolveTarget`'s follow-ref-or-named-ancestor walk, restricted
-to `PsiClass` (type_hierarchy + class-mode goto_impl) or `PsiMethod`
-(method-mode goto_impl).
+`PsiUsageSearcher.resolveTarget`'s follow-ref-or-named-ancestor walk,
+restricted to `PsiClass` or `PsiMethod` depending on tool mode.
 
 ## Threading & timeout
 
@@ -210,18 +201,15 @@ No EDT. Both run inside `readActionBlocking { … }` and wrap each search in
 `DumbService.computeWithAlternativeResolveEnabled<R, RuntimeException> { … }` —
 same as `psi_find_usages`. All `*Search` APIs respect the read-action context
 and check PCE per result, so the 10 s readAction cap propagates cleanly. No
-caching (state-dependent).
-
-Hard 10 s cap (CLAUDE.md). Risky surface: `ClassInheritorsSearch` /
+caching (state-dependent). Risky surface: `ClassInheritorsSearch` /
 `DefinitionsScopedSearch` / `OverridingMethodsSearch` on a hot interface in
 `scope="all"` (`List`, `Object`, `Object.toString()`) saturates the budget.
-Mitigations: default `scope="project"` (matches IntelliJ Hierarchy default);
-hard caps `maxNodes=200` / `maxResults=200` trip `truncated=true`; `scope="all"`
-appends a warning even on success so the agent learns to narrow on follow-ups;
-`java.lang.Object` subtype walk rejected with warning; per-result PCE check in
-each `Query.forEach(Processor { … })` stops the moment a cap trips. If a caller
-genuinely needs more than 10 s, the answer is narrower scope or paging — not a
-higher timeout.
+Mitigations: default `scope="project"` (matches Hierarchy default); hard caps
+`maxNodes=200` / `maxResults=200` trip `truncated=true`; `scope="all"` always
+appends a warning so the agent learns to narrow on follow-ups; `java.lang.Object`
+subtype walk rejected with warning; per-result PCE check in each
+`Query.forEach(Processor { … })` stops the moment a cap trips. If a caller
+genuinely needs more than 10 s, narrow the scope — don't raise the timeout.
 
 ## Edge cases
 

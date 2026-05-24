@@ -22,23 +22,17 @@ without a multimodal round trip.
 
 ```kotlin
 @McpTool(name = "screenshot.highlight")
-@McpDescription("""…see below…""")
+@McpDescription("""…verbatim below…""")
 suspend fun screenshot_highlight(
-    @McpDescription("Stable id from a prior ui.find_by_* / ui.get_tree call. Resolved via ComponentRegistry — must still be attached.")
-    componentId: String,
-    @McpDescription("'component' | 'active_frame' | 'screen'. 'all_frames' is rejected (ambiguous coords).")
-    target: String = "active_frame",
-    @McpDescription("Box color as CSS hex ('#FF0000', '#F00') or named ('red', 'lime'). Default '#FF0000'. Invalid → red + warning.")
-    color: String = "#FF0000",
-    @McpDescription("Box stroke thickness in source-image pixels. Clamped to 1..20. Default 3.")
-    thickness: Int = 3,
-    @McpDescription("Optional label rendered just above the box (below if no headroom). UTF-8 truncated at 80 chars; newlines collapsed.")
-    label: String? = null,
-    @McpDescription("Post-render scale applied AFTER the highlight is drawn, so the stroke scales with it.")
-    scale: Double = 1.0,
-    @McpDescription("Image format. Only 'png' in v1.")
-    format: String = "png",
+    componentId: String,                     // ComponentRegistry id; must still be attached
+    target: String = "active_frame",         // 'component'|'active_frame'|'screen'; 'all_frames' rejected
+    color: String = "#FF0000",               // CSS hex or named; invalid → red + warning
+    thickness: Int = 3,                      // source-px stroke, clamped 1..20
+    label: String? = null,                   // UTF-8-truncated to 80, newlines collapsed
+    scale: Double = 1.0,                     // applied AFTER overlay so stroke scales too
+    format: String = "png",                  // only 'png' in v1
 ): ImagePayload
+// Each parameter carries an @McpDescription matching the prose above.
 ```
 
 `@McpDescription` verbatim (trim-margin):
@@ -84,21 +78,16 @@ Response: existing `ImagePayload`. Box geometry not serialized (caller-supplied)
 
 ```kotlin
 @McpTool(name = "screenshot.diff")
-@McpDescription("""…see below…""")
+@McpDescription("""…verbatim below…""")
 suspend fun screenshot_diff(
-    @McpDescription("Base64-encoded PNG of the 'before' state. Typically the base64 field of a prior screenshot.capture response.")
-    before: String,
-    @McpDescription("Base64-encoded PNG of the 'after' state.")
-    after: String,
-    @McpDescription("Per-channel tolerance (0..255). Default 8 — masks JBR anti-aliased text jitter. Clamped silently.")
-    tolerance: Int = 8,
-    @McpDescription("CSS hex / named color used to tint differing pixels. Default '#FF0000'.")
-    highlightColor: String = "#FF0000",
-    @McpDescription("0.0..1.0 alpha of the grayscale base before compositing. Default 0.4. Clamped silently.")
-    baseTransparency: Float = 0.4f,
-    @McpDescription("Size mismatch: 'resize' (bilinear scale after→before), 'pad' (top-left align, OOB transparent), 'error' (throw). Default 'resize'.")
-    sizeMismatchPolicy: String = "resize",
+    before: String,                          // base64 PNG (typically a prior capture.base64)
+    after: String,                           // base64 PNG
+    tolerance: Int = 8,                      // per-channel 0..255, clamped; masks AA jitter
+    highlightColor: String = "#FF0000",      // CSS hex / named; invalid → red + warning
+    baseTransparency: Float = 0.4f,          // 0.0..1.0, clamped; alpha of grayscale base
+    sizeMismatchPolicy: String = "resize",   // 'resize' | 'pad' | 'error'
 ): ImageDiffPayload
+// Each parameter carries an @McpDescription matching the prose above.
 ```
 
 `@McpDescription` verbatim:
@@ -221,59 +210,50 @@ join the existing `ScreenshotToolset` already registered by `META-INF/mcp-integr
 
 ## Test plan
 
-`ImageDifferTest` (unit): identical 8×8 → no diff + null bbox; single pixel
-change → 1×1 bbox; 3×3 block at (5,5) → `{5,5,3,3}`; `tolerance=10` masks +5
-per-channel, `tolerance=4` reports it; size mismatch — `error` throws, `resize`
-returns resized stats, `pad` counts OOB transparent-vs-opaque as diff; alpha
-255→128 counts at `tolerance=0` not `128`; highlight tint applied (channel >
-thresh at changed-block center).
+`ImageDifferTest` (unit): identical 8×8 → null bbox; one-pixel change → 1×1
+bbox; 3×3 block at (5,5) → `{5,5,3,3}`; `tolerance=10` masks +5 per-channel,
+`tolerance=4` reports it; size mismatch — `error` throws, `resize` returns
+resized stats, `pad` counts OOB transparent-vs-opaque; alpha 255→128 counts at
+`tolerance=0` not `128`; highlight tint at changed-block center > thresh.
 
-`ScreenshotHighlightTest` (unit): `drawHighlight` on 100×100 white, bounds
-`(10,10,30,30)` red thickness 2 — pixel `(10,10)` red, `(50,50)` white;
-zero-size bounds draws marker; bounds clipped to edge doesn't throw + emits
-warning; label placed above when headroom, inside-top when not.
+`ScreenshotHighlightTest` (unit): `drawHighlight` 100×100 white, bounds
+`(10,10,30,30)` red thickness 2 — `(10,10)` red, `(50,50)` white; zero-size →
+marker; clipped bounds → warning, no throw; label above with headroom, inside-
+top without.
 
-`ColorParsingTest` (unit table): `#FF0000` / `#f00` / `#FF0000FF` → red;
-case-insensitive `red`/`RED` → red; `lime` → `(0,255,0)`; `"not a color"` /
-`#GGG` / `""` → null.
+`ColorParsingTest` (unit table): hex `#FF0000` / `#f00` / `#FF0000FF` → red;
+case-insensitive `red`/`RED`; `lime` → `(0,255,0)`; junk → null.
 
 `ScreenshotHighlightPlatformTest` (`BasePlatformTestCase`): register a `JButton`
-in a JFrame, call `screenshot_highlight target="component"`, decode PNG, assert
-stroke pixel on box edge; `target="active_frame"` — verify size + colored
-stripe; `componentId="nonexistent"` → `McpExpectedError`. `diff` is pure CPU —
-units cover it; no platform test.
+in a JFrame, call `target="component"`, decode PNG, assert stroke pixel on box
+edge; `target="active_frame"` verifies size + colored stripe;
+`componentId="nonexistent"` → `McpExpectedError`. `diff` is pure CPU — units
+cover it; no platform test.
 
 ## Estimated effort
 
-ColorParsing + tests 1 h; `drawHighlight` + tests 1.5 h; `ImageDiffer` + tests
-2.5 h; `ImageDiffPayload` + args 0.5 h; two `@McpTool` methods + descriptions
-1.5 h; platform test 1 h; doc-gen verify + manual smoke 0.5 h. **Total ≈ 1 day.**
+ColorParsing+tests 1h; `drawHighlight`+tests 1.5h; `ImageDiffer`+tests 2.5h;
+`ImageDiffPayload`+args 0.5h; two `@McpTool` methods + descriptions 1.5h;
+platform test 1h; doc-gen verify + smoke 0.5h. **Total ≈ 1 day.**
 
 ## Open questions / risks
 
-1. **Multiple componentIds per highlight call?** Useful for "show A, B and C"
-   but multiplies arg surface. **v1: single**; add `highlight_many` later if
-   demanded.
-2. **Crop diff to bbox before returning?** Shrinks responses for small changes
-   but loses spatial context. **Default: full-frame composite**; add
-   `cropToBbox: Boolean = false` follow-up arg if budget pain appears.
-3. **AA on the highlight rectangle** — `VALUE_ANTIALIAS_ON` looks cleaner at
-   non-1.0 `scale` but fuzzes stroke edges. **Decision: AA on**; tests sample
-   box interior, not stroke edge.
-4. **Native screen DPI vs JBR HiDPI** — `target="screen"` (Robot) returns
-   physical pixels; `target="active_frame"` returns logical. Existing `capture`
-   has this; inherited and documented if reported.
-5. **Default `tolerance=8`** is a guess; validate in platform smoke and bump to
-   `12` if a noop "before vs immediately-after" exceeds 0.1% diff.
+(1) **Multiple componentIds per highlight call?** Multiplies arg surface; v1
+**single** — add `highlight_many` later if demanded. (2) **Crop diff to bbox
+before returning?** Shrinks responses for small changes but loses spatial
+context; **default: full-frame composite**; add `cropToBbox: Boolean = false`
+follow-up arg if budget pain appears. (3) **AA on highlight rectangle** —
+`VALUE_ANTIALIAS_ON` looks cleaner but fuzzes stroke edges; **decision: AA on**,
+tests sample box interior. (4) **Native DPI vs JBR HiDPI** — `target="screen"`
+(Robot) returns physical pixels, `target="active_frame"` returns logical;
+existing `capture` has this and we inherit. (5) **Default `tolerance=8`** is a
+guess; bump to `12` if platform-smoke noop comparison exceeds 0.1% diff.
 
 ## References
 
-Existing code: `tools/ScreenshotToolset.kt` (`screenshot_capture` render path +
-`finalise()`; `screenshot_crop` coord-space / clip math),
-`core/ScreenshotCapture.kt#fitWithinBudget`, `core/ComponentRegistry.kt#lookup`,
-`util/ImageEncoding.kt` (`encodePngBase64`, `scaleImage`),
-`util/EdtHelpers.kt#onEdtBlocking` (with `ModalityState.any()`). IntelliJ source:
-`WindowManager.findVisibleFrame` —
-https://github.com/JetBrains/intellij-community/blob/master/platform/platform-api/src/com/intellij/openapi/wm/WindowManager.java.
-JetBrains MCP equivalent: **none** — the shipped server in IntelliJ 2025.2+ has
-zero screenshot tools.
+Existing: `tools/ScreenshotToolset.kt` (capture render + `finalise()`; crop
+coord-space + clip math), `core/ScreenshotCapture.kt#fitWithinBudget`,
+`core/ComponentRegistry.kt#lookup`, `util/ImageEncoding.kt` (`encodePngBase64`,
+`scaleImage`), `util/EdtHelpers.kt#onEdtBlocking` (with `ModalityState.any()`).
+IntelliJ src: `WindowManager.findVisibleFrame`. JetBrains MCP equivalent:
+**none** — the shipped server in IntelliJ 2025.2+ has zero screenshot tools.

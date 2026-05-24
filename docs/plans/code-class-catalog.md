@@ -34,11 +34,11 @@ suspend fun code_list_classes_in_module(
 **`@McpDescription` (verbatim, trim-margin):**
 
 ```
-|Enumerates every top-level class declared in one project module's source roots.
-|Strict, structural listing — NOT fuzzy. Companion of JetBrains' search_symbol;
-|use this when you know the scope but not the names.
+|Enumerates every top-level class in one project module's source roots. Strict,
+|structural listing — NOT fuzzy. Companion of JetBrains' search_symbol; use this
+|when you know the scope but not the names.
 |
-|Use this when: an agent asks "list all classes in module web-frontend", "what
+|Use this when: agent asks "list all classes in module web-frontend", "what
 |classes live under com.acme.billing in module payments-core?", "every annotation
 |in module shared". Returns ClassEntry rows ready for code.get_source / code.list_members.
 |
@@ -46,13 +46,11 @@ suspend fun code_list_classes_in_module(
 |  - You want classes by package across all modules — use code.list_classes_in_package.
 |  - You want fuzzy / partial-name search — use JetBrains' search_symbol.
 |  - You want source text — call code.get_source on each fqn.
-|  - The IDE isn't IntelliJ IDEA / Android Studio (code.* doesn't load elsewhere).
 |
 |Returns: { scope, classes: ClassEntry[], total, truncated, timedOut } where each
 |ClassEntry has fqn, simpleName, package, kind ('class'|'interface'|'enum'|'record'
-||'annotation'|'kotlinFileFacade'), fileUrl, declarationRange, byteLength.
-|Anonymous + inner classes are excluded. Kotlin file-level functions surface as
-|kind='kotlinFileFacade' (the synthetic FooKt class).
+||'annotation'|'kotlinFileFacade'), fileUrl, declarationRange, byteLength. Anonymous
+|+ inner classes excluded. Kotlin file-level functions surface as 'kotlinFileFacade'.
 |
 |Examples:
 |  moduleName="payments-core"                                   — all production classes
@@ -80,11 +78,10 @@ suspend fun code_list_classes_in_package(
 **`@McpDescription` (verbatim, trim-margin):**
 
 ```
-|Lists all top-level classes in one package FQN, across every module of the project
-|(and optionally library jars). Strict-by-package; the cross-module counterpart of
-|code.list_classes_in_module.
+|Lists all top-level classes in one package FQN, across every module (and optionally
+|library jars). Strict-by-package; cross-module counterpart of code.list_classes_in_module.
 |
-|Use this when: an agent asks "what's in com.acme.billing?", "list everything under
+|Use this when: agent asks "what's in com.acme.billing?", "list everything under
 |java.util (recursive)?", "annotations in javax.persistence?". Cheap probe before
 |code.get_source / code.list_members.
 |
@@ -96,10 +93,9 @@ suspend fun code_list_classes_in_package(
 |Returns: { scope, classes: ClassEntry[], total, truncated, timedOut }. Same
 |ClassEntry shape as code.list_classes_in_module. Anonymous + inner classes excluded.
 |
-|Library scope: includeLibraries=false (default) means project sources only.
-|Enabling it widens to GlobalSearchScope.allScope and can return tens of thousands
-|of classes (rt.jar alone ~30k). Always combine includeLibraries=true with a narrow
-|package and tight limit.
+|Library scope: includeLibraries=false (default) = project sources only. Enabling
+|it widens to GlobalSearchScope.allScope and can return tens of thousands of classes
+|(rt.jar alone ~30k). Always pair includeLibraries=true with a narrow package and tight limit.
 |
 |Examples:
 |  packageFqn="com.acme.billing"                                  — direct children
@@ -172,27 +168,25 @@ If a realistic worst case still exceeds 10 s, **narrow the tool** (require
 
 1. **Module not found** → `McpExpectedError("Module not found: <name>. Use
    get_project_modules to list available modules.", …)`.
-2. **Empty / missing package** → `ListClassesResponse(scope, [], 0, false)`. Not an
-   error (matches `arch.list_services` convention).
-3. **Mixed Java + Kotlin module** — `PsiClassOwner.classes` returns Java + Kotlin
-   light classes uniformly; no per-language branching.
-4. **Kotlin file facades** — top-level functions/properties synthesize a `FooKt`
-   class via `KtLightClassForFacade`; map to `kind="kotlinFileFacade"` so an agent
-   can distinguish from a hand-written `class FooKt`. Skipped entirely when
-   `"kotlinFileFacade"` is not in `kinds`.
+2. **Empty / missing package** → `ListClassesResponse(scope, [], 0, false)` — not
+   an error (matches `arch.list_services` convention).
+3. **Mixed Java + Kotlin** — `PsiClassOwner.classes` returns both uniformly via
+   light classes; no per-language branching.
+4. **Kotlin file facades** — top-level fns/props synthesize a `FooKt` class via
+   `KtLightClassForFacade`; mapped to `kind="kotlinFileFacade"` so an agent can
+   distinguish from a hand-written `class FooKt`. Skipped if not in `kinds`.
 5. **Default/root package** — `packageFqn=""` is valid and documented.
 6. **Anonymous + inner classes** — excluded in v1 (top-level only via
-   `PsiClassOwner.classes`). Inner-class support deferred (Open Qs).
-7. **Generated sources** — `includeGenerated` controls module variant; package
-   variant has no equivalent (scope is package-shaped, not directory-shaped) —
+   `PsiClassOwner.classes`); inner-class support deferred (Open Qs).
+7. **Generated sources** — `includeGenerated` controls the module variant; package
+   variant has no equivalent (its scope is package-shaped, not directory-shaped) —
    explicit asymmetry documented.
 8. **PsiClass without `qualifiedName`** — local/synthetic; skipped silently.
 9. **Dumb mode** — `JavaPsiFacade.findPackage` may return stale results; when
-   `DumbService.isDumb(project)` set `note="Project is indexing; results may be
-   incomplete"`.
-10. **Module with no source roots** → empty list, `total=0`. Not an error.
-11. **Library scope** — `true` → `GlobalSearchScope.allScope`; `false` →
-    `projectScope`. Never `everythingScope` (includes non-Java VFS).
+   `DumbService.isDumb(project)` set `note="Project is indexing; results may be incomplete"`.
+10. **Module with no source roots** → empty list, `total=0`; not an error.
+11. **Library scope** — `true` → `allScope`, `false` → `projectScope`. Never
+    `everythingScope` (covers non-Java VFS).
 
 ## Files to create/modify
 
@@ -240,23 +234,21 @@ tests (multi-module fixture is the slow bit) 2h; doc-gen + `runIde` smoke 0.5h.
 
 ## Open questions / risks
 
-1. **Inner classes** — v1 excludes. Adding `includeInnerClasses: Boolean = false`
-   via `PsiClass.innerClasses` is cheap but inflates responses and complicates `fqn`
-   (uses `$`). Defer to v2 under demand.
+1. **Inner classes** — v1 excludes. `includeInnerClasses: Boolean = false` via
+   `PsiClass.innerClasses` is cheap but inflates responses and uses `$` in FQNs.
+   Defer to v2 under demand.
 2. **Per-class `byteLength`** — recommend **yes in v1** (included): we already touch
-   the file, one `PsiFile.textLength` read, lets agents prioritize big classes when
+   the file; one `PsiFile.textLength` read lets agents prioritize big classes when
    budgeting `code.get_source`. Line count would be redundant.
-3. **Kotlin object / companion** — currently surface as `kind="class"` via light-class
-   wrapping. Separate `kotlinObject` / `kotlinCompanion` would need Kotlin-plugin-only
+3. **Kotlin object / companion** — currently `kind="class"` via light-class wrapping.
+   Separate `kotlinObject` / `kotlinCompanion` would need Kotlin-plugin-only
    reflection. Defer; note in description.
 4. **`fileUrl` per class** — recommend **yes in v1**, included. Saves a round trip
    to `code.find_class` for follow-ups.
 5. **Deadline injection** for `timedOut` testing needs a `Clock`/`Deadline` seam to
    avoid `Thread.sleep` flakiness; small refactor, budgeted above.
 6. **Library scope cost** — `includeLibraries=true` without a tight package can hit
-   the 10 s cap; `truncated=true` + `timedOut=true` is correct; description warns.
-7. **PyCharm CE / GoLand** — `java-introspect.xml` already gates on
-   `com.intellij.modules.java`; no extra wiring needed.
+   10 s; `truncated=true` + `timedOut=true` is correct; description warns.
 
 ## References
 
