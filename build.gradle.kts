@@ -96,6 +96,19 @@ configurations.testRuntimeClasspath {
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-daemon-embeddable")
 }
 
+// kotlinx-serialization-json:1.11.0 transitively pins kotlin-stdlib:2.3.20 (metadata
+// version 2.3.0), but the Kotlin 2.1.20 compiler / KSP cannot read 2.3 metadata —
+// every compileKotlin / kspKotlin fails with "incompatible version of Kotlin". Force
+// the stdlib back to 2.1.20 across every configuration that the compile path sees.
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin" && requested.name.startsWith("kotlin-stdlib")) {
+            useVersion("2.1.20")
+            because("Kotlin compiler/KSP 2.1.20 cannot read stdlib 2.3.x metadata")
+        }
+    }
+}
+
 intellijPlatform {
     pluginConfiguration {
         ideaVersion {
