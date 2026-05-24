@@ -2,7 +2,6 @@ package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.model.TopicInfo
 import com.intellij.ide.plugins.IdeaPluginDescriptor
-import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.util.messages.Topic
 import java.io.File
@@ -56,7 +55,7 @@ object TopicInspector {
 
     fun listAll(): List<TopicInfo> {
         val out = mutableListOf<TopicInfo>()
-        for (descriptor in PluginManagerCore.plugins) {
+        for (descriptor in PluginLookup.allPlugins()) {
             collectFor(descriptor, out)
         }
         return out

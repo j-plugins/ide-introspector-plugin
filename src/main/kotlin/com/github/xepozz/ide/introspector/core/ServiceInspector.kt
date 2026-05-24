@@ -2,7 +2,6 @@ package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.model.ServiceInfo
 import com.intellij.ide.plugins.IdeaPluginDescriptor
-import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.ServiceDescriptor
@@ -25,7 +24,7 @@ object ServiceInspector {
     /** XML-declared services across every installed plugin, all three areas. Deterministic. */
     fun listAll(): List<ServiceInfo> {
         val out = mutableListOf<ServiceInfo>()
-        for (descriptor in PluginManagerCore.plugins) {
+        for (descriptor in PluginLookup.allPlugins()) {
             collectFor(descriptor, out)
         }
         return out
@@ -65,22 +64,43 @@ object ServiceInspector {
             ?: sd.testServiceImplementation
             ?: sd.headlessImplementation
             ?: return null
+        // ServiceDescriptor itself is public, but `preload` / `os` / `configurationSchemaKey`
+        // and the enums they reference (PreloadMode / ExtensionDescriptor.Os) are @ApiStatus.Internal.
+        // Reach them via reflection so we don't trip the plugin verifier.
         return ServiceInfo(
             interfaceClass = sd.serviceInterface,
             implementationClass = impl,
             testServiceImplementation = sd.testServiceImplementation,
             headlessImplementation = sd.headlessImplementation,
             area = areaTag,
-            preload = sd.preload.name,
+            preload = readEnumName(sd, "preload") ?: "FALSE",
             client = sd.client?.toString(),
-            os = sd.os?.name,
+            os = readEnumName(sd, "os"),
             overrides = sd.overrides,
-            configurationSchemaKey = sd.configurationSchemaKey,
+            configurationSchemaKey = readField(sd, "configurationSchemaKey") as? String,
             providedByPluginId = pluginId,
             providedByPluginName = pluginName,
             source = "xml",
         )
     }
+
+    private fun readField(target: Any, name: String): Any? {
+        var c: Class<*>? = target.javaClass
+        while (c != null) {
+            val f = c.declaredFields.firstOrNull { it.name == name }
+            if (f != null) {
+                return try {
+                    f.isAccessible = true
+                    f.get(target)
+                } catch (_: Throwable) { null }
+            }
+            c = c.superclass
+        }
+        return null
+    }
+
+    private fun readEnumName(target: Any, name: String): String? =
+        (readField(target, name) as? Enum<*>)?.name
 
     /**
      * Best-effort enumeration of already-created light services (`@Service`-annotated, registered

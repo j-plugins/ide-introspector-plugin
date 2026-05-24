@@ -2,7 +2,6 @@ package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.model.ListenerInfo
 import com.intellij.ide.plugins.IdeaPluginDescriptor
-import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.diagnostic.thisLogger
 
 /**
@@ -18,7 +17,7 @@ object ListenerInspector {
 
     fun listAll(): List<ListenerInfo> {
         val out = mutableListOf<ListenerInfo>()
-        for (descriptor in PluginManagerCore.plugins) {
+        for (descriptor in PluginLookup.allPlugins()) {
             collectFor(descriptor, out)
         }
         return out

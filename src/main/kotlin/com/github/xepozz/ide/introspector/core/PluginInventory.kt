@@ -72,7 +72,7 @@ class PluginInventory {
      * descriptor exposes no classloader.
      */
     fun topicsByPlugin(pluginId: String): List<TopicInfo> = topicsByPluginCache.computeIfAbsent(pluginId) {
-        val descriptor = PluginManagerCore.getPlugin(PluginId.getId(pluginId)) ?: return@computeIfAbsent emptyList()
+        val descriptor = PluginLookup.findPlugin(PluginId.getId(pluginId)) ?: return@computeIfAbsent emptyList()
         TopicInspector.listForPlugin(descriptor)
     }
 
@@ -114,7 +114,7 @@ class PluginInventory {
         }
 
         @Suppress("UnstableApiUsage")
-        val plugins = PluginManagerCore.plugins.map { descriptor ->
+        val plugins = PluginLookup.allPlugins().map { descriptor ->
             val depList = descriptor.dependencies
                 .map { dep ->
                     PluginDependencyInfo(

@@ -3,7 +3,11 @@
 # IDE Introspector Changelog
 
 ## [Unreleased]
+
+## [2026.0.2] - 2026-05-24
+
 ### Added
+
 - **Phase 1 — Tier 1 MCP tools** registered via `com.intellij.mcpServer.mcpToolset` extension point:
   - `ui.get_tree`, `ui.find_by_name`, `ui.find_by_coordinates`, `ui.find_by_xpath`, `ui.get_properties`
   - `screenshot.capture`, `screenshot.crop`
@@ -15,3 +19,6 @@
 - **Phase 2 demo — `exec.execute_kotlin_in_ide`** (opt-in) backed by `kotlin-scripting-jsr223`,
   per-call confirmation dialog, textual safety blacklist, and audit log.
 - Settings page under Settings → Tools → IDE Introspector for the Phase 2 opt-in.
+
+[Unreleased]: https://github.com/xepozz/introspector-plugin/compare/2026.0.2...HEAD
+[2026.0.2]: https://github.com/xepozz/introspector-plugin/commits/2026.0.2
