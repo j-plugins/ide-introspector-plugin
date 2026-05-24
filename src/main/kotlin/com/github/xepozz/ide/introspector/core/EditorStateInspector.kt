@@ -13,9 +13,9 @@ import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.editor.LogicalPosition
 import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.editor.ex.MarkupModelEx
+import com.intellij.openapi.editor.impl.DocumentMarkupModel
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -137,7 +137,12 @@ object EditorStateInspector {
         val clampedColumn = lineStart + targetCol > lineEnd
         val effectiveOffset = (lineStart + targetCol).coerceAtMost(lineEnd).coerceAtLeast(0)
         val oldOffset = editor.caretModel.offset
-        editor.caretModel.moveToLogicalPosition(LogicalPosition(effectiveLineIdx, targetCol.coerceAtLeast(0)))
+        // Move by offset rather than (line, un-clamped column): moveToLogicalPosition with a
+        // column past EOL places the caret at the line end offset-wise but reports a virtual
+        // column equal to the requested one (especially with virtual-space). Using
+        // moveToOffset(effectiveOffset) guarantees the post-move logicalPosition agrees with
+        // newOffset — line / column / offset all tell the same story to the caller.
+        editor.caretModel.moveToOffset(effectiveOffset)
         if (scrollToVisible) {
             editor.scrollingModel.scrollToCaret(ScrollType.MAKE_VISIBLE)
         }
@@ -324,8 +329,12 @@ object EditorStateInspector {
         val daemonHighlights: List<HighlightInfo> = try {
             DaemonCodeAnalyzerImpl.getHighlights(document, minSeverity, project)
         } catch (_: Throwable) {
-            // Fallback: scan the markup model for daemon-owned info-bearing highlighters.
-            val markup = (editor.markupModel as? MarkupModelEx)
+            // Fallback: scan the DOCUMENT markup model for daemon-owned highlighters. The daemon
+            // publishes HighlightInfos into DocumentMarkupModel (shared across all editors for
+            // the document), not editor.markupModel (per-editor highlighters: bookmarks,
+            // breakpoints, search results). Using the document model is the path the bundled
+            // Problems view / DaemonCodeAnalyzerImpl itself read from.
+            val markup = DocumentMarkupModel.forDocument(document, project, false) as? MarkupModelEx
             if (markup == null) emptyList()
             else {
                 val list = ArrayList<HighlightInfo>()
