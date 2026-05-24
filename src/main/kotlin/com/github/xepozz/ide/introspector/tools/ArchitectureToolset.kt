@@ -164,7 +164,8 @@ class ArchitectureToolset : McpToolset {
         |(arch.list_plugins).
         |
         |Returns: { plugin: PluginInfo, declaredExtensionPoints: ExtensionPointInfo[],
-        |registeredExtensions: ExtensionInfo[], actions: string[] }.
+        |registeredExtensions: ExtensionInfo[], services: ServiceInfo[], listeners: ListenerInfo[],
+        |topics: TopicInfo[], actions: string[] }.
         |
         |Caveats:
         |  - includeActions=false by default — populating action ids touches the action
@@ -190,6 +191,8 @@ class ArchitectureToolset : McpToolset {
         includeServices: Boolean = true,
         @McpDescription("Include message-bus listeners declared by this plugin (application/project). Default true — cheap.")
         includeListeners: Boolean = true,
+        @McpDescription("Include message-bus Topic<L> declarations the plugin contributes (static fields in interfaces/companions). Default true — bytecode-only scan, no class initialisation.")
+        includeTopics: Boolean = true,
         @McpDescription("Include the plugin's action ids. Default false — slow on plugins with many actions (com.intellij has ~3000).")
         includeActions: Boolean = false,
     ): PluginDetails {
@@ -202,8 +205,9 @@ class ArchitectureToolset : McpToolset {
         val extensions = if (includeRegisteredExtensions) inv.extensionsByPlugin(pluginId) else emptyList()
         val services = if (includeServices) inv.servicesByPlugin(pluginId) else emptyList()
         val listeners = if (includeListeners) inv.listenersByPlugin(pluginId) else emptyList()
+        val topics = if (includeTopics) inv.topicsByPlugin(pluginId) else emptyList()
         val actions = if (includeActions) actionsFor(pluginId) else emptyList()
-        return PluginDetails(plugin, declaredEps, extensions, services, listeners, actions)
+        return PluginDetails(plugin, declaredEps, extensions, services, listeners, topics, actions)
     }
 
     @McpTool(name = "arch.find_extenders_of")

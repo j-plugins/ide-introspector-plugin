@@ -12,7 +12,7 @@ class PlatformExplorerTreeModel(
     private val inventory: PluginInventory,
     var viewMode: ViewMode,
     var filter: String = "",
-    var showBundled: Boolean = true,
+    var hideBundled: Boolean = true,
 ) : DefaultTreeModel(DefaultMutableTreeNode(PlatformExplorerNode.Root("Platform Explorer"))) {
 
     fun rebuild() {
@@ -27,7 +27,7 @@ class PlatformExplorerTreeModel(
 
     private fun populateByPlugin(root: DefaultMutableTreeNode) {
         val plugins = inventory.plugins()
-            .filter { showBundled || !it.isBundled }
+            .filter { !hideBundled || !it.isBundled }
             .filter { matchesFilter(it.id) || matchesFilter(it.name) }
         for (p in plugins) {
             val pluginNode = DefaultMutableTreeNode(PlatformExplorerNode.PluginNode(p))
@@ -86,15 +86,64 @@ class PlatformExplorerTreeModel(
                 }
                 pluginNode.add(group)
             }
+            if (p.dependencies.isNotEmpty()) {
+                val group = DefaultMutableTreeNode(
+                    PlatformExplorerNode.GroupNode("Dependencies", p.dependencies.size)
+                )
+                p.dependencies.take(MAX_CHILDREN).forEach { dep ->
+                    group.add(DefaultMutableTreeNode(PlatformExplorerNode.DependencyNode(dep)))
+                }
+                if (p.dependencies.size > MAX_CHILDREN) {
+                    group.add(DefaultMutableTreeNode(
+                        PlatformExplorerNode.LoadingNode("… and ${p.dependencies.size - MAX_CHILDREN} more")
+                    ))
+                }
+                pluginNode.add(group)
+            }
+            val dependants = inventory.plugins().filter { other ->
+                other.id != p.id && other.dependencies.any { it.pluginId == p.id }
+            }
+            if (dependants.isNotEmpty()) {
+                val group = DefaultMutableTreeNode(
+                    PlatformExplorerNode.GroupNode("Required by", dependants.size)
+                )
+                dependants.take(MAX_CHILDREN).forEach { other ->
+                    group.add(DefaultMutableTreeNode(PlatformExplorerNode.PluginNode(other)))
+                }
+                if (dependants.size > MAX_CHILDREN) {
+                    group.add(DefaultMutableTreeNode(
+                        PlatformExplorerNode.LoadingNode("… and ${dependants.size - MAX_CHILDREN} more")
+                    ))
+                }
+                pluginNode.add(group)
+            }
+            // Topics scanning walks the plugin's classpath (slow on bundled IDE plugins —
+            // some have tens of thousands of classes). Limit to non-bundled plugins; bundled
+            // topics stay accessible via the events.list_topics MCP tool.
+            val topics = if (p.isBundled) emptyList() else inventory.topicsByPlugin(p.id)
+            if (topics.isNotEmpty()) {
+                val group = DefaultMutableTreeNode(
+                    PlatformExplorerNode.GroupNode("Topics", topics.size)
+                )
+                topics.take(MAX_CHILDREN).forEach { t ->
+                    group.add(DefaultMutableTreeNode(PlatformExplorerNode.TopicNode(t)))
+                }
+                if (topics.size > MAX_CHILDREN) {
+                    group.add(DefaultMutableTreeNode(
+                        PlatformExplorerNode.LoadingNode("… and ${topics.size - MAX_CHILDREN} more")
+                    ))
+                }
+                pluginNode.add(group)
+            }
             root.add(pluginNode)
         }
     }
 
     private fun populateByEp(root: DefaultMutableTreeNode) {
-        val bundledIds: Set<String> = if (showBundled) emptySet()
+        val bundledIds: Set<String> = if (!hideBundled) emptySet()
             else inventory.plugins().filter { it.isBundled }.map { it.id }.toSet()
         val eps = inventory.extensionPoints()
-            .filter { showBundled || it.declaredByPluginId !in bundledIds }
+            .filter { !hideBundled || it.declaredByPluginId !in bundledIds }
             .filter { matchesFilter(it.name) }
         for (ep in eps) {
             val epNode = DefaultMutableTreeNode(PlatformExplorerNode.ExtensionPointNode(ep))
@@ -113,7 +162,7 @@ class PlatformExplorerTreeModel(
 
     private fun populateByDependencies(root: DefaultMutableTreeNode) {
         val plugins = inventory.plugins()
-            .filter { showBundled || !it.isBundled }
+            .filter { !hideBundled || !it.isBundled }
             .filter { matchesFilter(it.id) || matchesFilter(it.name) }
         for (p in plugins) {
             if (p.dependencies.isEmpty()) continue

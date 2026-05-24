@@ -100,6 +100,17 @@ class PlatformExplorerCellRenderer : ColoredTreeCellRenderer() {
                 append("  ")
                 append("[${l.area}]", SimpleTextAttributes.GRAY_ATTRIBUTES)
             }
+            is PlatformExplorerNode.TopicNode -> {
+                icon = AllIcons.Hierarchy.Subtypes
+                val t = node.topic
+                append("${t.declaringClassName.substringAfterLast('.')}.${t.fieldName}")
+                append("  ")
+                append("→ ${t.listenerClassName.substringAfterLast('.')}", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                if (t.onCompanion) {
+                    append("  ")
+                    append("(companion)", SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
+                }
+            }
             is PlatformExplorerNode.LoadingNode -> {
                 icon = AllIcons.Process.Step_passive
                 append(node.displayName, SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)

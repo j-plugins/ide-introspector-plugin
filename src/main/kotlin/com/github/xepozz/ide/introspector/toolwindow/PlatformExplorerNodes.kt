@@ -6,6 +6,7 @@ import com.github.xepozz.ide.introspector.model.ListenerInfo
 import com.github.xepozz.ide.introspector.model.PluginDependencyInfo
 import com.github.xepozz.ide.introspector.model.PluginInfo
 import com.github.xepozz.ide.introspector.model.ServiceInfo
+import com.github.xepozz.ide.introspector.model.TopicInfo
 
 /**
  * Sealed hierarchy of tree node user-objects. Renderers and selection handlers switch on these.
@@ -36,6 +37,10 @@ sealed class PlatformExplorerNode {
     data class ListenerNode(val listener: ListenerInfo) : PlatformExplorerNode() {
         override val displayName: String get() =
             "${listener.listenerClass} → ${listener.topicClass.substringAfterLast('.')}"
+    }
+    data class TopicNode(val topic: TopicInfo) : PlatformExplorerNode() {
+        override val displayName: String get() =
+            "${topic.declaringClassName.substringAfterLast('.')}.${topic.fieldName} → ${topic.listenerClassName.substringAfterLast('.')}"
     }
     data class LoadingNode(override val displayName: String = "Loading…") : PlatformExplorerNode()
 }

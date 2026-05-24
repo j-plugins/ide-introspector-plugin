@@ -37,6 +37,9 @@ class DetailsPanel(
             project = project,
             navigator = navigator,
             resolveExtensionsForEp = { name -> inventory.extensionsForEpLive(name, limit = 50) },
+            resolveListenersForTopic = { listenerFqn ->
+                inventory.listeners().filter { it.topicClass == listenerFqn }
+            },
         )
 
         showPlaceholder("Select a node to see its details.")

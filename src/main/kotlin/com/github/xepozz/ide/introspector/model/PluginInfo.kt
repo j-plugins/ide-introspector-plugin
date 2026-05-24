@@ -23,6 +23,7 @@ data class PluginInfo(
     val registeredExtensionsCount: Int = 0,
     val servicesCount: Int = 0,
     val listenersCount: Int = 0,
+    val topicsCount: Int = 0,
 )
 
 @Serializable
@@ -38,5 +39,6 @@ data class PluginDetails(
     val registeredExtensions: List<ExtensionInfo> = emptyList(),
     val services: List<ServiceInfo> = emptyList(),
     val listeners: List<ListenerInfo> = emptyList(),
+    val topics: List<TopicInfo> = emptyList(),
     val actions: List<String> = emptyList(),
 )

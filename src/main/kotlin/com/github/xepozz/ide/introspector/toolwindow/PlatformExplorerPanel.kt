@@ -229,14 +229,14 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
 
     /** Toolbar toggle for hiding bundled (IDE-shipped) plugins so only third-party ones remain. */
     private inner class ShowBundledAction : ToggleAction(
-        "Show Bundled Plugins",
-        "Toggle visibility of plugins bundled with the IDE",
+        "Hide Bundled Plugins",
+        "When on, plugins bundled with the IDE are hidden; only third-party plugins are shown",
         AllIcons.General.Filter,
     ) {
         override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
-        override fun isSelected(e: AnActionEvent): Boolean = treeModel.showBundled
+        override fun isSelected(e: AnActionEvent): Boolean = treeModel.hideBundled
         override fun setSelected(e: AnActionEvent, state: Boolean) {
-            treeModel.showBundled = state
+            treeModel.hideBundled = state
             rebuild()
         }
     }

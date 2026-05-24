@@ -12,7 +12,7 @@ import javax.swing.JButton
  *
  * Restricted to the off-screen `paint()` path because the other public methods rely on
  * `java.awt.Robot` (needs a display) and `WindowManager` (needs an IDE), neither of which
- * is available in a headless unit-test JVM. `fitWithinBudget` is covered separately.
+ * is available in a headless unit-test JVM.
  *
  * All Swing work runs on the EDT via [onEdt].
  */

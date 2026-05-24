@@ -50,4 +50,10 @@
             displayName="IDE Introspector"
             parentId="tools"/>
     </extensions>
+
+    <applicationListeners>
+        <listener
+            class="com.github.xepozz.ide.introspector.examples.IntrospectorDemoListenerImpl"
+            topic="com.github.xepozz.ide.introspector.examples.IntrospectorDemoListener"/>
+    </applicationListeners>
 </idea-plugin>
