@@ -10,10 +10,13 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiAnonymousClass
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiLambdaExpression
 import com.intellij.psi.PsiMethod
+import com.intellij.psi.PsiMethodCallExpression
 import com.intellij.psi.PsiModifierListOwner
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.PsiReference
@@ -81,41 +84,89 @@ object RequirementsAnalyzer {
 
     private val SIMPLE_TO_FQN: Map<String, String> = FQN_TO_KIND.keys.associateBy { it.substringAfterLast('.') }
 
-    /** Recognised lock wrappers — fully-qualified call paths we match by callee FQN/simple name. */
-    val LOCK_WRAPPERS: Set<String> = setOf(
-        "com.intellij.openapi.application.ReadAction.run",
-        "com.intellij.openapi.application.ReadAction.compute",
-        "com.intellij.openapi.application.ReadAction.nonBlocking",
-        "com.intellij.openapi.application.WriteAction.run",
-        "com.intellij.openapi.application.WriteAction.compute",
-        "com.intellij.openapi.application.ApplicationManager.Application.runReadAction",
-        "com.intellij.openapi.application.ApplicationManager.Application.runWriteAction",
-        // Kotlin top-level helpers
-        "com.intellij.openapi.application.runReadAction",
-        "com.intellij.openapi.application.runWriteAction",
+    /**
+     * Semantic role of a recognised wrapper call. ONE source of truth for the whole
+     * pipeline — `detectEnclosingWrappers` tags hints with the role; `decide()` queries the
+     * role rather than string-matching the hint. This kills the wrapper-set drift that bit
+     * `@RequiresReadLockAbsence` + `ReadAction.nonBlocking { tgt() }` in v1 (the simple-name
+     * set advertised `nonBlocking` but the violation predicate matched only `inside-run*`).
+     *
+     * - [READ_ACTION]  — wrapper pushes the lambda under a read lock (RA.run/compute/nonBlocking,
+     *                    runReadAction). Satisfies `@RequiresReadLock`; VIOLATES
+     *                    `@RequiresReadLockAbsence`.
+     * - [WRITE_ACTION] — wrapper pushes the lambda under a write lock (WA.run/compute,
+     *                    runWriteAction). Satisfies both `@RequiresWriteLock` and
+     *                    `@RequiresReadLock` (write subsumes read). VIOLATES
+     *                    `@RequiresReadLockAbsence`.
+     * - [EDT_DISPATCH] — wrapper pushes the lambda onto the EDT (invokeLater / invokeAndWait,
+     *                    SwingUtilities.*). Satisfies `@RequiresEdt`.
+     * - [BGT_DISPATCH] — wrapper pushes the lambda onto a background thread
+     *                    (executeOnPooledThread, runProcessWithProgressAsynchronously).
+     *                    Satisfies `@RequiresBackgroundThread`.
+     */
+    enum class WrapperRole { READ_ACTION, WRITE_ACTION, EDT_DISPATCH, BGT_DISPATCH }
+
+    /**
+     * One row of the unified wrapper table. Matched by simple name first (cheap, no PSI
+     * resolution needed), with [fqnHint] preserved for diagnostics / future precision.
+     *
+     * Caveat on `nonBlocking`: `ReadAction.nonBlocking { … }` schedules the lambda for
+     * asynchronous execution under a read action. The lambda runs WITH the read lock held
+     * at execution time → satisfies `@RequiresReadLock` (`status="ok"`) and violates
+     * `@RequiresReadLockAbsence` (`status="mismatch"`). This is the semantically correct
+     * treatment and matches plan edge case 10.
+     */
+    data class WrapperInfo(val simpleName: String, val fqnHint: String, val role: WrapperRole)
+
+    val WRAPPER_TABLE: List<WrapperInfo> = listOf(
+        // Read-action wrappers (Java)
+        WrapperInfo("run", "com.intellij.openapi.application.ReadAction.run", WrapperRole.READ_ACTION),
+        WrapperInfo("compute", "com.intellij.openapi.application.ReadAction.compute", WrapperRole.READ_ACTION),
+        WrapperInfo("nonBlocking", "com.intellij.openapi.application.ReadAction.nonBlocking", WrapperRole.READ_ACTION),
+        // Read-action wrappers (Kotlin top-level + Application receiver)
+        WrapperInfo("runReadAction", "com.intellij.openapi.application.runReadAction", WrapperRole.READ_ACTION),
+        // Write-action wrappers (Java)
+        WrapperInfo("run", "com.intellij.openapi.application.WriteAction.run", WrapperRole.WRITE_ACTION),
+        WrapperInfo("compute", "com.intellij.openapi.application.WriteAction.compute", WrapperRole.WRITE_ACTION),
+        // Write-action wrappers (Kotlin top-level + Application receiver)
+        WrapperInfo("runWriteAction", "com.intellij.openapi.application.runWriteAction", WrapperRole.WRITE_ACTION),
+        // EDT-pushing wrappers
+        WrapperInfo("invokeLater", "com.intellij.openapi.application.invokeLater", WrapperRole.EDT_DISPATCH),
+        WrapperInfo("invokeAndWait", "com.intellij.openapi.application.ApplicationManager.Application.invokeAndWait", WrapperRole.EDT_DISPATCH),
+        // BGT-pushing wrappers
+        WrapperInfo("executeOnPooledThread", "com.intellij.openapi.application.ApplicationManager.Application.executeOnPooledThread", WrapperRole.BGT_DISPATCH),
+        WrapperInfo("runProcessWithProgressAsynchronously", "com.intellij.openapi.progress.ProgressManager.runProcessWithProgressAsynchronously", WrapperRole.BGT_DISPATCH),
     )
 
-    val EDT_WRAPPERS: Set<String> = setOf(
-        "com.intellij.openapi.application.ApplicationManager.Application.invokeLater",
-        "com.intellij.openapi.application.ApplicationManager.Application.invokeAndWait",
-        "javax.swing.SwingUtilities.invokeLater",
-        "javax.swing.SwingUtilities.invokeAndWait",
-        // Kotlin top-level helpers
-        "com.intellij.openapi.application.invokeLater",
-    )
+    /**
+     * Simple-name → role(s). A simple name like `run` can map to multiple roles
+     * (ReadAction.run vs WriteAction.run); we keep all and let the caller's context (the
+     * adjacent qualifier text in `runReadAction` vs `runWriteAction`) disambiguate via the
+     * distinct simple names. For `run`/`compute` we conservatively flag the hint with BOTH
+     * read- and write-action roles — the decision tree treats them as compatible for read
+     * contracts (write subsumes read) so the false `WRITE_ACTION` tag never produces a
+     * wrong verdict for lock checks.
+     */
+    private val WRAPPER_BY_SIMPLE: Map<String, List<WrapperInfo>> =
+        WRAPPER_TABLE.groupBy { it.simpleName }
 
-    val BGT_WRAPPERS: Set<String> = setOf(
-        "com.intellij.openapi.application.ApplicationManager.Application.executeOnPooledThread",
-        "com.intellij.openapi.progress.ProgressManager.runProcessWithProgressAsynchronously",
-    )
+    /** All simple-name keys that this analyser recognises — used to short-circuit walk. */
+    private val ALL_WRAPPER_SIMPLE_NAMES: Set<String> = WRAPPER_BY_SIMPLE.keys
 
-    // Match by simple name as a fallback when the callee can't be resolved to FQN — covers
-    // the "Kotlin top-level extension function on Application" path where resolution may
-    // return null without indices warmed up.
-    private val LOCK_WRAPPER_SIMPLE = LOCK_WRAPPERS.map { it.substringAfterLast('.') }.toSet() +
-        setOf("runReadAction", "runWriteAction", "computeWithAlternativeResolveEnabled")
-    private val EDT_WRAPPER_SIMPLE = EDT_WRAPPERS.map { it.substringAfterLast('.') }.toSet()
-    private val BGT_WRAPPER_SIMPLE = BGT_WRAPPERS.map { it.substringAfterLast('.') }.toSet()
+    private fun rolesOfHint(hint: String): Set<WrapperRole> {
+        // hints are of the form "inside-$simpleName"
+        val simple = hint.removePrefix("inside-")
+        return WRAPPER_BY_SIMPLE[simple]?.map { it.role }?.toSet() ?: emptySet()
+    }
+
+    private fun WrapperKind.relevantNames(): Set<String> = when (this) {
+        WrapperKind.LOCK -> WRAPPER_TABLE.filter {
+            it.role == WrapperRole.READ_ACTION || it.role == WrapperRole.WRITE_ACTION
+        }.map { it.simpleName }.toSet()
+        WrapperKind.THREADING -> WRAPPER_TABLE.filter {
+            it.role == WrapperRole.EDT_DISPATCH || it.role == WrapperRole.BGT_DISPATCH
+        }.map { it.simpleName }.toSet()
+    }
 
     /** Thrown when the Java module is missing — surfaces as a clean MCP error from the toolset. */
     class JavaModuleUnavailable(message: String) : RuntimeException(message)
@@ -444,26 +495,31 @@ object RequirementsAnalyzer {
      * Walk parent chain looking for call expressions whose callee is a recognised wrapper.
      * Both Java (PsiMethodCallExpression) and Kotlin (KtCallExpression) shapes are checked
      * via simple-name matching to avoid a hard Kotlin PSI dep.
+     *
+     * Returns hints of the form `inside-$simpleName` — these flow into [decide] which uses
+     * [rolesOfHint] (the single source of truth — see [WRAPPER_TABLE]) to map them back to
+     * [WrapperRole]s.
      */
     fun detectEnclosingWrappers(element: PsiElement, wrapperKind: WrapperKind): List<String> {
-        val targets = when (wrapperKind) {
-            WrapperKind.LOCK -> LOCK_WRAPPER_SIMPLE
-            WrapperKind.THREADING -> EDT_WRAPPER_SIMPLE + BGT_WRAPPER_SIMPLE
-        }
+        val relevant = wrapperKind.relevantNames()
         val out = ArrayList<String>()
         var node: PsiElement? = element.parent
         var hops = 0
         while (node != null && node !is PsiFile && hops < 200) {
-            val simple = node.javaClass.simpleName
-            // Java: PsiMethodCallExpression — has .methodExpression.referenceName
-            if (simple == "PsiMethodCallExpression") {
-                val name = javaCallName(node)
-                if (name != null && name in targets) out += "inside-$name"
-            }
-            // Kotlin: KtCallExpression — calleeExpression.text gives the simple name.
-            if (simple == "KtCallExpression" || simple == "KtDotQualifiedExpression") {
-                val name = kotlinCallName(node)
-                if (name != null && name in targets) out += "inside-$name"
+            // Java: PsiMethodCallExpression (use type check — PSI impl classes are
+            // *Impl-suffixed so simple-name string match would silently miss).
+            if (node is PsiMethodCallExpression) {
+                val name = node.methodExpression.referenceName
+                if (name != null && name in relevant) out += "inside-$name"
+            } else {
+                // Kotlin: KtCallExpression / KtDotQualifiedExpression — Kotlin PSI classes
+                // have no Impl suffix (e.g. `KtCallExpression` directly), so simple-name
+                // matching IS safe here.
+                val simple = node.javaClass.simpleName
+                if (simple == "KtCallExpression" || simple == "KtDotQualifiedExpression") {
+                    val name = kotlinCallName(node)
+                    if (name != null && name in relevant) out += "inside-$name"
+                }
             }
             node = node.parent
             hops++
@@ -485,15 +541,31 @@ object RequirementsAnalyzer {
         val callee = mCallee?.invoke(call) ?: return@runCatching kotlinDotQualifiedSelectorName(call)
         // KtCallExpression.calleeExpression.text → the simple name string.
         val mText = callee.javaClass.methods.firstOrNull { it.name == "getText" && it.parameterCount == 0 }
-        (mText?.invoke(callee) as? String)?.substringAfterLast('.')?.substringBefore('(')
+        cleanCalleeName(mText?.invoke(callee) as? String)
     }.getOrNull()
 
     private fun kotlinDotQualifiedSelectorName(dotExpr: Any): String? = runCatching {
         val mSelector = dotExpr.javaClass.methods.firstOrNull { it.name == "getSelectorExpression" && it.parameterCount == 0 }
         val selector = mSelector?.invoke(dotExpr) ?: return@runCatching null
         val mText = selector.javaClass.methods.firstOrNull { it.name == "getText" && it.parameterCount == 0 }
-        (mText?.invoke(selector) as? String)?.substringAfterLast('.')?.substringBefore('(')
+        cleanCalleeName(mText?.invoke(selector) as? String)
     }.getOrNull()
+
+    /**
+     * Reduce a callee/selector text fragment to its bare simple-name. The raw text can be e.g.
+     * `ReadAction.nonBlocking { tgt() }` (KtDotQualifiedExpression selector) or `nonBlocking`
+     * (KtCallExpression callee). Strip generics / lambda body / argument list / trailing
+     * whitespace, take the last dot-segment.
+     */
+    private fun cleanCalleeName(raw: String?): String? {
+        if (raw == null) return null
+        val noLambda = raw.substringBefore('{')
+        val noArgs = noLambda.substringBefore('(')
+        val noGenerics = noArgs.substringBefore('<')
+        val trimmed = noGenerics.trim()
+        if (trimmed.isEmpty()) return null
+        return trimmed.substringAfterLast('.').takeIf { it.isNotEmpty() }
+    }
 
     // ---------- decision tree ----------
 
@@ -516,13 +588,20 @@ object RequirementsAnalyzer {
         hints.addAll(wrapperHints)
         callerAnnotations.forEach { hints += "@${it.fqn.substringAfterLast('.')}" }
 
+        // Roles of every wrapper hint, deduplicated. ONE source of truth — see [WRAPPER_TABLE].
+        val wrapperRoles: Set<WrapperRole> = wrapperHints.flatMapTo(HashSet()) { rolesOfHint(it) }
+        val inReadAction = WrapperRole.READ_ACTION in wrapperRoles
+        val inWriteAction = WrapperRole.WRITE_ACTION in wrapperRoles
+        val inEdt = WrapperRole.EDT_DISPATCH in wrapperRoles
+        val inBgt = WrapperRole.BGT_DISPATCH in wrapperRoles
+
         // --- Lock semantics ---
         if (wrapperKind == WrapperKind.LOCK) {
             // RequiresReadLockAbsence: caller must NOT be under read lock / write lock / inside RA/WA.
             if (RequirementKind.NO_READ_LOCK in expectedKinds) {
                 val violates = RequirementKind.READ_LOCK in callerKinds ||
                     RequirementKind.WRITE_LOCK in callerKinds ||
-                    wrapperHints.any { isReadOrWriteActionWrapper(it) }
+                    inReadAction || inWriteAction
                 return if (violates) {
                     Verdict("mismatch", "@RequiresReadLockAbsence violated by enclosing lock/wrapper", hints.distinct())
                 } else {
@@ -531,8 +610,7 @@ object RequirementsAnalyzer {
             }
             // RequiresWriteLock: caller must have write lock annotation OR be inside WriteAction wrapper.
             if (RequirementKind.WRITE_LOCK in expectedKinds) {
-                val ok = RequirementKind.WRITE_LOCK in callerKinds ||
-                    wrapperHints.any { it.startsWith("inside-WriteAction") || it == "inside-runWriteAction" }
+                val ok = RequirementKind.WRITE_LOCK in callerKinds || inWriteAction
                 if (ok) return Verdict("ok", "caller holds @RequiresWriteLock or WriteAction wrapper", hints.distinct())
                 if (isInsideOpaqueDispatcher(callSite)) {
                     return Verdict("unknown", "caller is a lambda inside opaque dispatcher — cannot verify statically", hints.distinct())
@@ -543,7 +621,7 @@ object RequirementsAnalyzer {
             if (RequirementKind.READ_LOCK in expectedKinds) {
                 val ok = RequirementKind.READ_LOCK in callerKinds ||
                     RequirementKind.WRITE_LOCK in callerKinds ||
-                    wrapperHints.any { isReadOrWriteActionWrapper(it) }
+                    inReadAction || inWriteAction
                 if (ok) return Verdict("ok", "caller holds a compatible lock annotation or wrapper", hints.distinct())
                 if (isInsideOpaqueDispatcher(callSite)) {
                     return Verdict("unknown", "caller is a lambda inside opaque dispatcher — cannot verify statically", hints.distinct())
@@ -555,8 +633,7 @@ object RequirementsAnalyzer {
         // --- Threading semantics ---
         if (wrapperKind == WrapperKind.THREADING) {
             if (RequirementKind.EDT in expectedKinds) {
-                val ok = RequirementKind.EDT in callerKinds ||
-                    wrapperHints.any { isEdtWrapper(it) }
+                val ok = RequirementKind.EDT in callerKinds || inEdt
                 if (ok) return Verdict("ok", "caller is on EDT (annotation or EDT wrapper)", hints.distinct())
                 if (isInsideOpaqueDispatcher(callSite)) {
                     return Verdict("unknown", "caller is a lambda inside opaque dispatcher — cannot verify statically", hints.distinct())
@@ -564,8 +641,7 @@ object RequirementsAnalyzer {
                 return Verdict("mismatch", "no @RequiresEdt annotation or EDT-pushing wrapper", hints.distinct())
             }
             if (RequirementKind.BGT in expectedKinds) {
-                val ok = RequirementKind.BGT in callerKinds ||
-                    wrapperHints.any { isBgtWrapper(it) }
+                val ok = RequirementKind.BGT in callerKinds || inBgt
                 if (ok) return Verdict("ok", "caller is on BGT (annotation or BGT-pushing wrapper)", hints.distinct())
                 if (isInsideOpaqueDispatcher(callSite)) {
                     return Verdict("unknown", "caller is a lambda inside opaque dispatcher — cannot verify statically", hints.distinct())
@@ -582,20 +658,6 @@ object RequirementsAnalyzer {
         return Verdict("mismatch", "no compatible annotation", hints.distinct())
     }
 
-    private fun isReadOrWriteActionWrapper(hint: String): Boolean =
-        hint.startsWith("inside-ReadAction") ||
-            hint.startsWith("inside-WriteAction") ||
-            hint == "inside-runReadAction" ||
-            hint == "inside-runWriteAction"
-
-    private fun isEdtWrapper(hint: String): Boolean =
-        hint == "inside-invokeLater" ||
-            hint == "inside-invokeAndWait"
-
-    private fun isBgtWrapper(hint: String): Boolean =
-        hint == "inside-executeOnPooledThread" ||
-            hint == "inside-runProcessWithProgressAsynchronously"
-
     /**
      * Heuristic: are we inside a lambda passed to a method whose name we don't recognise as a
      * known wrapper? Such lambdas could run on any thread → status "unknown" rather than
@@ -607,23 +669,25 @@ object RequirementsAnalyzer {
         var node: PsiElement? = element.parent
         var hops = 0
         while (node != null && node !is PsiFile && hops < 200) {
-            val simple = node.javaClass.simpleName
-            if (simple == "PsiLambdaExpression" || simple == "KtLambdaExpression") {
+            // Java lambda: PsiLambdaExpression (use type check for *Impl-suffix safety).
+            // Kotlin lambda: simple name "KtLambdaExpression" (no Impl suffix).
+            val isJavaLambda = node is PsiLambdaExpression
+            val isKtLambda = !isJavaLambda && node.javaClass.simpleName == "KtLambdaExpression"
+            if (isJavaLambda || isKtLambda) {
                 // Walk one or two more parents to find the surrounding call.
                 var outer: PsiElement? = node.parent
                 var more = 0
                 while (outer != null && more < 4) {
-                    val outerSimple = outer.javaClass.simpleName
-                    if (outerSimple == "PsiMethodCallExpression") {
-                        val name = javaCallName(outer)
-                        if (name != null && name !in LOCK_WRAPPER_SIMPLE && name !in EDT_WRAPPER_SIMPLE && name !in BGT_WRAPPER_SIMPLE) {
+                    if (outer is PsiMethodCallExpression) {
+                        val name = outer.methodExpression.referenceName
+                        if (name != null && name !in ALL_WRAPPER_SIMPLE_NAMES) {
                             return true
                         }
                         break
                     }
-                    if (outerSimple == "KtCallExpression") {
+                    if (outer.javaClass.simpleName == "KtCallExpression") {
                         val name = kotlinCallName(outer)
-                        if (name != null && name !in LOCK_WRAPPER_SIMPLE && name !in EDT_WRAPPER_SIMPLE && name !in BGT_WRAPPER_SIMPLE) {
+                        if (name != null && name !in ALL_WRAPPER_SIMPLE_NAMES) {
                             return true
                         }
                         break
@@ -634,7 +698,7 @@ object RequirementsAnalyzer {
                 return false
             }
             // Plain inner class with PsiMethod (anonymous Runnable) — also opaque.
-            if (simple == "PsiAnonymousClass") return true
+            if (node is PsiAnonymousClass) return true
             node = node.parent
             hops++
         }
