@@ -2,11 +2,13 @@ package com.github.xepozz.ide.introspector.tools
 
 import com.github.xepozz.ide.introspector.core.ListenerInspector
 import com.github.xepozz.ide.introspector.core.ActionInventory
+import com.github.xepozz.ide.introspector.core.ExtensionPointInspector
 import com.github.xepozz.ide.introspector.core.PluginInventory
 import com.github.xepozz.ide.introspector.core.RequirementsAnalyzer
 import com.github.xepozz.ide.introspector.model.CheckRequirementsResponse
 import com.github.xepozz.ide.introspector.model.ExtensionInfo
 import com.github.xepozz.ide.introspector.model.ListActionsResponse
+import com.github.xepozz.ide.introspector.model.ExtensionPointDetails
 import com.github.xepozz.ide.introspector.model.ListExtensionPointsResponse
 import com.github.xepozz.ide.introspector.model.ListExtensionsResponse
 import com.github.xepozz.ide.introspector.model.ListListenersResponse
@@ -123,6 +125,57 @@ class ArchitectureToolset : McpToolset {
         val list = PluginInventory.getInstance().extensionsForEpLive(extensionPointName, limit)
         return ListExtensionsResponse(list, list.size)
     }
+
+    @McpTool(name = "arch.get_extension_point_details")
+    @McpDescription(
+        """
+        |Returns the full descriptor for ONE Extension Point: kind, bean class XML schema
+        |(for BEAN_CLASS EPs) or interface method signatures (for INTERFACE EPs), declared-in
+        |plugin, area, and dynamic flag. This is the "how do I plug into EP X?" tool — it
+        |surfaces every @Attribute / @Property / @Tag / @RequiredElement annotation on the
+        |bean so an agent can generate a correct <extension> XML snippet without grepping
+        |IntelliJ Community sources.
+        |
+        |Use this when: a user asks "what fields does ToolWindowEP take?", "is `id` required
+        |on com.intellij.applicationConfigurable?", "what methods do I implement for EP X?",
+        |or you've identified an EP via arch.list_extension_points and need to scaffold an
+        |extension for it.
+        |
+        |Do NOT use this when: you want every EP at once (arch.list_extension_points), the
+        |list of existing contributors (arch.list_extensions_for_ep), or the source of a
+        |specific implementation class (code.get_class_source).
+        |
+        |Returns: ExtensionPointDetails { name, kind ('INTERFACE'|'BEAN_CLASS'),
+        |interfaceOrBeanClass (FQCN), declaredByPluginId, declaredByPluginName, dynamic,
+        |area ('application'|'project'), beanSchema?: { className, fields: [{ name,
+        |xmlAttributeName, xmlTagName, type, required, defaultValue, deprecated }] },
+        |interfaceMethods?: [{ name, signature, returnType, deprecated }], registeredCount?: int }.
+        |Returns null when the EP name is not registered in any open area.
+        |
+        |Examples:
+        |  name="com.intellij.toolWindow"                                        — bean schema for ToolWindowEP (id/anchor/factoryClass/icon…)
+        |  name="com.intellij.applicationConfigurable", includeRegisteredCount=true — Configurable EP schema + how many are registered
+        |  name="com.intellij.codeInsight.lineMarkerProvider"                    — INTERFACE EP — lists LineMarkerProvider methods
+        """
+    )
+    suspend fun arch_get_extension_point_details(
+        @McpDescription("Fully qualified EP name as returned by arch.list_extension_points, e.g. 'com.intellij.toolWindow', 'com.intellij.applicationConfigurable'. Required.")
+        name: String,
+        @McpDescription("For BEAN_CLASS EPs, harvest the bean class's @Attribute / @Property / @Tag / @RequiredElement annotations into beanSchema. Default true. Set false when you only need kind + declaring plugin.")
+        includeBeanSchema: Boolean = true,
+        @McpDescription("For INTERFACE EPs, list the extension interface's public abstract methods (signature + return type). Default true.")
+        includeInterfaceMethods: Boolean = true,
+        @McpDescription("Include the live adapter count (ep.size() — does NOT instantiate extensions) under registeredCount. Default false; flip on when you want the count without a follow-up arch.list_extension_points call.")
+        includeRegisteredCount: Boolean = false,
+        @McpDescription("Hard cap on bean fields / interface methods returned (per side). Default 200 — protects against pathological beans inheriting from heavy hierarchies.")
+        maxFields: Int = 200,
+    ): ExtensionPointDetails? = ExtensionPointInspector.getDetails(
+        name = name,
+        includeBeanSchema = includeBeanSchema,
+        includeInterfaceMethods = includeInterfaceMethods,
+        includeRegisteredCount = includeRegisteredCount,
+        maxFields = maxFields,
+    )
 
     @McpTool(name = "arch.list_plugins")
     @McpDescription(

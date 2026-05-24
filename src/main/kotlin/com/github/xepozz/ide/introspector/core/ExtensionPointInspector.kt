@@ -1,13 +1,20 @@
 package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.core.internal.ExtensionMetadata
+import com.github.xepozz.ide.introspector.model.BeanField
+import com.github.xepozz.ide.introspector.model.BeanSchema
 import com.github.xepozz.ide.introspector.model.ExtensionInfo
+import com.github.xepozz.ide.introspector.model.ExtensionPointDetails
 import com.github.xepozz.ide.introspector.model.ExtensionPointInfo
+import com.github.xepozz.ide.introspector.model.MethodSig
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.extensions.ExtensionPoint
 import com.intellij.openapi.extensions.ExtensionsArea
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.application.ApplicationManager
+import java.lang.reflect.Field
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 
 /**
  * Reads the live [com.intellij.openapi.extensions.Extensions] graph. EP collection is
@@ -195,21 +202,277 @@ object ExtensionPointInspector {
         return extensionsOf(ep, name).take(limit)
     }
 
-    private fun locateEp(epName: String): ExtensionPoint<*>? {
+    private fun locateEp(epName: String): ExtensionPoint<*>? = locateEpWithArea(epName)?.first
+
+    /** Locates an EP across application + open project areas, returning the EP and its area tag. */
+    internal fun locateEpWithArea(epName: String): Pair<ExtensionPoint<*>, String>? {
         val app = ApplicationManager.getApplication().extensionArea
         try {
             val maybe = app.getExtensionPointIfRegistered<Any>(epName)
-            if (maybe != null) return maybe
+            if (maybe != null) return maybe to "application"
         } catch (_: Throwable) {
         }
         for (project in ProjectManager.getInstance().openProjects) {
             try {
                 val maybe = project.extensionArea.getExtensionPointIfRegistered<Any>(epName)
-                if (maybe != null) return maybe
+                if (maybe != null) return maybe to "project"
             } catch (_: Throwable) {
             }
         }
         return null
+    }
+
+    /**
+     * Returns the full descriptor for a single EP: kind, declaring plugin, area, dynamic
+     * flag, and (per the include* flags) either the bean-class XML schema or the public
+     * abstract methods of the interface. Returns null when the EP name isn't registered.
+     *
+     * Pure-reflection — thread-safe, no EDT bounce, no extension instantiation.
+     * The `extensionList` accessor is NEVER touched (CLAUDE.md pitfall); `ep.size()` is
+     * used for [includeRegisteredCount] which only walks the adapter list.
+     */
+    fun getDetails(
+        name: String,
+        includeBeanSchema: Boolean = true,
+        includeInterfaceMethods: Boolean = true,
+        includeRegisteredCount: Boolean = false,
+        maxFields: Int = 200,
+    ): ExtensionPointDetails? {
+        val located = locateEpWithArea(name) ?: return null
+        val (ep, area) = located
+        val (kind, interfaceOrBean) = kindAndClass(ep)
+        val pd = pluginDescriptorOf(ep)
+        val dynamic = isDynamic(ep)
+        val count = if (includeRegisteredCount) {
+            // Adapter count only — never extensionList (CLAUDE.md pitfall).
+            try { ep.size() } catch (_: Throwable) { 0 }
+        } else null
+
+        // Resolve the bean / interface Class<*> from the EP. tryReadExtensionClass uses the
+        // platform's own lazily-resolved Class<*>; if absent, fall back to loading via the
+        // EP's plugin classloader (so plugin-supplied bean classes resolve even when the
+        // application classloader can't see them).
+        val cls: Class<*>? = resolveExtensionClass(ep, interfaceOrBean)
+
+        val beanSchema = if (kind == "BEAN_CLASS" && includeBeanSchema && cls != null) {
+            runCatching { harvestBeanSchema(cls, maxFields) }.getOrNull()
+        } else null
+
+        val interfaceMethods = if (kind == "INTERFACE" && includeInterfaceMethods && cls != null) {
+            runCatching { harvestInterfaceMethods(cls, maxFields) }.getOrNull()
+        } else null
+
+        return ExtensionPointDetails(
+            name = name,
+            kind = kind,
+            interfaceOrBeanClass = interfaceOrBean,
+            declaredByPluginId = pd?.first ?: "unknown",
+            declaredByPluginName = pd?.second,
+            dynamic = dynamic,
+            area = area,
+            beanSchema = beanSchema,
+            interfaceMethods = interfaceMethods,
+            registeredCount = count,
+        )
+    }
+
+    /**
+     * Resolves the EP's extension Class<*> for reflection. Prefers the platform's
+     * lazily-resolved `getExtensionClass()` (already loaded for any populated EP), then
+     * falls back to loading [fqn] via the EP's plugin classloader, then this classloader.
+     * Returns null when nothing works (broken plugin, missing class).
+     */
+    private fun resolveExtensionClass(ep: ExtensionPoint<*>, fqn: String): Class<*>? {
+        try {
+            val m = ep.javaClass.methods.firstOrNull {
+                it.name == "getExtensionClass" && it.parameterCount == 0
+            }
+            val resolved = m?.invoke(ep) as? Class<*>
+            if (resolved != null) return resolved
+        } catch (_: Throwable) {}
+        if (fqn == "?" || fqn.isBlank()) return null
+        val pdLoader: ClassLoader? = try {
+            val getter = ep.javaClass.methods.firstOrNull {
+                it.name == "getPluginDescriptor" && it.parameterCount == 0
+            }
+            val pd = getter?.invoke(ep)
+            (pd?.let { readMethod(it, "getPluginClassLoader") } as? ClassLoader)
+        } catch (_: Throwable) { null }
+        for (loader in listOfNotNull(pdLoader, ExtensionPointInspector::class.java.classLoader)) {
+            try {
+                return Class.forName(fqn, false, loader)
+            } catch (_: Throwable) {}
+        }
+        return null
+    }
+
+    /**
+     * Walks [cls] and its superclasses (stopping at Object) and harvests each declared
+     * field's XML-binding annotations into a [BeanField]. Mirrors how
+     * `com.intellij.util.xmlb.XmlSerializer` decides whether/how to serialize a field:
+     *   - `@Attribute("foo")` → xmlAttributeName="foo"; default `field.name` if no value.
+     *   - `@Tag("foo")` → xmlTagName="foo"; xmlAttributeName=null (nested element).
+     *   - `@Property(style=TAG)` → xmlTagName=field.name (nested element).
+     *   - No annotation and public (non-static, non-synthetic) → serialized using field name.
+     *   - Private unannotated fields → skipped (XmlSerializer skips them too).
+     * `@RequiredElement` → required=true. `@Deprecated` (Java or Kotlin) → deprecated=true.
+     * Caps at [maxFields] and reports the cap via [BeanSchema.truncated].
+     */
+    internal fun harvestBeanSchema(cls: Class<*>, maxFields: Int): BeanSchema {
+        val fields = mutableListOf<BeanField>()
+        val seen = mutableSetOf<String>() // avoid duplicate field names from class shadowing
+        var truncated = false
+        var c: Class<*>? = cls
+        while (c != null && c != Any::class.java) {
+            for (f in c.declaredFields) {
+                if (Modifier.isStatic(f.modifiers)) continue
+                if (f.isSynthetic) continue
+                if (!seen.add(f.name)) continue
+                if (fields.size >= maxFields) { truncated = true; break }
+                val mapped = describeBeanField(f) ?: continue
+                fields += mapped
+            }
+            if (fields.size >= maxFields) { truncated = true; break }
+            c = c.superclass
+        }
+        return BeanSchema(cls.name, fields, truncated)
+    }
+
+    /**
+     * Returns a [BeanField] description for [f] or null if XmlSerializer would skip the
+     * field outright (private + no xmlb annotation).
+     */
+    private fun describeBeanField(f: Field): BeanField? {
+        val attrAnn = findAnnotation(f, "com.intellij.util.xmlb.annotations.Attribute")
+        val tagAnn = findAnnotation(f, "com.intellij.util.xmlb.annotations.Tag")
+        val propAnn = findAnnotation(f, "com.intellij.util.xmlb.annotations.Property")
+        val requiredAnn = findAnnotation(f, "com.intellij.util.xmlb.annotations.RequiredElement")
+
+        val deprecated = f.isAnnotationPresent(java.lang.Deprecated::class.java) ||
+            findAnnotation(f, "kotlin.Deprecated") != null
+
+        // Decide xmlAttributeName / xmlTagName.
+        var xmlAttribute: String? = null
+        var xmlTag: String? = null
+        if (attrAnn != null) {
+            xmlAttribute = readAnnotationStringValue(attrAnn) ?: f.name
+        }
+        if (tagAnn != null) {
+            xmlTag = readAnnotationStringValue(tagAnn) ?: f.name
+            // @Tag overrides — represent as nested element, no attribute name.
+            xmlAttribute = null
+        }
+        if (propAnn != null && tagAnn == null && attrAnn == null) {
+            // @Property(style = TAG / ATTRIBUTE). style is an enum; read its name reflectively.
+            val style = readAnnotationEnumName(propAnn, "style")
+            when (style) {
+                "TAG" -> { xmlTag = f.name; xmlAttribute = null }
+                "ATTRIBUTE" -> { xmlAttribute = f.name }
+                else -> { /* @Property without style hint — keep defaults below */ }
+            }
+        }
+        if (xmlAttribute == null && xmlTag == null) {
+            // No xmlb annotation. Public non-static fields serialize using the field name;
+            // private unannotated ones are skipped by XmlSerializer.
+            if (!Modifier.isPublic(f.modifiers)) return null
+            xmlAttribute = f.name
+        }
+
+        return BeanField(
+            name = f.name,
+            xmlAttributeName = xmlAttribute,
+            xmlTagName = xmlTag,
+            type = f.type.name,
+            required = requiredAnn != null,
+            defaultValue = readStaticFinalDefault(f),
+            deprecated = deprecated,
+        )
+    }
+
+    /**
+     * Returns every public abstract method (excluding java.lang.Object overrides and
+     * synthetic / bridge methods) of [cls]. Output is sorted by name for stability.
+     */
+    internal fun harvestInterfaceMethods(cls: Class<*>, maxFields: Int): List<MethodSig> {
+        val out = mutableListOf<MethodSig>()
+        val seen = mutableSetOf<String>() // dedupe same name+param signatures
+        // Use methods (not declaredMethods) so inherited abstract methods from super-interfaces
+        // are also surfaced — INTERFACE EPs frequently extend a common SPI interface.
+        for (m in cls.methods.sortedBy { it.name }) {
+            if (out.size >= maxFields) break
+            if (m.declaringClass == Any::class.java) continue
+            if (m.isSynthetic || m.isBridge) continue
+            // Surface abstract methods (the implementation contract). For interface EPs
+            // these are exactly the methods a contributor MUST implement.
+            if (!Modifier.isAbstract(m.modifiers)) continue
+            val sig = methodSignatureString(m)
+            val key = "${m.name}$sig"
+            if (!seen.add(key)) continue
+            out += MethodSig(
+                name = m.name,
+                signature = sig,
+                returnType = m.returnType.simpleName,
+                deprecated = m.isAnnotationPresent(java.lang.Deprecated::class.java) ||
+                    findAnnotation(m, "kotlin.Deprecated") != null,
+            )
+        }
+        return out
+    }
+
+    /** Formats a method signature as "(P1, P2): R" using simple type names. */
+    private fun methodSignatureString(m: Method): String {
+        val params = m.parameterTypes.joinToString(", ") { it.simpleName }
+        return "($params): ${m.returnType.simpleName}"
+    }
+
+    /**
+     * Walks [element]'s annotations and returns the first whose annotation type FQN matches
+     * [annotationFqn]. Reflection-only (no compile-time dependency on `intellij.platform`'s
+     * xmlb annotations) so this code unit-tests cleanly without the IDE classpath.
+     */
+    private fun findAnnotation(element: java.lang.reflect.AnnotatedElement, annotationFqn: String): Any? {
+        for (ann in element.annotations) {
+            if (ann.annotationClass.java.name == annotationFqn) return ann
+        }
+        return null
+    }
+
+    /**
+     * Reads the `value()` String of an annotation reflectively. Returns null on empty
+     * string ("" is the xmlb-annotations default sentinel meaning "use the field name").
+     */
+    private fun readAnnotationStringValue(annotation: Any): String? {
+        return try {
+            val m = annotation.javaClass.methods.firstOrNull {
+                it.name == "value" && it.parameterCount == 0
+            } ?: return null
+            val v = m.invoke(annotation) as? String
+            if (v.isNullOrEmpty()) null else v
+        } catch (_: Throwable) { null }
+    }
+
+    /** Reads an enum-typed annotation member by name (e.g. @Property.style) and returns its `.name`. */
+    private fun readAnnotationEnumName(annotation: Any, member: String): String? {
+        return try {
+            val m = annotation.javaClass.methods.firstOrNull {
+                it.name == member && it.parameterCount == 0
+            } ?: return null
+            (m.invoke(annotation) as? Enum<*>)?.name
+        } catch (_: Throwable) { null }
+    }
+
+    /**
+     * Best-effort default-value extraction. Only static-final literal initializers are
+     * safe — instance-field initializers compile into `<init>` and reading them would
+     * require instantiating the bean, which can transitively touch project services and
+     * blow up the same way `extensionList.size` does (CLAUDE.md pitfall).
+     */
+    private fun readStaticFinalDefault(f: Field): String? {
+        if (!Modifier.isStatic(f.modifiers) || !Modifier.isFinal(f.modifiers)) return null
+        return try {
+            f.isAccessible = true
+            f.get(null)?.toString()
+        } catch (_: Throwable) { null }
     }
 
     /** For each registered extension instance, produce an [ExtensionInfo]. */
