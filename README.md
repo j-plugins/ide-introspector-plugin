@@ -19,8 +19,25 @@ Two tiers:
 ### Tier 1 — pre-built MCP tools
 
 Registered via the `com.intellij.mcpServer.mcpToolset` extension point. All become visible
-to MCP clients once the bundled MCP Server plugin is enabled. There are 13 tools across
-four groups: `ui.*` (5), `screenshot.*` (2), `arch.*` (5), `exec.*` (1, opt-in).
+to MCP clients once the bundled MCP Server plugin is enabled. There are 21 tools across
+six groups:
+
+- `ui.*` (5) — live Swing component tree, by-name / by-coordinates / by-XPath lookup, per-id property bag.
+- `screenshot.*` (2) — PNG capture (component / active frame / all frames / virtual desktop) and rectangular crop.
+- `arch.*` (5) — extension-point and plugin inventory of the running IDE.
+- `psi.*` (4) — open editor tabs, full PSI tree (with injections), reference resolution, Find Usages.
+- `code.*` (4) — FQN resolution, class source (real / attached / decompiled / stubs), member listing, source download. Only loaded in IDEs that ship the Java module.
+- `exec.*` (1, opt-in) — `execute_kotlin_in_ide` escape hatch. Only loaded when the Kotlin plugin is present.
+
+**Conditional loading.** Optional dependencies on `com.intellij.mcpServer`,
+`com.intellij.modules.java` and `org.jetbrains.kotlin` mean the plugin degrades
+gracefully:
+
+| Host IDE                    | `ui.*` / `screenshot.*` / `arch.*` / `psi.*` | `code.*` | `exec.*` |
+|-----------------------------|----------------------------------------------|----------|----------|
+| IDEA Community / Ultimate, Android Studio | ✅ | ✅ | ✅ |
+| PyCharm CE / RubyMine / GoLand / WebStorm | ✅ | — | ✅ (if Kotlin plugin installed) |
+| Any IDE without MCP Server plugin         | — (Platform Explorer tool window still works) | — | — |
 
 **Full tool reference with every parameter and example:** [`docs/MCP_TOOLS.md`](docs/MCP_TOOLS.md)
 — generated from the source-level `@McpDescription` annotations at build time
@@ -55,7 +72,8 @@ inside an auto-disposed `Disposable` scope so subscriptions are cleaned up betwe
 3. Textual blacklist: `Runtime.exec`, `ProcessBuilder`, `setAccessible(true)`,
    `System.exit`, `Class.forName("sun.*")`.
 4. Audit log to `idea.log` (category `ide-introspector-audit`).
-5. Hard execution timeout (default 30 s, capped at the configured `maxTimeoutMs`).
+5. Hard execution timeout (default 10 s, capped at `maxTimeoutMs = 10 000`). The 10 s
+   cap is a project-wide hard rule — see [`CLAUDE.md`](CLAUDE.md) "Timeouts".
 
 **Demo implementation note**: the spec calls for forking LivePlugin's compiler bootstrap.
 This demo takes a smaller shortcut and uses `kotlin-scripting-jsr223` (which internally
@@ -80,6 +98,11 @@ After running `./gradlew runIde`:
      the Run button on the main toolbar.
    - `arch.find_extenders_of` with target `com.intellij.toolWindow` — should list every
      `ToolWindowFactory` implementation.
+   - `psi.list_open_files` — should return the focused tab plus every other open editor.
+   - `psi.get_structure` on an open `.kt` file — should return one `psiFiles[]` root plus
+     any string-injected fragments under `injections[]`.
+   - `code.find_class` with `fqn="java.util.HashMap"` — should return state
+     `ATTACHED_SOURCE` (with JBR sources) or `DECOMPILED` (Fernflower fallback).
 3. **Kotlin execution**: enable in Settings, then call `exec.execute_kotlin_in_ide` with
    code like `1 + 1` or `project?.name`. A confirmation dialog should pop up; on accept,
    the result should round-trip as JSON.
@@ -87,18 +110,30 @@ After running `./gradlew runIde`:
 ## Project layout
 
 ```
-src/main/kotlin/com/github/xepozz/introspector/
-├── core/         — ComponentRegistry, ComponentTreeWalker, PluginInventory, ExtensionPointInspector, XPathMatcher, ScreenshotCapture
-├── model/        — Serializable data classes (ComponentInfo, PluginInfo, …) + tool args
-├── tools/
-│   ├── ui/       — get_tree, find_by_*, get_properties
-│   ├── screenshot/ — capture, crop
-│   ├── arch/     — list_extension_points, list_extensions_for_ep, list_plugins, get_plugin_details, find_extenders_of
-│   └── exec/     — execute_kotlin_in_ide
-├── toolwindow/   — Platform Explorer (panel, tree model, cell renderer, details panel)
-├── exec/         — Settings, ConfirmationManager, AstSafetyChecker, AuditLogger, KotlinExecutor, ResultSerializer, CodeWrapper
-└── util/         — EdtHelpers, ImageEncoding
+src/main/kotlin/com/github/xepozz/ide/introspector/
+├── core/                — ComponentRegistry, ComponentTreeWalker, ComponentSerializer,
+│   │                     XPathMatcher, ScreenshotCapture, PluginInventory,
+│   │                     ExtensionPointInspector, ClassSourceResolver,
+│   │                     PsiStructureWalker, PsiReferenceCollector, PsiUsageSearcher,
+│   │                     PsiModifiers
+│   └── internal/        — TtlCache, ExtensionMetadata (cached EP/extension lookup)
+├── model/               — Serializable response types (ComponentInfo, PluginInfo,
+│   │                     ExtensionInfo, ExtensionPointInfo, ClassSourceInfo, PsiInfo, …)
+│   └── args/            — @Serializable args (UiArgs, ArchArgs, PsiArgs, ScreenshotArgs, ExecArgs)
+├── tools/               — one McpToolset class per group:
+│                          UiInspectorToolset / ScreenshotToolset / ArchitectureToolset /
+│                          PsiToolset / CodeSourceToolset / ExecToolset
+├── toolwindow/          — Platform Explorer (panel, tree model, cell renderer, nodes,
+│   │                     view modes, details panel)
+│   └── details/         — Breadcrumb, Chips, FqnLink, MembersSection,
+│                          JavaMembersPreview, DetailForm, DetailViews
+├── exec/                — Settings, Configurable, ConfirmationManager, AstSafetyChecker,
+│                          AuditLogger, KotlinExecutor, ResultSerializer, CodeWrapper
+└── util/                — EdtHelpers, ImageEncoding, Utf8Truncation
 ```
+
+The KSP module under `doc-processor/` regenerates `docs/MCP_TOOLS.md` from
+`@McpTool` / `@McpDescription` annotations on every `./gradlew compileKotlin`.
 
 ## Build
 

@@ -5,9 +5,12 @@
 # IDE Introspector
 
 IntelliJ IDE plugin that exposes the running IDE to MCP clients (Claude, Cursor, …) as
-~13 tools across four groups: `ui.*` (Swing introspection), `screenshot.*`,
-`arch.*` (plugin/extension-point inventory), `exec.*` (opt-in Kotlin runtime execution).
+~21 tools across six groups: `ui.*` (Swing introspection), `screenshot.*`,
+`arch.*` (plugin/extension-point inventory), `psi.*` (PSI tree / references / Find Usages),
+`code.*` (class source / members — only loaded in IDEs that ship the Java module),
+`exec.*` (opt-in Kotlin runtime execution — only loaded when the Kotlin plugin is present).
 Ships with a "Platform Explorer" tool window for the same data without an MCP client.
+Authoritative tool reference is the auto-generated [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md).
 
 See [docs/CODE_QUALITY.md](docs/CODE_QUALITY.md) for the full Kotlin / IntelliJ-plugin /
 testing criteria. The Hard rules below take precedence; the guide expands on the rest.
@@ -34,21 +37,33 @@ introspector-plugin/
 ├── doc-processor/                  # KSP processor that renders docs/MCP_TOOLS.md
 ├── docs/                           # human-facing docs (MCP_TOOLS.md is generated)
 └── src/main/
-    ├── kotlin/com/github/xepozz/introspector/
+    ├── kotlin/com/github/xepozz/ide/introspector/
     │   ├── core/                   # ComponentRegistry / Walker / Serializer,
-    │   │                           #   XPathMatcher, PluginInventory,
-    │   │                           #   ExtensionPointInspector, ScreenshotCapture
-    │   ├── model/                  # @Serializable response types + tool args
-    │   ├── tools/                  # one McpToolset class per tool group
+    │   │   │                       #   XPathMatcher, PluginInventory,
+    │   │   │                       #   ExtensionPointInspector, ScreenshotCapture,
+    │   │   │                       #   ClassSourceResolver, PsiStructureWalker,
+    │   │   │                       #   PsiReferenceCollector, PsiUsageSearcher,
+    │   │   │                       #   PsiModifiers
+    │   │   └── internal/           # TtlCache + ExtensionMetadata (cached EP lookup)
+    │   ├── model/                  # @Serializable response types
+    │   │   └── args/               # @Serializable tool args
+    │   ├── tools/                  # one McpToolset class per tool group:
     │   │                           #   UiInspectorToolset / ScreenshotToolset /
-    │   │                           #   ArchitectureToolset / ExecToolset
+    │   │                           #   ArchitectureToolset / PsiToolset /
+    │   │                           #   CodeSourceToolset / ExecToolset
     │   ├── toolwindow/             # Platform Explorer tool window
+    │   │   └── details/            # Breadcrumb / Chips / FqnLink / MembersSection /
+    │   │                           #   JavaMembersPreview / DetailForm / DetailViews
     │   ├── exec/                   # Phase 2 — opt-in Kotlin runtime execution
-    │   └── util/                   # EdtHelpers, ImageEncoding
+    │   └── util/                   # EdtHelpers, ImageEncoding, Utf8Truncation
     └── resources/META-INF/
         ├── plugin.xml              # base plugin + tool window + settings
-        ├── mcp-integration.xml     # loaded only if com.intellij.mcpServer is present
-        └── kotlin-exec.xml         # loaded only if org.jetbrains.kotlin is also present
+        ├── mcp-integration.xml     # loaded only if com.intellij.mcpServer is present;
+        │                           #   registers ui/screenshot/arch/psi McpToolsets
+        ├── java-introspect.xml     # loaded only if mcpServer AND com.intellij.modules.java
+        │                           #   are present; registers CodeSourceToolset (code.*)
+        └── kotlin-exec.xml         # loaded only if mcpServer AND org.jetbrains.kotlin
+                                    #   are present; registers ExecToolset (exec.*)
 ```
 
 ## Hard rules
