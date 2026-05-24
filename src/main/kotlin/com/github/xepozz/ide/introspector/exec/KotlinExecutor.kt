@@ -14,7 +14,6 @@ import java.io.File
 import java.io.PrintStream
 import java.net.URLClassLoader
 import java.nio.file.Files
-import java.nio.file.Path
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -141,10 +140,14 @@ object KotlinExecutor {
                     elapsedMs(startNs), warnings)
             }
         } catch (t: Throwable) {
+            // Unwrap InvocationTargetException + chained causes — Method.invoke wraps every
+            // failure, often with an inner cause whose message is the real diagnostic.
+            val root = generateSequence<Throwable>(t) { it.cause }.lastOrNull() ?: t
+            val rootMessage = root.message ?: root.javaClass.simpleName
             return ExecutionResult(false, null, null,
                 stdoutBuf.toString().ifEmpty { null },
                 stderrBuf.toString().ifEmpty { null },
-                "Execution setup failed: ${t.javaClass.simpleName}: ${t.message}",
+                "Execution setup failed: ${root.javaClass.simpleName}: $rootMessage\n${root.stackTraceToString().take(3000)}",
                 elapsedMs(startNs), warnings)
         } finally {
             if (args.captureStdout) System.setOut(originalOut)
@@ -179,45 +182,84 @@ object KotlinExecutor {
         ) as List<String>
     }
 
-    /** Isolated classloader for the embedded Kotlin compiler — must NOT chain into the IDE. */
+    /**
+     * Classloader for `EmbeddedCompilerKt.compile()`. We build a **fresh, isolated**
+     * UrlClassLoader over (a) the IDE Kotlin plugin's `kotlinc/lib` jars (full
+     * kotlin-compiler + scripting + stdlib) plus (b) our 8-KB wrapper jar plus (c) the
+     * JDK class roots. Parent is the JDK bootstrap loader — NOT the IDE's PluginClassLoader.
+     *
+     * Why isolated and not just `kotlinPlugin.classLoader` as parent: the Kotlin plugin
+     * exposes its public API via PluginClassLoader but **does NOT export CLI compiler
+     * internals** (`org.jetbrains.kotlin.cli.common.messages.MessageRenderer`, etc.) — they
+     * live in the Kotlin plugin's separate `kotlinc/lib/kotlin-compiler.jar` and are
+     * loaded only when the plugin internally needs them.
+     *
+     * Why parent = null and not IDE classloader: kotlin-compiler.jar carries duplicate
+     * `com.intellij.openapi.*` classes (un-shaded). Mixing them with the IDE's own
+     * com.intellij.* in one classloader chain leads to "class X seen from two loaders"
+     * errors and `ApplicationManager.ourApplication` being initialised twice.
+     *
+     * Trade-off: requires the org.jetbrains.kotlin plugin to be installed. Most IntelliJ
+     * IDEs ship it (IDEA, Android Studio, PyCharm Pro, GoLand, WebStorm, RubyMine);
+     * DataGrip, Rider, RustRover, CLion don't. Phase 2 adds a Maven-download fallback.
+     */
     private val compilerClassLoader: ClassLoader by lazy {
-        val jars = pluginKotlinCompilerJars()
-        check(jars.isNotEmpty()) {
-            "No kotlin-compiler jars found in <plugin>/kotlin-compiler — was the prepareSandbox relocate task run?"
+        val wrapperJar = findWrapperJar()
+            ?: error("kotlin-compiler-wrapper jar not found in plugin's lib/ — the build is broken.")
+        val kotlincJars = kotlincJars()
+        check(kotlincJars.isNotEmpty()) {
+            "Couldn't find the Kotlin plugin's kotlinc/lib jars in this IDE. " +
+                "exec.execute_kotlin_in_ide requires the org.jetbrains.kotlin plugin. " +
+                "Install it from Settings → Plugins → Marketplace and restart."
         }
         UrlClassLoader.build()
-            .files(jdkClassRoots() + jars.map(File::toPath))
+            .files((listOf(wrapperJar) + kotlincJars).map(File::toPath) + jdkClassRoots())
             .noPreload()
             .allowBootstrapResources()
             .useCache()
             .get()
     }
 
-    private fun pluginKotlinCompilerJars(): List<File> {
+    private fun findWrapperJar(): File? {
         val ourDescriptor = PluginLookup.findPlugin(PluginId.getId("com.github.xepozz.ide.introspector"))
-            ?: return emptyList()
-        val dir = ourDescriptor.pluginPath?.toFile()?.resolve("kotlin-compiler") ?: return emptyList()
-        if (!dir.isDirectory) return emptyList()
-        return dir.listFiles { f -> f.isFile && f.name.endsWith(".jar") }?.toList().orEmpty()
+            ?: return null
+        val libDir = ourDescriptor.pluginPath?.toFile()?.resolve("lib") ?: return null
+        return libDir.listFiles { f -> f.isFile && f.name.startsWith("kotlin-compiler-wrapper") && f.name.endsWith(".jar") }
+            ?.firstOrNull()
     }
 
     /**
-     * Best-effort discovery of JDK class roots (rt.jar / java.base modules) that the
-     * embedded compiler needs to resolve `java.*` types. Falls back to scanning
-     * `${java.home}/lib/modules` and a few well-known directories.
+     * The Kotlin IDE plugin ships its full compiler under `<plugin>/kotlinc/lib/`. We pull
+     * every jar from there except the `*-sources.jar` files (no need at runtime) and the
+     * Kotlin **compiler plugins** (which target IntelliJ APIs and clash with our isolated
+     * loader). LivePlugin uses the same filter rule.
      */
-    private fun jdkClassRoots(): List<Path> {
+    private fun kotlincJars(): List<File> {
+        val kotlinPlugin = PluginLookup.findPlugin(PluginId.getId("org.jetbrains.kotlin")) ?: return emptyList()
+        val kotlincLib = kotlinPlugin.pluginPath?.toFile()?.resolve("kotlinc/lib") ?: return emptyList()
+        if (!kotlincLib.isDirectory) return emptyList()
+        return kotlincLib.listFiles { f ->
+            f.isFile && f.name.endsWith(".jar") &&
+                !f.name.endsWith("-sources.jar") &&
+                !f.name.contains("compiler-plugin")
+        }?.toList().orEmpty()
+    }
+
+    /**
+     * Best-effort discovery of JDK class roots that the compiler needs to resolve `java.*`.
+     * Tries IntelliJ's `JavaSdkUtil.getJdkClassesRoots` reflectively first, falls back to
+     * the `${java.home}/lib/modules` jimage file (works on JDK 9+).
+     */
+    private fun jdkClassRoots(): List<java.nio.file.Path> {
         val jdkRoot = File(System.getProperty("java.home"))
-        // Try IntelliJ's JavaSdkUtil reflectively — present in jps-model.jar in modern IDEs.
         try {
             val cls = Class.forName("org.jetbrains.jps.model.java.impl.JavaSdkUtil")
             val m = cls.methods.firstOrNull { it.name == "getJdkClassesRoots" && it.parameterCount == 2 }
             if (m != null) {
                 @Suppress("UNCHECKED_CAST")
-                return m.invoke(null, jdkRoot.toPath(), true) as List<Path>
+                return m.invoke(null, jdkRoot.toPath(), true) as List<java.nio.file.Path>
             }
         } catch (_: Throwable) { /* fall through */ }
-        // Fallback: just the jrt-fs JDK image — works on JDK 9+.
         val jrtModules = jdkRoot.resolve("lib/modules")
         return if (jrtModules.isFile) listOf(jrtModules.toPath()) else emptyList()
     }
@@ -225,28 +267,27 @@ object KotlinExecutor {
     private fun buildCompilerClasspath(): List<File> {
         val out = LinkedHashSet<File>()
 
-        // 1) Every jar in the IDE's main lib/ — gives us com.intellij.* platform classes.
+        // 1) Every jar in the IDE's main lib/ — com.intellij.* platform classes.
         val ideLib = File(PathManager.getLibPath())
         if (ideLib.isDirectory) {
             ideLib.listFiles { f -> f.isFile && (f.name.endsWith(".jar") || f.name.endsWith(".zip")) }
                 ?.let { out.addAll(it) }
         }
 
-        // 2) Our own plugin's lib/ — so user code can reference com.github.xepozz.* types.
+        // 2) Our own plugin's lib/ — user code can reference com.github.xepozz.* types.
         val ourDescriptor = PluginLookup.findPlugin(PluginId.getId("com.github.xepozz.ide.introspector"))
         ourDescriptor?.pluginPath?.toFile()?.resolve("lib")?.listFiles { f ->
             f.isFile && f.name.endsWith(".jar")
         }?.let { out.addAll(it) }
 
-        // 3) kotlin-stdlib + kotlin-reflect from OUR isolated kotlin-compiler/ — provides
-        //    kotlin.* / kotlin.collections.* symbols at compile time. We deliberately do
-        //    NOT pull in the IDE Kotlin plugin's kotlinc/lib/kotlin-compiler.jar — that's
-        //    a 156 MB "fat" jar with duplicate copies of many compiler-internal classes
-        //    that confuse K2's codegen ("Exception while generating code for run …").
-        //    At runtime the JVM resolves kotlin.* via the IDE classloader chain (Kotlin
-        //    plugin's classloader), which sees its own bundled stdlib — versions match in
-        //    practice because we pin our bundled stdlib (2.3.21) close to the IDE's.
-        ourDescriptor?.pluginPath?.toFile()?.resolve("kotlin-compiler")?.listFiles { f ->
+        // 3) Kotlin plugin's bundled `kotlinc/lib/kotlin-stdlib*.jar` + `kotlin-reflect.jar` +
+        //    coroutines — kotlin.* / kotlin.collections.* symbols at compile time. Skip the
+        //    bigger `kotlin-compiler.jar` (156 MB) — it carries duplicate IntelliJ classes
+        //    that confuse K2 codegen (the user code's compile classpath should NOT include
+        //    the compiler itself).
+        val kotlinPlugin = PluginLookup.findPlugin(PluginId.getId("org.jetbrains.kotlin"))
+        val kotlinPluginRoot = kotlinPlugin?.pluginPath?.toFile()
+        kotlinPluginRoot?.resolve("kotlinc/lib")?.listFiles { f ->
             f.isFile && f.name.endsWith(".jar") && (
                 f.name.startsWith("kotlin-stdlib") ||
                 f.name.startsWith("kotlin-reflect") ||
