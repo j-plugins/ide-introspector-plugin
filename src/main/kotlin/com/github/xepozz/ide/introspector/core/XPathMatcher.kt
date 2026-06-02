@@ -15,12 +15,14 @@ import com.github.xepozz.ide.introspector.model.ComponentInfo
  *  - predicates `[@attr='value']` or `[@attr=\"value\"]` with `and`-joined predicates
  *  - positional predicate `[N]` (1-based, document order, applied AFTER attribute predicates)
  *
- * Supported attributes: `@class` (simple name), `@fqClass` (fully qualified),
- * `@name`, `@accessibleName`, `@text`, `@toolTipText`. Predicates only test equality.
+ * Supported attributes: `@class` (runtime simple name or any superclass simple name),
+ * `@fqClass` (exact fully qualified), `@name`, `@accessibleName`, `@text`, `@toolTipText`.
+ * Predicates only test equality.
  *
- * Name matching (`/JButton`, `//JBLabel`) is case-sensitive and accepts either the simple
- * class name or the fully qualified one. An unknown `@attr` raises [IllegalArgumentException]
- * — silent no-match would be a debugging trap.
+ * Name matching (`/JButton`, `//JBLabel`) is case-sensitive and matches the runtime simple
+ * class name, the fully qualified name, OR any superclass simple name — so `//Tree` and
+ * `//JTree` both locate a `ProjectViewPane$MyProjectViewTree`. An unknown `@attr` raises
+ * [IllegalArgumentException] — silent no-match would be a debugging trap.
  *
  * Traversal of `//` / `*` uses **document order** (depth-first, children left-to-right).
  * This matters when positional predicates pick a specific match (`//JButton[2]`).
@@ -73,29 +75,36 @@ class XPathMatcher(
 
     private fun matchesNameAndPredicates(node: ComponentInfo, step: Step): Boolean {
         if (step.tagName != "*" && step.tagName != "div") {
-            // tagName matches either the simple class name or the fully qualified one.
-            val simple = node.className.substringAfterLast('.')
-            if (!simple.equals(step.tagName, ignoreCase = false) &&
-                !node.className.equals(step.tagName, ignoreCase = false)
-            ) return false
+            if (!matchesClassName(node, step.tagName)) return false
         }
         for ((attr, expected) in step.predicates) {
-            val actual: String? = when (attr) {
-                "class" -> node.className.substringAfterLast('.')
-                "fqClass" -> node.className
-                "name" -> node.name
-                "accessibleName" -> node.accessibleName
-                "text" -> node.text
-                "toolTipText" -> node.toolTipText
+            val matched = when (attr) {
+                "class" -> matchesClassName(node, expected)
+                "fqClass" -> node.className == expected
+                "name" -> node.name == expected
+                "accessibleName" -> node.accessibleName == expected
+                "text" -> node.text == expected
+                "toolTipText" -> node.toolTipText == expected
                 else -> throw IllegalArgumentException(
                     "Unknown XPath attribute @$attr. " +
                             "Supported: @class, @fqClass, @name, @accessibleName, @text, @toolTipText.",
                 )
             }
-            if (actual != expected) return false
+            if (!matched) return false
         }
         return true
     }
+
+    private fun matchesClassName(node: ComponentInfo, expected: String): Boolean {
+        if (node.className == expected) return true
+        if (node.className.substringAfterLast('.') == expected) return true
+        return simpleClassNames(node).any { it == expected }
+    }
+
+    private fun simpleClassNames(node: ComponentInfo): List<String> =
+        node.classHierarchy.ifEmpty {
+            listOf(node.className.substringAfterLast('.').substringAfterLast('$'))
+        }
 
     // ---------------- Parser ----------------
 

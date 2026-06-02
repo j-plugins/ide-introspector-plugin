@@ -40,6 +40,7 @@ object ComponentSerializer {
         return ComponentInfo(
             id = id,
             className = component.javaClass.name,
+            classHierarchy = classHierarchyOf(component),
             name = component.name,
             accessibleName = accessible?.accessibleName,
             accessibleRole = accessible?.accessibleRole?.toString(),
@@ -52,6 +53,13 @@ object ComponentSerializer {
             children = childIds,
         )
     }
+
+    fun classHierarchyOf(component: Component): List<String> =
+        generateSequence(component.javaClass as Class<*>) { it.superclass }
+            .takeWhile { it != Any::class.java }
+            .map { it.simpleName }
+            .filter { it.isNotEmpty() }
+            .toList()
 
     private fun collectChildIds(component: Component, registry: ComponentRegistry): List<String> {
         if (component !is Container) return emptyList()

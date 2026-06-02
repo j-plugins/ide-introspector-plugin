@@ -359,7 +359,37 @@ class ComponentSerializerTest {
         assertEquals("negative limit must disable truncation", 1000, placeNeg!!.value.length)
     }
 
+    // ====================================================================================
+    // SECTION 7. Class hierarchy
+    // ====================================================================================
+
+    @Test
+    fun `classHierarchy lists the runtime class then its superclasses by simple name`() {
+        val registry = freshRegistry()
+        val info = onEdt {
+            ComponentSerializer.toInfo(JButton("x"), registry, includeProperties = false, truncatePropertyValueAt = 200)
+        }
+        assertEquals("JButton", info.classHierarchy.first())
+        assertTrue("must include AbstractButton", info.classHierarchy.contains("AbstractButton"))
+        assertTrue("must include JComponent", info.classHierarchy.contains("JComponent"))
+        assertTrue("must include Component", info.classHierarchy.contains("Component"))
+        assertFalse("must stop before Object", info.classHierarchy.contains("Object"))
+    }
+
+    @Test
+    fun `classHierarchy uses the simple name with the outer class stripped for inner classes`() {
+        val registry = freshRegistry()
+        val info = onEdt {
+            ComponentSerializer.toInfo(InnerTree(), registry, includeProperties = false, truncatePropertyValueAt = 200)
+        }
+        assertEquals("InnerTree", info.classHierarchy.first())
+        assertTrue("inner class hierarchy must reach JComponent", info.classHierarchy.contains("JComponent"))
+    }
+
     // -- helper types ----------------------------------------------------------------------
+
+    private class InnerTree : JComponent()
+
 
     /**
      * Name is deliberately chosen so the FQN contains "ActionButton" — that's the substring

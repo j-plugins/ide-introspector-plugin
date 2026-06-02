@@ -90,6 +90,25 @@ and a textual blacklist rejects `Runtime.exec` / `ProcessBuilder` /
 
 ## Conventions
 
+### Code style
+
+- **No abbreviations** in names of variables, files, methods, classes, etc. Write the
+  full word: `settings` not `s`, `previous` not `prev`.
+- **Kotlin way first** — prefer idiomatic Kotlin over Java-style code.
+- **Short calls inline; long call chains one-per-line in a column:**
+
+  ```kotlin
+  something.method()
+      .method()
+      .method()
+  ```
+
+- **No code duplication** — extract shared logic instead of copy-pasting.
+- **Maximize platform independence** so logic can be covered by unit tests; keep
+  IntelliJ/Swing dependencies at the edges.
+- **No comments.** A comment is a smell: if something needs one, rework or split the
+  function/class until its name and structure make it self-explanatory.
+
 ### Tool descriptions
 
 Tool `@McpDescription` strings follow the structure (mirrors Anthropic's

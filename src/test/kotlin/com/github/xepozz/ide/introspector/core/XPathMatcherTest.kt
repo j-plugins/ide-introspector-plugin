@@ -67,9 +67,11 @@ class XPathMatcherTest {
         name: String? = null,
         toolTipText: String? = null,
         children: List<String> = emptyList(),
+        classHierarchy: List<String> = emptyList(),
     ) = ComponentInfo(
         id = id,
         className = className,
+        classHierarchy = classHierarchy,
         name = name,
         accessibleName = accessibleName,
         bounds = bounds,
@@ -862,5 +864,75 @@ class XPathMatcherTest {
         val n = node("t2", "javax.swing.JLabel", text = "Mentor")
         val matcher = XPathMatcher(mapOf("t2" to n), listOf("t2"))
         assertEquals(listOf("t2"), matcher.query("//*[@text=Mentor]", 10).map { it.id })
+    }
+
+    // ====================================================================================
+    // SECTION 14. Class matching by hierarchy
+    //
+    // IDE widgets are subclasses/inner classes (e.g. ProjectViewPane$MyProjectViewTree).
+    // A locator like //Tree or //JTree must reach them via their superclass simple names,
+    // mirroring intellij-ui-test-robot. The matcher reads ComponentInfo.classHierarchy.
+    // ====================================================================================
+
+    private val projectTree = node(
+        "projectTree",
+        "com.intellij.ide.projectView.impl.ProjectViewPane\$MyProjectViewTree",
+        accessibleName = "Project structure tree",
+        classHierarchy = listOf(
+            "MyProjectViewTree", "ProjectViewTree", "DnDAwareTree", "Tree", "JTree", "JComponent",
+        ),
+    )
+    private val projectTreeMatcher = XPathMatcher(mapOf("projectTree" to projectTree), listOf("projectTree"))
+
+    private fun matchesProjectTree(xpath: String): Boolean =
+        projectTreeMatcher.query(xpath, 10).map { it.id } == listOf("projectTree")
+
+    @Test
+    fun `tag name matches a superclass simple name`() {
+        assertTrue(matchesProjectTree("//Tree"))
+        assertTrue(matchesProjectTree("//JTree"))
+        assertTrue(matchesProjectTree("//DnDAwareTree"))
+    }
+
+    @Test
+    fun `tag name matches the runtime simple name`() {
+        assertTrue(matchesProjectTree("//MyProjectViewTree"))
+    }
+
+    @Test
+    fun `tag name matches the fully qualified runtime name`() {
+        assertTrue(matchesProjectTree("//com.intellij.ide.projectView.impl.ProjectViewPane\$MyProjectViewTree"))
+    }
+
+    @Test
+    fun `class predicate matches any name in the hierarchy`() {
+        assertTrue(matchesProjectTree("//*[@class='Tree']"))
+        assertTrue(matchesProjectTree("//*[@class='JTree']"))
+        assertTrue(matchesProjectTree("//*[@class='MyProjectViewTree']"))
+    }
+
+    @Test
+    fun `fqClass predicate stays exact and ignores the hierarchy`() {
+        assertTrue(matchesProjectTree("//*[@fqClass='com.intellij.ide.projectView.impl.ProjectViewPane\$MyProjectViewTree']"))
+        assertEquals(
+            emptyList<String>(),
+            projectTreeMatcher.query("//*[@fqClass='Tree']", 10).map { it.id },
+        )
+    }
+
+    @Test
+    fun `tag name unrelated to the hierarchy does not match`() {
+        assertEquals(emptyList<String>(), projectTreeMatcher.query("//JList", 10).map { it.id })
+    }
+
+    @Test
+    fun `empty hierarchy falls back to the runtime simple name with inner class stripped`() {
+        val legacy = node(
+            "legacy",
+            "com.intellij.ide.projectView.impl.ProjectViewPane\$MyProjectViewTree",
+        )
+        val matcher = XPathMatcher(mapOf("legacy" to legacy), listOf("legacy"))
+        assertEquals(listOf("legacy"), matcher.query("//MyProjectViewTree", 10).map { it.id })
+        assertEquals(emptyList<String>(), matcher.query("//Tree", 10).map { it.id })
     }
 }

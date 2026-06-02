@@ -4,9 +4,16 @@ import com.github.xepozz.ide.introspector.core.ComponentRegistry
 import com.github.xepozz.ide.introspector.core.ComponentSerializer
 import com.github.xepozz.ide.introspector.core.ComponentTreeWalker
 import com.github.xepozz.ide.introspector.core.XPathMatcher
+import com.github.xepozz.ide.introspector.core.interaction.InteractionOutcome
+import com.github.xepozz.ide.introspector.core.interaction.ItemSelector
+import com.github.xepozz.ide.introspector.core.interaction.MouseButton
+import com.github.xepozz.ide.introspector.core.interaction.SyntheticEventDispatcher
+import com.github.xepozz.ide.introspector.core.interaction.WidgetInteractorRegistry
 import com.github.xepozz.ide.introspector.model.ComponentInfo
 import com.github.xepozz.ide.introspector.model.ComponentProperty
 import com.github.xepozz.ide.introspector.model.FindComponentsResponse
+import com.github.xepozz.ide.introspector.model.InteractionResponse
+import com.github.xepozz.ide.introspector.model.ListItemsResponse
 import com.github.xepozz.ide.introspector.model.UiTreeResponse
 import com.github.xepozz.ide.introspector.util.onEdtBlocking
 import com.intellij.mcpserver.McpToolset
@@ -111,7 +118,7 @@ class UiInspectorToolset : McpToolset {
         matchMode: String = "contains",
         @McpDescription("Case sensitivity for 'exact'/'contains'. Ignored for 'regex' (use (?i) for case-insensitive regex).")
         caseSensitive: Boolean = false,
-        @McpDescription("Which fields to test. Default ['name','text','accessibleName','toolTipText']. Narrow it to speed things up.")
+        @McpDescription("Which fields to test. Default ['name','text','accessibleName','toolTipText']. Also supports 'className' (matches the FQCN and every superclass simple name, so 'Tree' finds a ProjectViewTree). Platform widgets often have a null programmatic name — prefer accessibleName or className for them.")
         searchIn: List<String> = DEFAULT_SEARCH_FIELDS,
         @McpDescription("Cap on returned matches. Default 50.")
         limit: Int = 50,
@@ -228,14 +235,215 @@ class UiInspectorToolset : McpToolset {
         @McpDescription("Include accessibleContext (a11y name/role/description). Cheap; leave on unless responses get noisy.")
         includeAccessibleContext: Boolean = true,
     ): PropertiesResponse {
-        val component = ComponentRegistry.getInstance().lookup(componentId)
-            ?: throw com.intellij.mcpserver.McpExpectedError(
-                "Component '$componentId' is no longer attached (panel closed or IDE restarted). " +
-                    "Call ui.find_by_* or ui.get_tree again to get a fresh id.",
-                kotlinx.serialization.json.JsonObject(emptyMap())
-            )
+        val component = resolveComponent(componentId)
         return onEdtBlocking {
             collectProperties(componentId, component, includeClientProperties, includeAccessibleContext)
+        }
+    }
+
+    @McpTool(name = "ui.list_items")
+    @McpDescription(
+        """
+        |Enumerates the logical items inside one composite widget — the rows of a tree, the
+        |elements of a list, the rows of a table, the tabs of a tabbed pane, or the entries of
+        |a combo box. These items are NOT separate Swing components, so ui.get_tree / find_by_*
+        |cannot see them; this tool reads the widget's own model instead.
+        |
+        |Use this when: you located a JTree / JList / JTable / JTabbedPane / JComboBox (e.g. the
+        |test-results tree, a file list, the editor's tab strip) via ui.find_by_* and now need
+        |the selectable items inside it before calling ui.select_item / ui.activate.
+        |
+        |Do NOT use this when: you need the component hierarchy (use ui.get_tree), or the
+        |component is a plain button/label with no items (use ui.click).
+        |
+        |Returns: { componentId, widgetType, items: WidgetItem[], warnings[] }. Each WidgetItem
+        |has index, text, selected, enabled, and for trees path[] / depth / expanded / leaf.
+        |widgetType is one of "tree" | "list" | "table" | "tabbedPane" | "comboBox", or
+        |"unsupported" when the component bears no items.
+        |
+        |Examples:
+        |  componentId="c_a3f2e1b8"   — list the rows of a located JTree
+        """
+    )
+    suspend fun `ui_list_items`(
+        @McpDescription("Component id of a JTree/JList/JTable/JTabbedPane/JComboBox from a prior ui.find_by_* or ui.get_tree call.")
+        componentId: String,
+    ): ListItemsResponse {
+        val component = resolveComponent(componentId)
+        return onEdtBlocking {
+            val interactor = WidgetInteractorRegistry.forComponent(component)
+                ?: return@onEdtBlocking ListItemsResponse(
+                    componentId = componentId,
+                    widgetType = "unsupported",
+                    items = emptyList(),
+                    warnings = listOf("Component is not an item-bearing widget (tree/list/table/tabbedPane/comboBox)."),
+                )
+            ListItemsResponse(componentId, interactor.widgetType, interactor.listItems(component))
+        }
+    }
+
+    @McpTool(name = "ui.select_item")
+    @McpDescription(
+        """
+        |Selects an item inside a composite widget (tree node, list element, table row, tab,
+        |combo entry) through the widget's own selection model — the same effect as clicking it,
+        |but reliable and independent of on-screen visibility. Fires the widget's selection
+        |listeners (e.g. selecting a test row shows its details), scrolls the item into view,
+        |and for trees expands the ancestors first.
+        |
+        |Use this when: you want to highlight/choose a specific item you saw via ui.list_items
+        |— select a test in the run tree, switch to a tab, pick a list row.
+        |
+        |Do NOT use this when: you want to OPEN/navigate the item (double-click semantics — use
+        |ui.activate), or the target is a plain button (use ui.click).
+        |
+        |Address the item by exactly one of: index (0-based, as returned by ui.list_items),
+        |text (matched per matchMode against the item's rendered text), or path (a list of node
+        |texts from the root, for trees). Provide index=-1 / text=null / empty path for the ones
+        |you don't use.
+        |
+        |Returns: { componentId, action, success, widgetType, matchedItem, selectionAfter[],
+        |warnings[] }. success=false with a warning when no item matched.
+        |
+        |Examples:
+        |  componentId="c_tree", path=["Root","MyTest","testFoo"]      — select a tree node by path
+        |  componentId="c_list", text="config.yml", matchMode="exact"  — select a list element by text
+        |  componentId="c_tabs", index=2                               — switch to the third tab
+        """
+    )
+    suspend fun `ui_select_item`(
+        @McpDescription("Component id of the widget (from ui.find_by_* / ui.list_items).")
+        componentId: String,
+        @McpDescription("0-based item index (as returned by ui.list_items). Use -1 when selecting by text or path.")
+        index: Int = -1,
+        @McpDescription("Item text to match. Null when selecting by index or path.")
+        text: String? = null,
+        @McpDescription("'exact' (default) | 'contains' | 'regex'. Applies to the text selector.")
+        matchMode: String = "exact",
+        @McpDescription("Tree path as node texts from the root (e.g. ['Root','Child']). Empty for non-tree widgets or when using index/text.")
+        path: List<String> = emptyList(),
+    ): InteractionResponse {
+        val component = resolveComponent(componentId)
+        val selector = ItemSelector.of(index, text, matchMode, path)
+        return onEdtBlocking {
+            val interactor = WidgetInteractorRegistry.forComponent(component)
+                ?: return@onEdtBlocking unsupportedInteraction(componentId, "select")
+            interactor.select(component, selector).toResponse(componentId, "select", interactor.widgetType)
+        }
+    }
+
+    @McpTool(name = "ui.activate")
+    @McpDescription(
+        """
+        |Activates an item inside a composite widget — the double-click / Enter gesture that
+        |OPENS or runs it (open the file under a tree node, jump to a test, follow a list entry).
+        |First selects the item through the model, then dispatches a synthetic double-click at
+        |the item's on-screen bounds so the widget's activation listeners fire.
+        |
+        |Use this when: selecting is not enough and you need the "open it" behaviour — navigate
+        |to source from the test tree, open a file from a list.
+        |
+        |Do NOT use this when: you only want to highlight the item (use ui.select_item), or the
+        |target is a plain button (use ui.click).
+        |
+        |Address the item by exactly one of index / text / path, same as ui.select_item.
+        |
+        |Returns: { componentId, action, success, widgetType, matchedItem, selectionAfter[],
+        |warnings[] }. success=false when no item matched; a warning is added when the item has
+        |no on-screen bounds (off-screen / not realized) so the double-click could not be sent.
+        |
+        |Examples:
+        |  componentId="c_tree", path=["Project","src","Main.kt"]   — open a file from a tree
+        |  componentId="c_list", text="failingTest"                 — activate a list entry
+        """
+    )
+    suspend fun `ui_activate`(
+        @McpDescription("Component id of the widget (from ui.find_by_* / ui.list_items).")
+        componentId: String,
+        @McpDescription("0-based item index. Use -1 when addressing by text or path.")
+        index: Int = -1,
+        @McpDescription("Item text to match. Null when addressing by index or path.")
+        text: String? = null,
+        @McpDescription("'exact' (default) | 'contains' | 'regex'. Applies to the text selector.")
+        matchMode: String = "exact",
+        @McpDescription("Tree path as node texts from the root. Empty for non-tree widgets or when using index/text.")
+        path: List<String> = emptyList(),
+    ): InteractionResponse {
+        val component = resolveComponent(componentId)
+        val selector = ItemSelector.of(index, text, matchMode, path)
+        return onEdtBlocking {
+            val interactor = WidgetInteractorRegistry.forComponent(component)
+                ?: return@onEdtBlocking unsupportedInteraction(componentId, "activate")
+            val outcome = interactor.select(component, selector)
+            if (!outcome.success) {
+                return@onEdtBlocking outcome.toResponse(componentId, "activate", interactor.widgetType)
+            }
+            val bounds = interactor.itemBounds(component, selector)
+                ?: return@onEdtBlocking outcome
+                    .copy(warnings = outcome.warnings + "Item has no on-screen bounds; double-click not dispatched.")
+                    .toResponse(componentId, "activate", interactor.widgetType)
+            SyntheticEventDispatcher.click(
+                component,
+                Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2),
+                clickCount = 2,
+                button = MouseButton.LEFT,
+            )
+            outcome.toResponse(componentId, "activate", interactor.widgetType)
+        }
+    }
+
+    @McpTool(name = "ui.click")
+    @McpDescription(
+        """
+        |Clicks one located component. For an AbstractButton (button, checkbox, radio, action
+        |button) with no explicit coordinates it calls doClick() — the robust, model-level
+        |press. Otherwise it dispatches a synthetic mouse click at the given component-local
+        |point (or the component centre when x/y are omitted).
+        |
+        |Use this when: you want to press a button/checkbox, or send a raw click to a specific
+        |component at a known local offset.
+        |
+        |Do NOT use this when: the target is an item inside a tree/list/table/tabs/combo — use
+        |ui.select_item (to choose) or ui.activate (to open). Use ui.find_by_* first to get the
+        |component id.
+        |
+        |Coordinates are component-local pixels (origin = component top-left). Omit x/y (leave
+        |-1) to click the centre. button is 'left' | 'middle' | 'right'.
+        |
+        |Returns: { componentId, action, success, warnings[] }.
+        |
+        |Examples:
+        |  componentId="c_runButton"                          — press the Run button (doClick)
+        |  componentId="c_panel", x=12, y=8, button="right"   — right-click at local (12,8)
+        |  componentId="c_cell", clickCount=2                 — double-click the component centre
+        """
+    )
+    suspend fun `ui_click`(
+        @McpDescription("Component id from a prior ui.find_by_* / ui.get_tree call.")
+        componentId: String,
+        @McpDescription("Component-local X in pixels. -1 (default) clicks the component centre.")
+        x: Int = -1,
+        @McpDescription("Component-local Y in pixels. -1 (default) clicks the component centre.")
+        y: Int = -1,
+        @McpDescription("Number of clicks. 1 = single, 2 = double.")
+        clickCount: Int = 1,
+        @McpDescription("'left' (default) | 'middle' | 'right'.")
+        button: String = "left",
+    ): InteractionResponse {
+        val component = resolveComponent(componentId)
+        return onEdtBlocking {
+            if (component is AbstractButton && x < 0 && y < 0) {
+                component.doClick()
+                return@onEdtBlocking InteractionResponse(componentId, "click", success = true)
+            }
+            val point = if (x < 0 || y < 0) Point(component.width / 2, component.height / 2) else Point(x, y)
+            val dispatched = SyntheticEventDispatcher.click(component, point, clickCount, MouseButton.from(button))
+            InteractionResponse(
+                componentId = componentId,
+                action = "click",
+                success = dispatched,
+                warnings = if (dispatched) emptyList() else listOf("Click could not be dispatched to the component."),
+            )
         }
     }
 
@@ -330,6 +538,10 @@ class UiInspectorToolset : McpToolset {
                 "text" -> textOf(c)?.let(out::add)
                 "accessibleName" -> (c as? Accessible)?.accessibleContext?.accessibleName?.let(out::add)
                 "toolTipText" -> (c as? JComponent)?.toolTipText?.let(out::add)
+                "className" -> {
+                    out.add(c.javaClass.name)
+                    out.addAll(ComponentSerializer.classHierarchyOf(c))
+                }
             }
         }
         return out
@@ -442,6 +654,34 @@ class UiInspectorToolset : McpToolset {
         }
         return PropertiesResponse(componentId, component.javaClass.name, props, warnings)
     }
+
+    private fun resolveComponent(componentId: String): Component =
+        ComponentRegistry.getInstance().lookup(componentId)
+            ?: throw com.intellij.mcpserver.McpExpectedError(
+                "Component '$componentId' is no longer attached (panel closed or IDE restarted). " +
+                    "Call ui.find_by_* or ui.get_tree again to get a fresh id.",
+                kotlinx.serialization.json.JsonObject(emptyMap())
+            )
+
+    private fun unsupportedInteraction(componentId: String, action: String): InteractionResponse =
+        InteractionResponse(
+            componentId = componentId,
+            action = action,
+            success = false,
+            widgetType = "unsupported",
+            warnings = listOf("Component is not an item-bearing widget (tree/list/table/tabbedPane/comboBox)."),
+        )
+
+    private fun InteractionOutcome.toResponse(componentId: String, action: String, widgetType: String): InteractionResponse =
+        InteractionResponse(
+            componentId = componentId,
+            action = action,
+            success = success,
+            widgetType = widgetType,
+            matchedItem = matchedItem,
+            selectionAfter = selectionAfter,
+            warnings = warnings,
+        )
 
     companion object {
         val DEFAULT_SEARCH_FIELDS = listOf("name", "text", "accessibleName", "toolTipText")

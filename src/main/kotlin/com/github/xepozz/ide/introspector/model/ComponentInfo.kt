@@ -7,6 +7,7 @@ data class ComponentInfo(
     val id: String,
     @kotlinx.serialization.SerialName("class")
     val className: String,
+    val classHierarchy: List<String> = emptyList(),
     val name: String? = null,
     val accessibleName: String? = null,
     val accessibleRole: String? = null,
