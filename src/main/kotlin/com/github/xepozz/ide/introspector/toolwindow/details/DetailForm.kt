@@ -1,15 +1,18 @@
 package com.github.xepozz.ide.introspector.toolwindow.details
 
+import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.Dimension
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
 import javax.swing.BorderFactory
+import javax.swing.BoxLayout
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingConstants
@@ -23,10 +26,32 @@ internal fun String?.orDash(): String = if (isNullOrBlank()) DASH else this
 
 /** ActionLink with a no-padding border — used everywhere in the details panel so links sit
  *  flush with surrounding form cells. */
-internal fun actionLink(text: String, onClick: () -> Unit): com.intellij.ui.components.ActionLink =
-    com.intellij.ui.components.ActionLink(text) { _ -> onClick() }.apply {
+internal fun actionLink(text: String, onClick: () -> Unit): ActionLink =
+    ActionLink(text) { _ -> onClick() }.apply {
         border = JBUI.Borders.empty()
     }
+
+/** Secondary-emphasis label — muted foreground used for keys, subtitles, captions and notes. */
+internal fun infoLabel(text: String): JBLabel = JBLabel(text).apply {
+    foreground = UIUtil.getLabelInfoForeground()
+}
+
+/** Top-aligned, transparent vertical box — the common stacked-component container. */
+internal fun verticalPanel(): JPanel = JPanel().apply {
+    layout = BoxLayout(this, BoxLayout.Y_AXIS)
+    isOpaque = false
+}
+
+/** Probe for the Java PSI module, cached for the JVM lifetime. Both [FqnLink] and
+ *  [MembersSection] gate Java-only behaviour on this without importing JavaPsiFacade. */
+internal val javaPsiAvailable: Boolean by lazy {
+    try {
+        Class.forName("com.intellij.psi.JavaPsiFacade")
+        true
+    } catch (_: ClassNotFoundException) {
+        false
+    }
+}
 
 /**
  * Lightweight 2-column key-value form used in detail views. Built directly on GridBagLayout
@@ -73,9 +98,8 @@ class DetailForm {
             is Row.Section -> {
                 gbc.gridx = 0; gbc.gridy = y; gbc.gridwidth = 2; gbc.weightx = 1.0
                 gbc.insets = Insets(10, 0, 4, 0)
-                val header = JBLabel(row.title).apply {
+                val header = infoLabel(row.title).apply {
                     font = JBFont.label().asBold()
-                    foreground = UIUtil.getLabelInfoForeground()
                     border = BorderFactory.createMatteBorder(
                         0, 0, 1, 0, UIUtil.getBoundsColor()
                     )
@@ -91,14 +115,13 @@ class DetailForm {
                     border = BorderFactory.createMatteBorder(
                         0, 0, 1, 0, UIUtil.getBoundsColor()
                     )
-                    preferredSize = java.awt.Dimension(0, 8)
+                    preferredSize = Dimension(0, 8)
                 }, gbc)
                 y++
             }
             is Row.KeyValue -> {
                 gbc.gridx = 0; gbc.gridy = y; gbc.gridwidth = 1; gbc.weightx = 0.0
-                val keyLabel = JBLabel(row.key).apply {
-                    foreground = UIUtil.getLabelInfoForeground()
+                val keyLabel = infoLabel(row.key).apply {
                     horizontalAlignment = SwingConstants.LEFT
                     verticalAlignment = SwingConstants.TOP
                 }
@@ -130,17 +153,14 @@ fun pageHeader(title: String, subtitle: String? = null, chips: ChipStrip? = null
         border = JBUI.Borders.empty(12, 12, 4, 12)
         isOpaque = false
     }
-    val center = JPanel().apply {
-        layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
-        isOpaque = false
+    val center = verticalPanel().apply {
         val titleLabel = JBLabel(title).apply {
             font = JBFont.h3()
             alignmentX = Component.LEFT_ALIGNMENT
         }
         add(titleLabel)
         if (!subtitle.isNullOrBlank()) {
-            val sub = JBLabel(subtitle).apply {
-                foreground = UIUtil.getLabelInfoForeground()
+            val sub = infoLabel(subtitle).apply {
                 font = JBFont.small()
                 alignmentX = Component.LEFT_ALIGNMENT
                 border = JBUI.Borders.emptyTop(2)

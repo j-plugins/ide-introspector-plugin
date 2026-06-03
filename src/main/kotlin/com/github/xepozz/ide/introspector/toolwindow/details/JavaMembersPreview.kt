@@ -8,11 +8,8 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
-import com.intellij.util.ui.UIUtil
 import java.awt.Component
-import javax.swing.BoxLayout
 import javax.swing.JComponent
-import javax.swing.JPanel
 
 /**
  * Java-PSI-backed implementation of the members section. ONLY referenced from inside
@@ -50,33 +47,26 @@ internal object JavaMembersPreview {
     }
 
     /** Vertical strip of FqnLinks for multi-valued rows like "Implements". */
-    private fun stackedLinks(project: Project, fqns: List<String>): JComponent {
-        val panel = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            isOpaque = false
-        }
+    private fun stackedLinks(project: Project, fqns: List<String>): JComponent = verticalPanel().apply {
         for (fqn in fqns) {
             val link = FqnLink.render(project, fqn)
             link.alignmentX = Component.LEFT_ALIGNMENT
-            panel.add(link)
+            add(link)
         }
-        return panel
     }
 
     private fun signatureLabel(m: PsiMethod): JComponent {
         val params = m.parameterList.parameters.joinToString(", ") { it.type.presentableText }
         val ret = m.returnType?.presentableText ?: ""
         val text = "(${params})${if (ret.isNotEmpty()) ": $ret" else ""}"
-        return JBLabel(text).apply {
-            foreground = UIUtil.getLabelInfoForeground()
+        return infoLabel(text).apply {
             font = JBFont.small()
         }
     }
 
-    private fun notFound(fqn: String): JComponent = JBLabel(
+    private fun notFound(fqn: String): JComponent = infoLabel(
         "Class $fqn not resolvable in this project's scope."
     ).apply {
-        foreground = UIUtil.getLabelInfoForeground()
         border = JBUI.Borders.empty(4, 0)
     }
 }

@@ -6,12 +6,11 @@ import com.github.xepozz.ide.introspector.exec.ConfirmationManager
 import com.github.xepozz.ide.introspector.exec.ExecSettings
 import com.github.xepozz.ide.introspector.exec.KotlinExecutor
 import com.github.xepozz.ide.introspector.model.args.ExecuteKotlinArgs
-import com.intellij.mcpserver.McpExpectedError
+import com.github.xepozz.ide.introspector.util.mcpError
+import com.github.xepozz.ide.introspector.util.requireFocusedProject
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
-import com.intellij.mcpserver.projectOrNull
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -108,21 +107,19 @@ class ExecToolset : McpToolset {
     ): ExecuteKotlinResponse {
         val settings = ExecSettings.getInstance()
         if (!settings.enabled) {
-            throw McpExpectedError(
+            mcpError(
                 "exec.execute_kotlin_in_ide is disabled. Enable in Settings → Tools → IDE Introspector → 'Allow Kotlin code execution'.",
-                JsonObject(emptyMap()),
             )
         }
         val safety = AstSafetyChecker.check(code)
         if (!safety.ok) {
             AuditLogger.record(code, "blocked-by-safety", 0, safety.reason)
-            throw McpExpectedError(safety.reason ?: "Rejected by safety checker", JsonObject(emptyMap()))
+            mcpError(safety.reason ?: "Rejected by safety checker")
         }
-        val project = currentCoroutineContext().projectOrNull
-            ?: throw McpExpectedError("No focused project available", JsonObject(emptyMap()))
+        val project = requireFocusedProject("(exec runs Kotlin against an open project)")
         if (!ConfirmationManager.confirm(project, code)) {
             AuditLogger.record(code, "user-rejected", 0, null)
-            throw McpExpectedError("User declined execution", JsonObject(emptyMap()))
+            mcpError("User declined execution")
         }
         val args = ExecuteKotlinArgs(code, timeoutMs, captureStdout, captureStderr, runOn)
         val r = KotlinExecutor.execute(args, project)

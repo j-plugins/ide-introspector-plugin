@@ -8,10 +8,10 @@ import com.github.xepozz.ide.introspector.model.GetPsiStructureResponse
 import com.github.xepozz.ide.introspector.model.GetReferencesResponse
 import com.github.xepozz.ide.introspector.model.OpenFileInfo
 import com.github.xepozz.ide.introspector.model.OpenFilesResponse
+import com.github.xepozz.ide.introspector.util.mcpError
 import com.github.xepozz.ide.introspector.util.onEdtBlocking
 import com.github.xepozz.ide.introspector.util.readActionBlocking
-import com.github.xepozz.ide.introspector.util.IdeProjectResolver
-import com.intellij.mcpserver.McpExpectedError
+import com.github.xepozz.ide.introspector.util.requireFocusedProject
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
@@ -25,7 +25,6 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiUtilBase
-import kotlinx.serialization.json.JsonObject
 
 /**
  * `psi.*` — open-file inspection: enumerate open editor tabs, dump the PSI tree (multi-language
@@ -72,7 +71,7 @@ class PsiToolset : McpToolset {
         """
     )
     suspend fun psi_list_open_files(): OpenFilesResponse {
-        val project = requireProject()
+        val project = requireFocusedProject("(psi.* tools operate on an open editor)")
         // FileEditorManager.selectedFiles is EDT-only (queries the focus subsystem).
         val (selectedVf, allVfs) = onEdtBlocking {
             val mgr = FileEditorManager.getInstance(project)
@@ -157,7 +156,7 @@ class PsiToolset : McpToolset {
         require(maxNodes in 1..50_000) { "maxNodes must be in 1..50000" }
         require(truncateNodeTextAt in 0..4096) { "truncateNodeTextAt must be in 0..4096" }
 
-        val project = requireProject()
+        val project = requireFocusedProject("(psi.* tools operate on an open editor)")
         return readActionBlocking {
             val (psiFile, vf, document) = resolveFile(project, fileUrl)
             DumbService.getInstance(project).computeWithAlternativeResolveEnabled<GetPsiStructureResponse, RuntimeException> {
@@ -251,7 +250,7 @@ class PsiToolset : McpToolset {
         require(maxReferences in 1..50_000) { "maxReferences must be in 1..50000" }
         require(truncateTextAt in 0..4096) { "truncateTextAt must be in 0..4096" }
 
-        val project = requireProject()
+        val project = requireFocusedProject("(psi.* tools operate on an open editor)")
         return readActionBlocking {
             val (psiFile, vf, document) = resolveFile(project, fileUrl)
 
@@ -390,7 +389,7 @@ class PsiToolset : McpToolset {
         require(maxUsages in 1..50_000) { "maxUsages must be in 1..50000" }
         require(truncateTextAt in 0..4096) { "truncateTextAt must be in 0..4096" }
 
-        val project = requireProject()
+        val project = requireFocusedProject("(psi.* tools operate on an open editor)")
         return readActionBlocking {
             val (psiFile, _, document) = resolveFile(project, fileUrl)
             val pos = resolveOffset(document, offset, line, column)
@@ -407,7 +406,7 @@ class PsiToolset : McpToolset {
                         groupByFile = groupByFile,
                     )
                 } catch (e: PsiUsageSearcher.NoTargetException) {
-                    throw McpExpectedError(e.message ?: "No declaration at offset", JsonObject(emptyMap()))
+                    mcpError(e.message ?: "No declaration at offset")
                 }
             }
         }
@@ -449,16 +448,13 @@ class PsiToolset : McpToolset {
     private fun resolveFile(project: Project, fileUrl: String?): ResolvedFile {
         val vf: VirtualFile = if (fileUrl != null) {
             VirtualFileManager.getInstance().findFileByUrl(fileUrl)
-                ?: throw McpExpectedError("No file at url: $fileUrl", JsonObject(emptyMap()))
+                ?: mcpError("No file at url: $fileUrl")
         } else {
             FileEditorManager.getInstance(project).selectedFiles.firstOrNull()
-                ?: throw McpExpectedError(
-                    "No active editor tab. Open a file first, or pass fileUrl from psi.list_open_files.",
-                    JsonObject(emptyMap())
-                )
+                ?: mcpError("No active editor tab. Open a file first, or pass fileUrl from psi.list_open_files.")
         }
         val psiFile = PsiManager.getInstance(project).findFile(vf)
-            ?: throw McpExpectedError("File has no PSI: ${vf.url}", JsonObject(emptyMap()))
+            ?: mcpError("File has no PSI: ${vf.url}")
         val document = PsiDocumentManager.getInstance(project).getDocument(psiFile)
         return ResolvedFile(psiFile, vf, document)
     }
@@ -481,10 +477,4 @@ class PsiToolset : McpToolset {
         val col = (column - 1).coerceAtLeast(0)
         return (lineStart + col).coerceAtMost(lineEnd)
     }
-
-    private fun requireProject(): Project = IdeProjectResolver.focusedProject()
-        ?: throw McpExpectedError(
-            "No open project. Open a project in this IDE first (psi.* tools operate on an open editor).",
-            JsonObject(emptyMap())
-        )
 }

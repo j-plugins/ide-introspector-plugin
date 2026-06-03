@@ -1,6 +1,7 @@
 package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.core.internal.ExtensionMetadata
+import com.github.xepozz.ide.introspector.core.internal.PluginDescriptorReader
 import com.github.xepozz.ide.introspector.model.ExtensionInfo
 import com.github.xepozz.ide.introspector.model.ExtensionPointInfo
 import com.github.xepozz.ide.introspector.util.ReflectionAccess
@@ -54,26 +55,14 @@ object ExtensionPointInspector {
     internal fun extractAllEps(area: ExtensionsArea): List<ExtensionPoint<Any>> {
         // ExtensionsAreaImpl exposes a method `getExtensionPoints()` returning Map<String, EP>.
         // We use reflection because it isn't in the public API.
-        val method = area.javaClass.methods.firstOrNull {
-            it.name == "getExtensionPoints" && it.parameterCount == 0
-        }
-        if (method != null) {
-            val value = method.invoke(area)
-            if (value is Map<*, *>) {
-                return value.values.filterIsInstance<ExtensionPoint<*>>() as List<ExtensionPoint<Any>>
-            }
-            if (value is Collection<*>) {
-                return value.filterIsInstance<ExtensionPoint<*>>() as List<ExtensionPoint<Any>>
-            }
+        when (val value = ReflectionAccess.readMethod(area, "getExtensionPoints")) {
+            is Map<*, *> -> return value.values.filterIsInstance<ExtensionPoint<*>>() as List<ExtensionPoint<Any>>
+            is Collection<*> -> return value.filterIsInstance<ExtensionPoint<*>>() as List<ExtensionPoint<Any>>
         }
         // Fallback: scan the `extensionPoints` field.
-        val field = area.javaClass.declaredFields.firstOrNull { it.name == "extensionPoints" }
-        if (field != null) {
-            field.isAccessible = true
-            val v = field.get(area)
-            if (v is Map<*, *>) {
-                return v.values.filterIsInstance<ExtensionPoint<*>>() as List<ExtensionPoint<Any>>
-            }
+        val field = ReflectionAccess.readField(area, "extensionPoints")
+        if (field is Map<*, *>) {
+            return field.values.filterIsInstance<ExtensionPoint<*>>() as List<ExtensionPoint<Any>>
         }
         return emptyList()
     }
@@ -102,10 +91,8 @@ object ExtensionPointInspector {
 
     /** [ExtensionPoint] doesn't expose a `name` on the public interface — it's on the impl. */
     internal fun epName(ep: ExtensionPoint<*>): String = try {
-        val nameField = ep.javaClass.fields.firstOrNull { it.name == "name" }
-        nameField?.get(ep)?.toString()
-            ?: ep.javaClass.methods.firstOrNull { it.name == "getName" && it.parameterCount == 0 }
-                ?.invoke(ep)?.toString()
+        ReflectionAccess.readField(ep, "name")?.toString()
+            ?: ReflectionAccess.readMethod(ep, "getName")?.toString()
             ?: ep.javaClass.simpleName
     } catch (_: Throwable) {
         ep.javaClass.simpleName
@@ -117,15 +104,13 @@ object ExtensionPointInspector {
         // also handles platform-version drift (`className` / `myClassName`) and falls back
         // to the lazily-resolved Class<*> for EPs registered by Class reference.
         try {
-            val kindRaw = ep.javaClass.methods.firstOrNull {
-                it.name == "getKind" && it.parameterCount == 0
-            }?.invoke(ep)
+            val kindRaw = ReflectionAccess.readMethod(ep, "getKind")
             val kindStr = when (kindRaw?.toString()) {
                 "INTERFACE" -> "INTERFACE"
                 "BEAN_CLASS" -> "BEAN_CLASS"
                 else -> kindRaw?.toString() ?: "BEAN_CLASS"
             }
-            val resolvedName = tryReadClassNameField(ep)
+            val resolvedName = ReflectionAccess.readField(ep, "className", "myClassName") as? String
                 ?: tryReadExtensionClass(ep)
                 ?: "?"
             return kindStr to resolvedName
@@ -134,62 +119,19 @@ object ExtensionPointInspector {
         }
     }
 
-    /** Last-resort: walk declared fields named "className" / "myClassName" — covers shape drift
-     *  across platform versions where the public accessor is removed or renamed. */
-    internal fun tryReadClassNameField(ep: ExtensionPoint<*>): String? {
-        val names = arrayOf("className", "myClassName")
-        var cls: Class<*>? = ep.javaClass
-        while (cls != null && cls != Any::class.java) {
-            for (n in names) {
-                val f = cls.declaredFields.firstOrNull { it.name == n } ?: continue
-                return try {
-                    f.isAccessible = true
-                    f.get(ep) as? String
-                } catch (_: Throwable) { null }
-            }
-            cls = cls.superclass
-        }
-        return null
-    }
-
     /** Reads the lazily-resolved Class<*> off ExtensionPointImpl. Does NOT instantiate any
      *  extension — only forces classloading of the bean/interface type, which the platform
      *  has already done for any EP that has at least one registered extension. */
-    internal fun tryReadExtensionClass(ep: ExtensionPoint<*>): String? {
-        return try {
-            val m = ep.javaClass.methods.firstOrNull {
-                it.name == "getExtensionClass" && it.parameterCount == 0
-            } ?: return null
-            (m.invoke(ep) as? Class<*>)?.name
-        } catch (_: Throwable) {
-            null
-        }
-    }
+    internal fun tryReadExtensionClass(ep: ExtensionPoint<*>): String? =
+        (ReflectionAccess.readMethod(ep, "getExtensionClass") as? Class<*>)?.name
 
     internal fun pluginDescriptorOf(ep: ExtensionPoint<*>): Pair<String, String?>? {
-        return try {
-            val method = ep.javaClass.methods.firstOrNull {
-                (it.name == "getPluginDescriptor" || it.name == "getDescriptor") && it.parameterCount == 0
-            } ?: return null
-            val pd = method.invoke(ep) ?: return null
-            val idMethod = pd.javaClass.methods.firstOrNull { it.name == "getPluginId" && it.parameterCount == 0 }
-            val nameMethod = pd.javaClass.methods.firstOrNull { it.name == "getName" && it.parameterCount == 0 }
-            val id = idMethod?.invoke(pd)?.toString() ?: "unknown"
-            val name = nameMethod?.invoke(pd)?.toString()
-            id to name
-        } catch (_: Throwable) {
-            null
-        }
+        val pd = ReflectionAccess.readMethod(ep, "getPluginDescriptor", "getDescriptor") ?: return null
+        return PluginDescriptorReader.idAndName(pd)
     }
 
-    internal fun isDynamic(ep: ExtensionPoint<*>): Boolean {
-        return try {
-            val m = ep.javaClass.methods.firstOrNull { it.name == "isDynamic" && it.parameterCount == 0 }
-            (m?.invoke(ep) as? Boolean) ?: false
-        } catch (_: Throwable) {
-            false
-        }
-    }
+    internal fun isDynamic(ep: ExtensionPoint<*>): Boolean =
+        ReflectionAccess.readMethod(ep, "isDynamic") as? Boolean ?: false
 
     fun listExtensionsForEp(name: String, limit: Int): List<ExtensionInfo> {
         val ep = locateEp(name) ?: return emptyList()
@@ -215,54 +157,47 @@ object ExtensionPointInspector {
 
     /** For each registered extension instance, produce an [ExtensionInfo]. */
     private fun extensionsOf(ep: ExtensionPoint<*>, pointName: String): List<ExtensionInfo> {
-        val out = mutableListOf<ExtensionInfo>()
-        try {
-            // ExtensionPointImpl#sortedAdapters returns ExtensionComponentAdapter list.
-            val adaptersMethod = ep.javaClass.methods.firstOrNull {
-                it.name == "getSortedAdapters" && it.parameterCount == 0
-            } ?: ep.javaClass.methods.firstOrNull {
-                it.name == "sortedAdapters" && it.parameterCount == 0
-            }
-            val adapters = (adaptersMethod?.invoke(ep) as? List<*>).orEmpty()
-
-            for (adapter in adapters) {
-                if (adapter == null) continue
-                val implClass = readMethod(adapter, "getAssignableToClassName")?.toString()
-                    ?: readField(adapter, "implementationClassOrName")?.toString()
-                    ?: readMethod(adapter, "getOrderId")?.toString()
-                // ExtensionComponentAdapter exposes `pluginDescriptor` as a public field, not a getter.
-                val pd = readField(adapter, "pluginDescriptor")
-                    ?: readMethod(adapter, "getPluginDescriptor")
-                val pluginId = pd?.let { extractPluginIdString(it) } ?: "unknown"
-                val pluginName = pd?.let { readMethod(it, "getName")?.toString() }
-                val attributes = readAdditionalAttributes(adapter)
-                val effectiveClass = ExtensionMetadata.pickEffectiveClass(implClass, attributes)
-                out += ExtensionInfo(
-                    extensionPointName = pointName,
-                    implementationClass = implClass,
-                    effectiveClass = effectiveClass,
-                    providedByPluginId = pluginId,
-                    providedByPluginName = pluginName,
-                    additionalAttributes = attributes,
-                )
-            }
+        val adapters = try {
+            adaptersOf(ep)
         } catch (t: Throwable) {
             thisLogger().debug("Failed to enumerate extensions for $pointName", t)
+            return emptyList()
         }
-        return out
+        return adapters.mapNotNull { adapter ->
+            try {
+                adapterToExtensionInfo(adapter, pointName)
+            } catch (t: Throwable) {
+                thisLogger().debug("Failed to read one extension adapter for $pointName", t)
+                null
+            }
+        }
     }
 
-    internal fun readMethod(target: Any, name: String): Any? = ReflectionAccess.readMethod(target, name)
+    /** ExtensionPointImpl#sortedAdapters returns the ExtensionComponentAdapter list. */
+    private fun adaptersOf(ep: ExtensionPoint<*>): List<Any> =
+        (ReflectionAccess.readMethod(ep, "getSortedAdapters", "sortedAdapters") as? List<*>)
+            ?.filterNotNull()
+            .orEmpty()
 
-    internal fun readField(target: Any, name: String): Any? = ReflectionAccess.readField(target, name)
-
-    /** Pulls the idString out of a PluginDescriptor's PluginId — handles both 'idString' field and toString(). */
-    internal fun extractPluginIdString(pd: Any): String? {
-        val pidObj = readMethod(pd, "getPluginId") ?: readField(pd, "pluginId") ?: return null
-        // PluginId#toString() returns idString in modern builds, but cover both paths.
-        return readMethod(pidObj, "getIdString")?.toString()
-            ?: readField(pidObj, "idString")?.toString()
-            ?: pidObj.toString()
+    internal fun adapterToExtensionInfo(adapter: Any, pointName: String): ExtensionInfo {
+        val implClass = ReflectionAccess.readMethod(adapter, "getAssignableToClassName")?.toString()
+            ?: ReflectionAccess.readField(adapter, "implementationClassOrName")?.toString()
+            ?: ReflectionAccess.readMethod(adapter, "getOrderId")?.toString()
+        // ExtensionComponentAdapter exposes `pluginDescriptor` as a public field, not a getter.
+        val pd = ReflectionAccess.readField(adapter, "pluginDescriptor")
+            ?: ReflectionAccess.readMethod(adapter, "getPluginDescriptor")
+        val pluginId = pd?.let { PluginDescriptorReader.extractPluginIdString(it) } ?: "unknown"
+        val pluginName = pd?.let { ReflectionAccess.readMethod(it, "getName")?.toString() }
+        val attributes = readAdditionalAttributes(adapter)
+        val effectiveClass = ExtensionMetadata.pickEffectiveClass(implClass, attributes)
+        return ExtensionInfo(
+            extensionPointName = pointName,
+            implementationClass = implClass,
+            effectiveClass = effectiveClass,
+            providedByPluginId = pluginId,
+            providedByPluginName = pluginName,
+            additionalAttributes = attributes,
+        )
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -275,31 +210,35 @@ object ExtensionPointInspector {
         // We merge both so newly-loaded EPs and long-lived ones look the same.
         val merged = mutableMapOf<String, String>()
         try {
-            val element = readField(adapter, "extensionElement")
+            val element = ReflectionAccess.readField(adapter, "extensionElement")
             if (element != null) {
-                val asMap = readField(element, "attributes") as? Map<*, *>
-                    ?: readMethod(element, "getAttributes") as? Map<*, *>
-                if (asMap != null) {
-                    for ((k, v) in asMap) {
-                        if (k != null && v != null) merged[k.toString()] = v.toString()
-                    }
-                } else {
-                    val asList = readMethod(element, "getAttributes") as? List<*>
-                    asList?.forEach { a ->
-                        if (a == null) return@forEach
-                        val n = readMethod(a, "getName")?.toString() ?: return@forEach
-                        val v = readMethod(a, "getValue")?.toString() ?: return@forEach
-                        merged[n] = v
-                    }
-                }
+                readXmlAttributes(element, merged)
             }
         } catch (_: Throwable) {}
         try {
-            val instance = readField(adapter, "extensionInstance")
+            val instance = ReflectionAccess.readField(adapter, "extensionInstance")
             if (instance != null) {
                 ExtensionMetadata.harvestBeanFields(instance, merged)
             }
         } catch (_: Throwable) {}
         return merged
+    }
+
+    private fun readXmlAttributes(element: Any, merged: MutableMap<String, String>) {
+        val asMap = ReflectionAccess.readField(element, "attributes") as? Map<*, *>
+            ?: ReflectionAccess.readMethod(element, "getAttributes") as? Map<*, *>
+        if (asMap != null) {
+            for ((key, value) in asMap) {
+                if (key != null && value != null) merged[key.toString()] = value.toString()
+            }
+            return
+        }
+        val asList = ReflectionAccess.readMethod(element, "getAttributes") as? List<*>
+        asList?.forEach { attribute ->
+            if (attribute == null) return@forEach
+            val name = ReflectionAccess.readMethod(attribute, "getName")?.toString() ?: return@forEach
+            val value = ReflectionAccess.readMethod(attribute, "getValue")?.toString() ?: return@forEach
+            merged[name] = value
+        }
     }
 }

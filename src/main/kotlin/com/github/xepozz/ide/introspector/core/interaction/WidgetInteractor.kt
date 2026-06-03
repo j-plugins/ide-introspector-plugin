@@ -16,6 +16,27 @@ interface WidgetInteractor {
     fun itemBounds(component: Component, selector: ItemSelector): Rectangle?
 }
 
+abstract class IndexedWidgetInteractor : WidgetInteractor {
+    final override fun select(component: Component, selector: ItemSelector): InteractionOutcome {
+        val index = ItemSelectorResolver.resolveIndex(listItems(component), selector)
+            ?: return InteractionOutcome.notFound("No $widgetType item matched selector $selector")
+        applySelection(component, index)
+        val itemsAfter = listItems(component)
+        return InteractionOutcome(
+            matchedItem = itemsAfter.getOrNull(index),
+            selectionAfter = itemsAfter.filter { it.selected },
+        )
+    }
+
+    final override fun itemBounds(component: Component, selector: ItemSelector): Rectangle? =
+        ItemSelectorResolver.resolveIndex(listItems(component), selector)
+            ?.let { boundsForIndex(component, it) }
+
+    protected abstract fun applySelection(component: Component, index: Int)
+
+    protected open fun boundsForIndex(component: Component, index: Int): Rectangle? = null
+}
+
 data class InteractionOutcome(
     val matchedItem: WidgetItem?,
     val selectionAfter: List<WidgetItem> = emptyList(),

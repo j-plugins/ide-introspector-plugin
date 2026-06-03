@@ -2,9 +2,6 @@ package com.github.xepozz.ide.introspector.toolwindow.details
 
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
-import com.intellij.ui.components.JBLabel
-import com.intellij.util.ui.JBUI
-import com.intellij.util.ui.UIUtil
 import javax.swing.JComponent
 
 /**
@@ -27,7 +24,7 @@ object MembersSection {
      */
     fun build(project: Project, fqn: String?): JComponent? {
         if (fqn.isNullOrBlank()) return null
-        if (!javaModuleAvailable) return null
+        if (!javaPsiAvailable) return null
         // We narrow to platform-level expected failures (no Java classes, indexing not ready,
         // bad PSI): NoClassDefFoundError from the gate, IndexNotReadyException / RuntimeException
         // from the PSI lookup. JVM errors (OOM, StackOverflow) propagate by design.
@@ -40,25 +37,4 @@ object MembersSection {
             null
         }
     }
-
-    /** Lazily computed — cached for the JVM lifetime. */
-    private val javaModuleAvailable: Boolean by lazy {
-        try {
-            Class.forName("com.intellij.psi.JavaPsiFacade")
-            true
-        } catch (_: ClassNotFoundException) {
-            false
-        }
-    }
-}
-
-/**
- * Builds a fallback notice when the Java module is absent — separate so callers can decide
- * whether to render it (some screens may prefer to omit the section entirely).
- */
-fun absentJavaModuleNotice(): JComponent = JBLabel(
-    "Install the Java module to see class members."
-).apply {
-    foreground = UIUtil.getLabelInfoForeground()
-    border = JBUI.Borders.empty(4, 0)
 }

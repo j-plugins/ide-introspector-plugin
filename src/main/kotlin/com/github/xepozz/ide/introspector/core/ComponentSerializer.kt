@@ -3,6 +3,7 @@ package com.github.xepozz.ide.introspector.core
 import com.github.xepozz.ide.introspector.model.Bounds
 import com.github.xepozz.ide.introspector.model.ComponentInfo
 import com.github.xepozz.ide.introspector.model.ComponentProperty
+import com.github.xepozz.ide.introspector.util.truncateChars
 import java.awt.Component
 import java.awt.Container
 import javax.accessibility.Accessible
@@ -66,12 +67,12 @@ object ComponentSerializer {
         return component.components.filterNotNull().map { registry.register(it) }
     }
 
-    private fun extractText(component: Component): String? = when (component) {
+    internal fun extractText(component: Component): String? = when (component) {
         is AbstractButton -> component.text
         is JLabel -> component.text
         is JTextComponent -> {
             val t = try { component.text } catch (_: Throwable) { null }
-            if (t != null && t.length > 500) t.substring(0, 500) + "…" else t
+            if (t != null) truncateChars(t, 500) else null
         }
         else -> null
     }
@@ -86,7 +87,7 @@ object ComponentSerializer {
         if (component is JComponent) {
             WELL_KNOWN_CLIENT_PROPERTY_KEYS.forEach { key ->
                 val v = component.getClientProperty(key)
-                if (v != null) out.add(ComponentProperty(key, truncate(v.toString(), truncateAt)))
+                if (v != null) out.add(ComponentProperty(key, truncateChars(v.toString(), truncateAt)))
             }
         }
 
@@ -97,7 +98,7 @@ object ComponentSerializer {
                 val method = cls.methods.firstOrNull { it.name == "getAction" && it.parameterCount == 0 }
                 val action = method?.invoke(component)
                 if (action != null) {
-                    out.add(ComponentProperty("action", truncate(action.javaClass.name, truncateAt)))
+                    out.add(ComponentProperty("action", truncateChars(action.javaClass.name, truncateAt)))
                 }
             }
         } catch (_: Throwable) {
@@ -106,12 +107,7 @@ object ComponentSerializer {
         return out
     }
 
-    private fun truncate(s: String, limit: Int): String {
-        if (limit <= 0 || s.length <= limit) return s
-        return s.substring(0, limit) + "…"
-    }
-
-    private val WELL_KNOWN_CLIENT_PROPERTY_KEYS = listOf(
+    internal val WELL_KNOWN_CLIENT_PROPERTY_KEYS = listOf(
         "JComponent.sizeVariant",
         "place",
         "action",

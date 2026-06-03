@@ -2,11 +2,11 @@ package com.github.xepozz.ide.introspector.tools
 
 import com.github.xepozz.ide.introspector.core.ComponentRegistry
 import com.github.xepozz.ide.introspector.core.ScreenshotCapture
+import com.github.xepozz.ide.introspector.util.mcpError
 import com.github.xepozz.ide.introspector.util.onEdtBlocking
 import com.github.xepozz.ide.introspector.util.pruneOldScreenshots
 import com.github.xepozz.ide.introspector.util.scaleImage
 import com.github.xepozz.ide.introspector.util.writePngToTempFile
-import com.intellij.mcpserver.McpExpectedError
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
@@ -15,7 +15,6 @@ import java.awt.Rectangle
 import java.awt.image.BufferedImage
 import java.nio.file.Files
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonObject
 
 @Serializable
 data class ImageReference(
@@ -76,16 +75,16 @@ class ScreenshotToolset : McpToolset {
     ): ImageReference {
         val image: BufferedImage = when (target) {
             "component" -> {
-                val id = componentId ?: throw mcpError("componentId is required for target=component")
+                val id = componentId ?: mcpError("componentId is required for target=component")
                 val c = ComponentRegistry.getInstance().lookup(id)
-                    ?: throw mcpError("Component '$id' is no longer attached")
+                    ?: mcpError(UiInspectorToolset.componentDetachedMessage(id))
                 onEdtBlocking { ScreenshotCapture.captureComponent(c) }
             }
             "active_frame" -> onEdtBlocking { ScreenshotCapture.captureActiveFrame() }
-                ?: throw mcpError("No visible IDE frame")
-            "all_frames" -> onEdtBlocking { captureAllFrames() } ?: throw mcpError("No visible IDE frames")
+                ?: mcpError("No visible IDE frame")
+            "all_frames" -> onEdtBlocking { captureAllFrames() } ?: mcpError("No visible IDE frames")
             "screen" -> captureScreenAll()
-            else -> throw mcpError("Unknown target: $target")
+            else -> mcpError("Unknown target: $target")
         }
         return finalise(image, scale)
     }
@@ -138,10 +137,10 @@ class ScreenshotToolset : McpToolset {
         val rect = Rectangle(x, y, width, height)
         val image = if (coordinateSpace == "frame") {
             val frame = onEdtBlocking { WindowManager.getInstance().findVisibleFrame() }
-                ?: throw mcpError("No visible IDE frame")
+                ?: mcpError("No visible IDE frame")
             val full = onEdtBlocking { ScreenshotCapture.captureComponent(frame) }
             val clip = Rectangle(0, 0, full.width, full.height).intersection(rect)
-            if (clip.isEmpty) throw mcpError("Empty crop after clipping to frame bounds")
+            if (clip.isEmpty) mcpError("Empty crop after clipping to frame bounds")
             full.getSubimage(clip.x, clip.y, clip.width, clip.height)
         } else {
             ScreenshotCapture.captureRect(rect)
@@ -190,6 +189,4 @@ class ScreenshotToolset : McpToolset {
         }
         return ScreenshotCapture.captureRect(bounds)
     }
-
-    private fun mcpError(message: String) = McpExpectedError(message, JsonObject(emptyMap()))
 }

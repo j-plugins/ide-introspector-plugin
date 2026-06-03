@@ -3,6 +3,8 @@ package com.github.xepozz.ide.introspector.tools
 import com.github.xepozz.ide.introspector.core.PluginInventory
 import com.github.xepozz.ide.introspector.model.ListListenersResponse
 import com.github.xepozz.ide.introspector.model.ListTopicsResponse
+import com.github.xepozz.ide.introspector.util.areaMatches
+import com.github.xepozz.ide.introspector.util.containsQuery
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
@@ -51,10 +53,10 @@ class EventsToolset : McpToolset {
         limit: Int = 500,
     ): ListListenersResponse {
         val filtered = PluginInventory.getInstance().listeners()
-            .filter { area == "all" || it.area == area }
+            .filter { areaMatches(area, it.area) }
             .filter { providedByPlugin == null || it.providedByPluginId == providedByPlugin }
-            .filter { topicContains == null || it.topicClass.contains(topicContains, ignoreCase = true) }
-            .filter { listenerContains == null || it.listenerClass.contains(listenerContains, ignoreCase = true) }
+            .filter { it.topicClass.containsQuery(topicContains) }
+            .filter { it.listenerClass.containsQuery(listenerContains) }
         return ListListenersResponse(filtered.take(limit), filtered.size)
     }
 
@@ -145,8 +147,8 @@ class EventsToolset : McpToolset {
 
         val filtered = inv.topics()
             .filter { it.providedByPluginId in targetIdsSet }
-            .filter { declaringClassContains == null || it.declaringClassName.contains(declaringClassContains, ignoreCase = true) }
-            .filter { listenerContains == null || it.listenerClassName.contains(listenerContains, ignoreCase = true) }
+            .filter { it.declaringClassName.containsQuery(declaringClassContains) }
+            .filter { it.listenerClassName.containsQuery(listenerContains) }
         return ListTopicsResponse(filtered.take(limit), filtered.size)
     }
 }

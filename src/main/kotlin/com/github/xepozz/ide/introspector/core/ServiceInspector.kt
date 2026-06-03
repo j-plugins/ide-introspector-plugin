@@ -1,5 +1,7 @@
 package com.github.xepozz.ide.introspector.core
 
+import com.github.xepozz.ide.introspector.core.internal.ContainerDescriptorReader
+import com.github.xepozz.ide.introspector.core.internal.PluginDescriptorReader
 import com.github.xepozz.ide.introspector.model.ServiceInfo
 import com.github.xepozz.ide.introspector.util.ReflectionAccess
 import com.intellij.ide.plugins.IdeaPluginDescriptor
@@ -41,16 +43,17 @@ object ServiceInspector {
     private fun collectFor(descriptor: IdeaPluginDescriptor, out: MutableList<ServiceInfo>) {
         val pluginId = descriptor.pluginId.idString
         val pluginName = descriptor.name
-        for ((areaTag, getter) in AREA_GETTERS) {
-            val container = readContainer(descriptor, getter) ?: continue
-            val services = readServiceList(container)
-            for (sd in services) {
-                out += try {
-                    toServiceInfo(sd, areaTag, pluginId, pluginName)
-                } catch (t: Throwable) {
-                    thisLogger().debug("Failed to read ServiceDescriptor for $pluginId/$areaTag", t)
-                    null
-                } ?: continue
+        out += ContainerDescriptorReader.collectFromContainers(
+            descriptor = descriptor,
+            areaGetters = AREA_GETTERS,
+            fieldName = "services",
+        ) { element, areaTag ->
+            val sd = element as? ServiceDescriptor ?: return@collectFromContainers null
+            try {
+                toServiceInfo(sd, areaTag, pluginId, pluginName)
+            } catch (t: Throwable) {
+                thisLogger().debug("Failed to read ServiceDescriptor for $pluginId/$areaTag", t)
+                null
             }
         }
     }
@@ -74,21 +77,16 @@ object ServiceInspector {
             testServiceImplementation = sd.testServiceImplementation,
             headlessImplementation = sd.headlessImplementation,
             area = areaTag,
-            preload = readEnumName(sd, "preload") ?: "FALSE",
+            preload = ReflectionAccess.readEnumName(sd, "preload") ?: "FALSE",
             client = sd.client?.toString(),
-            os = readEnumName(sd, "os"),
+            os = ReflectionAccess.readEnumName(sd, "os"),
             overrides = sd.overrides,
-            configurationSchemaKey = readField(sd, "configurationSchemaKey") as? String,
+            configurationSchemaKey = ReflectionAccess.readField(sd, "configurationSchemaKey") as? String,
             providedByPluginId = pluginId,
             providedByPluginName = pluginName,
             source = "xml",
         )
     }
-
-    private fun readField(target: Any, name: String): Any? = ReflectionAccess.readField(target, name)
-
-    private fun readEnumName(target: Any, name: String): String? =
-        (readField(target, name) as? Enum<*>)?.name
 
     /**
      * Best-effort enumeration of already-created light services (`@Service`-annotated, registered
@@ -145,23 +143,6 @@ object ServiceInspector {
         }
     }
 
-    private fun readContainer(descriptor: IdeaPluginDescriptor, getterName: String): Any? {
-        val m = descriptor.javaClass.methods.firstOrNull {
-            it.name == getterName && it.parameterCount == 0
-        } ?: return null
-        return try { m.invoke(descriptor) } catch (_: Throwable) { null }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun readServiceList(container: Any): List<ServiceDescriptor> {
-        // ContainerDescriptor.services is a @JvmField, exposed as a public field on the JVM.
-        val field = container.javaClass.fields.firstOrNull { it.name == "services" }
-            ?: return emptyList()
-        val raw = try { field.get(container) } catch (_: Throwable) { return emptyList() }
-        val list = raw as? List<*> ?: return emptyList()
-        return list.filterIsInstance<ServiceDescriptor>()
-    }
-
     internal fun isLightService(cls: Class<*>): Boolean {
         // Mirrors com.intellij.serviceContainer.isLightService: final + @Service.
         return Modifier.isFinal(cls.modifiers) && cls.isAnnotationPresent(Service::class.java)
@@ -180,19 +161,17 @@ object ServiceInspector {
 
     private fun pluginIdAndName(pluginDescriptor: Any?, cls: Class<*>): Pair<String, String?> {
         val direct = pluginDescriptor?.let { pd ->
-            ExtensionPointInspector.extractPluginIdString(pd)?.let { id ->
-                id to ExtensionPointInspector.readMethod(pd, "getName")?.toString()
+            PluginDescriptorReader.extractPluginIdString(pd)?.let {
+                PluginDescriptorReader.idAndName(pd)
             }
         }
         if (direct != null) return direct
         // Fall back: PluginAware classloader carries the descriptor on a `pluginDescriptor` field.
         val cl = cls.classLoader ?: return "unknown" to null
-        val pdFromCl = ExtensionPointInspector.readField(cl, "pluginDescriptor")
-            ?: ExtensionPointInspector.readMethod(cl, "getPluginDescriptor")
+        val pdFromCl = ReflectionAccess.readField(cl, "pluginDescriptor")
+            ?: ReflectionAccess.readMethod(cl, "getPluginDescriptor")
         if (pdFromCl != null) {
-            val id = ExtensionPointInspector.extractPluginIdString(pdFromCl) ?: "unknown"
-            val name = ExtensionPointInspector.readMethod(pdFromCl, "getName")?.toString()
-            return id to name
+            return PluginDescriptorReader.idAndName(pdFromCl)
         }
         return "unknown" to null
     }

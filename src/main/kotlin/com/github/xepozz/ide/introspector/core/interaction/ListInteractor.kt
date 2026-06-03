@@ -5,7 +5,7 @@ import java.awt.Component
 import java.awt.Rectangle
 import javax.swing.JList
 
-object ListInteractor : WidgetInteractor {
+object ListInteractor : IndexedWidgetInteractor() {
     override val widgetType: String = "list"
 
     override fun supports(component: Component): Boolean = component is JList<*>
@@ -23,27 +23,14 @@ object ListInteractor : WidgetInteractor {
         }
     }
 
-    override fun select(component: Component, selector: ItemSelector): InteractionOutcome {
+    override fun applySelection(component: Component, index: Int) {
         val list = component as JList<*>
-        val rowIndex = resolveRow(list, selector)
-            ?: return InteractionOutcome.notFound("No list item matched selector $selector")
-
-        list.selectedIndex = rowIndex
-        list.ensureIndexIsVisible(rowIndex)
-
-        val itemsAfter = listItems(list)
-        return InteractionOutcome(
-            matchedItem = itemsAfter.getOrNull(rowIndex),
-            selectionAfter = itemsAfter.filter { it.selected },
-        )
+        list.selectedIndex = index
+        list.ensureIndexIsVisible(index)
     }
 
-    override fun itemBounds(component: Component, selector: ItemSelector): Rectangle? {
+    override fun boundsForIndex(component: Component, index: Int): Rectangle? {
         val list = component as JList<*>
-        val rowIndex = resolveRow(list, selector) ?: return null
-        return list.getCellBounds(rowIndex, rowIndex)
+        return list.getCellBounds(index, index)
     }
-
-    private fun resolveRow(list: JList<*>, selector: ItemSelector): Int? =
-        ItemSelectorResolver.resolveIndex(listItems(list), selector)
 }

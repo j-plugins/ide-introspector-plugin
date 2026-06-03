@@ -4,6 +4,7 @@ import com.github.xepozz.ide.introspector.model.FileUsages
 import com.github.xepozz.ide.introspector.model.FindUsagesResponse
 import com.github.xepozz.ide.introspector.model.TargetInfo
 import com.github.xepozz.ide.introspector.model.UsageInfo
+import com.github.xepozz.ide.introspector.util.truncateChars
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -177,15 +178,8 @@ object PsiUsageSearcher {
         }
     }
 
-    private fun isLocalVariableLike(target: PsiElement): Boolean {
-        val name = target.javaClass.simpleName
-        // Java PsiLocalVariable / PsiParameter, Kotlin KtParameter / KtDestructuringDeclarationEntry,
-        // JS/TS JSParameter, PHP Parameter — convention is stable enough across the IntelliJ
-        // language plugins to use the simple name as a marker.
-        return name == "PsiLocalVariable" || name == "PsiParameter" ||
-            name == "KtParameter" || name == "KtDestructuringDeclarationEntry" ||
-            name == "JSParameter"
-    }
+    private fun isLocalVariableLike(target: PsiElement): Boolean =
+        target.javaClass.simpleName in LOCAL_VARIABLE_LIKE
 
     // ---------- description / serialization ----------
 
@@ -194,14 +188,13 @@ object PsiUsageSearcher {
         val range = target.textRange ?: TextRange(0, 0)
         // For the target preview, use the *first non-empty line* — methods/classes can span
         // hundreds of lines and the full text is useless without a viewer.
-        val rawText = target.text ?: ""
-        val firstLine = rawText.lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+        val firstLine = firstNonBlankLine(target.text ?: "")
         return TargetInfo(
-            psiClass = target.javaClass.simpleName.ifEmpty { target.javaClass.name },
+            psiClass = psiClassName(target),
             declarationName = (target as? PsiNamedElement)?.name,
             fileUrl = vf?.url ?: "",
             range = PsiStructureWalker.textRangeInfoOf(range, document),
-            text = truncate(firstLine, truncateTextAt),
+            text = truncateChars(firstLine, truncateTextAt),
         )
     }
 
@@ -233,7 +226,7 @@ object PsiUsageSearcher {
             fileUrl = vf.url,
             fileType = file.fileType.name,
             range = PsiStructureWalker.textRangeInfoOf(TextRange(absStart, absEnd), document),
-            text = truncate(refText, truncateTextAt),
+            text = truncateChars(refText, truncateTextAt),
             lineSnippet = lineSnippetOf(document, absStart, truncateTextAt),
             referenceClass = ref.javaClass.name,
             isSoft = runCatching { ref.isSoft }.getOrDefault(false),
@@ -248,13 +241,13 @@ object PsiUsageSearcher {
             ?: FileDocumentManager.getInstance().getDocument(vf)
             ?: return null
         val range = impl.textRange ?: return null
-        val firstLine = (impl.text ?: "").lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+        val firstLine = firstNonBlankLine(impl.text ?: "")
         return UsageInfo(
             kind = "implementation",
             fileUrl = vf.url,
             fileType = file.fileType.name,
             range = PsiStructureWalker.textRangeInfoOf(range, document),
-            text = truncate(firstLine, truncateTextAt),
+            text = truncateChars(firstLine, truncateTextAt),
             lineSnippet = lineSnippetOf(document, range.startOffset, truncateTextAt),
             referenceClass = null,
             isSoft = false,
@@ -273,7 +266,7 @@ object PsiUsageSearcher {
         val start = document.getLineStartOffset(line)
         val end = document.getLineEndOffset(line)
         val raw = document.getText(TextRange(start, end)).trim()
-        return truncate(raw, max)
+        return truncateChars(raw, max)
     }
 
     private fun enclosingDeclarationName(element: PsiElement): String? {
@@ -287,9 +280,6 @@ object PsiUsageSearcher {
         }
         return null
     }
-
-    private fun truncate(s: String, max: Int): String =
-        if (s.length <= max) s else s.substring(0, max) + "…"
 
     class NoTargetException(message: String) : RuntimeException(message)
 }

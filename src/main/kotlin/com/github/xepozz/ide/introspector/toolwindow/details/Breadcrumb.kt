@@ -3,9 +3,9 @@ package com.github.xepozz.ide.introspector.toolwindow.details
 import com.intellij.icons.AllIcons
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
-import com.intellij.util.ui.UIUtil
 import java.awt.Component
 import java.awt.FlowLayout
+import java.awt.Font
 import javax.swing.Icon
 import javax.swing.JComponent
 import javax.swing.JLabel
@@ -40,7 +40,7 @@ object Breadcrumb {
         val onClick = seg.onClick
         val component: JComponent = if (terminal || onClick == null) {
             JBLabel(seg.text, seg.icon, JLabel.LEADING).apply {
-                if (terminal) font = font.deriveFont(java.awt.Font.BOLD)
+                if (terminal) font = font.deriveFont(Font.BOLD)
             }
         } else {
             actionLink(seg.text, onClick).apply { icon = seg.icon }
@@ -49,8 +49,7 @@ object Breadcrumb {
         return component
     }
 
-    private fun separator(): JComponent = JBLabel(" › ").apply {
-        foreground = UIUtil.getLabelInfoForeground()
+    private fun separator(): JComponent = infoLabel(" › ").apply {
         border = JBUI.Borders.empty(0, 4)
     }
 

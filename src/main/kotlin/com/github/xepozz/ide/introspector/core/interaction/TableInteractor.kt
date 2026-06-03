@@ -5,7 +5,7 @@ import java.awt.Component
 import java.awt.Rectangle
 import javax.swing.JTable
 
-object TableInteractor : WidgetInteractor {
+object TableInteractor : IndexedWidgetInteractor() {
     override val widgetType: String = "table"
 
     override fun supports(component: Component): Boolean = component is JTable
@@ -22,31 +22,18 @@ object TableInteractor : WidgetInteractor {
         }
     }
 
-    override fun select(component: Component, selector: ItemSelector): InteractionOutcome {
+    override fun applySelection(component: Component, index: Int) {
         val table = component as JTable
-        val rowIndex = resolveRow(table, selector)
-            ?: return InteractionOutcome.notFound("No table row matched selector $selector")
-
-        table.setRowSelectionInterval(rowIndex, rowIndex)
+        table.setRowSelectionInterval(index, index)
         if (table.columnCount > 0) {
-            table.scrollRectToVisible(table.getCellRect(rowIndex, 0, true))
+            table.scrollRectToVisible(table.getCellRect(index, 0, true))
         }
-
-        val itemsAfter = listItems(table)
-        return InteractionOutcome(
-            matchedItem = itemsAfter.getOrNull(rowIndex),
-            selectionAfter = itemsAfter.filter { it.selected },
-        )
     }
 
-    override fun itemBounds(component: Component, selector: ItemSelector): Rectangle? {
+    override fun boundsForIndex(component: Component, index: Int): Rectangle? {
         val table = component as JTable
-        val rowIndex = resolveRow(table, selector) ?: return null
-        return table.getCellRect(rowIndex, 0, true)
+        return table.getCellRect(index, 0, true)
     }
-
-    private fun resolveRow(table: JTable, selector: ItemSelector): Int? =
-        ItemSelectorResolver.resolveIndex(listItems(table), selector)
 
     private fun rowText(table: JTable, rowIndex: Int): String =
         (0 until table.columnCount).joinToString(" | ") { columnIndex ->

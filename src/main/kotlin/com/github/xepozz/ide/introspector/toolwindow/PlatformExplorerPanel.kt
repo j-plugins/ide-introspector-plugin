@@ -1,6 +1,7 @@
 package com.github.xepozz.ide.introspector.toolwindow
 
 import com.github.xepozz.ide.introspector.core.PluginInventory
+import com.github.xepozz.ide.introspector.toolwindow.details.DetailViews
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
@@ -16,6 +17,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.TreeSpeedSearch
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ui.JBUI
@@ -24,10 +26,14 @@ import java.awt.datatransfer.StringSelection
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.JComponent
+import javax.swing.JMenuItem
 import javax.swing.JPanel
+import javax.swing.JPopupMenu
+import javax.swing.Timer
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.tree.DefaultMutableTreeNode
+import javax.swing.tree.TreePath
 import javax.swing.tree.TreeSelectionModel
 
 /**
@@ -52,7 +58,7 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
     }
     private val details = DetailsPanel(
         project,
-        navigator = object : com.github.xepozz.ide.introspector.toolwindow.details.DetailViews.Navigator {
+        navigator = object : DetailViews.Navigator {
             override fun selectPluginById(pluginId: String) = selectNode { n ->
                 n is PlatformExplorerNode.PluginNode && n.plugin.id == pluginId
             }
@@ -76,7 +82,7 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
 
     private fun buildBody(): JComponent {
         val splitter = JBSplitter(true, 0.65f).apply {
-            firstComponent = com.intellij.ui.components.JBScrollPane(tree)
+            firstComponent = JBScrollPane(tree)
             secondComponent = details
         }
         val top = JPanel(BorderLayout()).apply {
@@ -106,14 +112,14 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
     }
 
     private fun installFilter() {
-        var debounce: javax.swing.Timer? = null
+        var debounce: Timer? = null
         filterField.document.addDocumentListener(object : DocumentListener {
             override fun insertUpdate(e: DocumentEvent) { schedule() }
             override fun removeUpdate(e: DocumentEvent) { schedule() }
             override fun changedUpdate(e: DocumentEvent) { schedule() }
             private fun schedule() {
                 debounce?.stop()
-                debounce = javax.swing.Timer(200) {
+                debounce = Timer(200) {
                     treeModel.filter = filterField.text.trim()
                     rebuild()
                 }.apply { isRepeats = false; start() }
@@ -139,29 +145,23 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
                 tree.selectionPath = path
                 val node = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject
                     as? PlatformExplorerNode ?: return
-                val menu = javax.swing.JPopupMenu()
+                val menu = JPopupMenu()
                 addCopyItem(menu, node)
                 e.component.let { menu.show(it, e.x, e.y) }
             }
         })
     }
 
-    private fun addCopyItem(menu: javax.swing.JPopupMenu, node: PlatformExplorerNode) {
-        val label = when (node) {
-            is PlatformExplorerNode.PluginNode -> "Copy Plugin ID"
-            is PlatformExplorerNode.ExtensionPointNode -> "Copy EP Name"
-            is PlatformExplorerNode.ExtensionNode -> "Copy Class Name"
-            is PlatformExplorerNode.DependencyNode -> "Copy Plugin ID"
-            else -> "Copy"
+    private fun addCopyItem(menu: JPopupMenu, node: PlatformExplorerNode) {
+        val (label, text) = when (node) {
+            is PlatformExplorerNode.PluginNode -> "Copy Plugin ID" to node.plugin.id
+            is PlatformExplorerNode.ExtensionPointNode -> "Copy EP Name" to node.ep.name
+            is PlatformExplorerNode.ExtensionNode ->
+                "Copy Class Name" to node.extension.implementationClass.orEmpty()
+            is PlatformExplorerNode.DependencyNode -> "Copy Plugin ID" to node.dep.pluginId
+            else -> "Copy" to node.displayName
         }
-        val text = when (node) {
-            is PlatformExplorerNode.PluginNode -> node.plugin.id
-            is PlatformExplorerNode.ExtensionPointNode -> node.ep.name
-            is PlatformExplorerNode.ExtensionNode -> node.extension.implementationClass.orEmpty()
-            is PlatformExplorerNode.DependencyNode -> node.dep.pluginId
-            else -> node.displayName
-        }
-        menu.add(javax.swing.JMenuItem(label).apply {
+        menu.add(JMenuItem(label).apply {
             addActionListener {
                 CopyPasteManager.getInstance().setContents(StringSelection(text))
             }
@@ -182,7 +182,7 @@ class PlatformExplorerPanel(private val project: Project) : SimpleToolWindowPane
     private fun selectNode(predicate: (PlatformExplorerNode) -> Boolean) {
         val root = tree.model.root as? DefaultMutableTreeNode ?: return
         val match = findMatching(root, predicate) ?: return
-        val path = javax.swing.tree.TreePath(match.path)
+        val path = TreePath(match.path)
         tree.expandPath(path)
         tree.selectionPath = path
         tree.scrollPathToVisible(path)

@@ -1,6 +1,7 @@
 package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.model.ComponentInfo
+import com.github.xepozz.ide.introspector.util.simpleClassName
 
 /**
  * Tiny XPath-like matcher operating on already-serialised [ComponentInfo] trees so we never
@@ -103,7 +104,7 @@ class XPathMatcher(
 
     private fun simpleClassNames(node: ComponentInfo): List<String> =
         node.classHierarchy.ifEmpty {
-            listOf(node.className.substringAfterLast('.').substringAfterLast('$'))
+            listOf(node.className.simpleClassName())
         }
 
     // ---------------- Parser ----------------

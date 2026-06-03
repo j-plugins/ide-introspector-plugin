@@ -6,6 +6,8 @@ import com.github.xepozz.ide.introspector.model.ListExtensionPointsResponse
 import com.github.xepozz.ide.introspector.model.ListExtensionsResponse
 import com.github.xepozz.ide.introspector.model.ListPluginsResponse
 import com.github.xepozz.ide.introspector.model.PluginDetails
+import com.github.xepozz.ide.introspector.util.areaMatches
+import com.github.xepozz.ide.introspector.util.containsQuery
 import com.intellij.mcpserver.McpExpectedError
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
@@ -63,9 +65,9 @@ class ArchitectureToolset : McpToolset {
         limit: Int = 500,
     ): ListExtensionPointsResponse {
         val all = PluginInventory.getInstance().extensionPoints()
-            .filter { area == "both" || it.area == area }
+            .filter { areaMatches(area, it.area) }
             .filter { declaredByPlugin == null || it.declaredByPluginId == declaredByPlugin }
-            .filter { nameContains == null || it.name.contains(nameContains, ignoreCase = true) }
+            .filter { it.name.containsQuery(nameContains) }
             .filter { !onlyDynamic || it.isDynamic }
         return ListExtensionPointsResponse(all.take(limit), all.size)
     }
@@ -141,10 +143,7 @@ class ArchitectureToolset : McpToolset {
         val list = PluginInventory.getInstance().plugins()
             .filter { includeBundled || !it.isBundled }
             .filter { includeDisabled || it.isEnabled }
-            .filter {
-                val q = nameOrIdContains ?: return@filter true
-                it.name.contains(q, ignoreCase = true) || it.id.contains(q, ignoreCase = true)
-            }
+            .filter { it.name.containsQuery(nameOrIdContains) || it.id.containsQuery(nameOrIdContains) }
         return ListPluginsResponse(list, list.size)
     }
 

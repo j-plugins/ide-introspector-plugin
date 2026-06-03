@@ -1,5 +1,7 @@
 package com.github.xepozz.ide.introspector.core
 
+import com.github.xepozz.ide.introspector.core.internal.PluginDescriptorReader
+import com.github.xepozz.ide.introspector.util.ReflectionAccess
 import com.intellij.openapi.extensions.ExtensionPoint
 import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.extensions.ExtensionPointListener
@@ -27,8 +29,8 @@ import java.util.function.Function
  * absent entirely — and those branches are unreachable without synthetic doubles.
  *
  * Two patterns are used here:
- *   1. **Direct call** for helpers whose parameter is `Any` (e.g. [ExtensionPointInspector.readMethod],
- *      [ExtensionPointInspector.readField], [ExtensionPointInspector.extractPluginIdString],
+ *   1. **Direct call** for helpers whose parameter is `Any` (e.g. [ReflectionAccess.readMethod],
+ *      [ReflectionAccess.readField], [PluginDescriptorReader.extractPluginIdString],
  *      [ExtensionPointInspector.readAdditionalAttributes]). We pass synthetic Kotlin classes
  *      with the exact field/method shapes we want to exercise.
  *   2. **Subclass an interface stub** for helpers whose parameter is [ExtensionPoint] or
@@ -45,23 +47,23 @@ class ExtensionPointInspectorReflectionTest {
     @Test
     fun `readMethod finds a zero-arg method by name`() {
         val target = ObjectWithReturningMethod()
-        assertEquals("hello", ExtensionPointInspector.readMethod(target, "greet"))
+        assertEquals("hello", ReflectionAccess.readMethod(target, "greet"))
     }
 
     @Test
     fun `readMethod returns null when no method by that name`() {
-        assertNull(ExtensionPointInspector.readMethod(ObjectWithReturningMethod(), "missing"))
+        assertNull(ReflectionAccess.readMethod(ObjectWithReturningMethod(), "missing"))
     }
 
     @Test
     fun `readMethod returns null when the method throws`() {
-        assertNull(ExtensionPointInspector.readMethod(ObjectWithThrowingMethod(), "boom"))
+        assertNull(ReflectionAccess.readMethod(ObjectWithThrowingMethod(), "boom"))
     }
 
     @Test
     fun `readMethod ignores methods that take parameters`() {
         // `greetWithArg(String)` exists but has a parameter; helper only picks 0-arg methods.
-        assertNull(ExtensionPointInspector.readMethod(ObjectWithParamMethod(), "greetWithArg"))
+        assertNull(ReflectionAccess.readMethod(ObjectWithParamMethod(), "greetWithArg"))
     }
 
     // ====================================================================================
@@ -71,25 +73,25 @@ class ExtensionPointInspectorReflectionTest {
     @Test
     fun `readField finds a field on the direct class`() {
         val target = ObjectWithDirectField()
-        assertEquals("direct", ExtensionPointInspector.readField(target, "value"))
+        assertEquals("direct", ReflectionAccess.readField(target, "value"))
     }
 
     @Test
     fun `readField walks the superclass when the field is not on the direct class`() {
         val target = ChildWithoutOwnField()
-        assertEquals("parent-value", ExtensionPointInspector.readField(target, "parentValue"))
+        assertEquals("parent-value", ReflectionAccess.readField(target, "parentValue"))
     }
 
     @Test
     fun `readField returns null when no field with that name exists anywhere`() {
-        assertNull(ExtensionPointInspector.readField(ObjectWithDirectField(), "absent"))
+        assertNull(ReflectionAccess.readField(ObjectWithDirectField(), "absent"))
     }
 
     @Test
     fun `readField reads a private field via setAccessible`() {
         // Kotlin `private` lowers to a JVM private field; the helper calls setAccessible(true)
         // before reading, so it should still resolve.
-        assertEquals("secret", ExtensionPointInspector.readField(ObjectWithPrivateField(), "secret"))
+        assertEquals("secret", ReflectionAccess.readField(ObjectWithPrivateField(), "secret"))
     }
 
     // ====================================================================================
@@ -99,30 +101,30 @@ class ExtensionPointInspectorReflectionTest {
     @Test
     fun `extractPluginIdString resolves via getPluginId then getIdString`() {
         val pd = DescriptorWithPluginIdGetter("com.example.real")
-        assertEquals("com.example.real", ExtensionPointInspector.extractPluginIdString(pd))
+        assertEquals("com.example.real", PluginDescriptorReader.extractPluginIdString(pd))
     }
 
     @Test
     fun `extractPluginIdString falls back to pluginId field when getter absent`() {
         val pd = DescriptorWithPluginIdField(PluginIdWithIdStringGetter("com.example.via-field"))
-        assertEquals("com.example.via-field", ExtensionPointInspector.extractPluginIdString(pd))
+        assertEquals("com.example.via-field", PluginDescriptorReader.extractPluginIdString(pd))
     }
 
     @Test
     fun `extractPluginIdString falls back to idString field when getIdString absent`() {
         val pd = DescriptorWithPluginIdGetter2(PluginIdWithIdStringField("com.example.field-id"))
-        assertEquals("com.example.field-id", ExtensionPointInspector.extractPluginIdString(pd))
+        assertEquals("com.example.field-id", PluginDescriptorReader.extractPluginIdString(pd))
     }
 
     @Test
     fun `extractPluginIdString falls back to PluginId toString when neither getter nor field present`() {
         val pd = DescriptorWithPluginIdGetter2(PluginIdWithToString("com.example.tostring-id"))
-        assertEquals("com.example.tostring-id", ExtensionPointInspector.extractPluginIdString(pd))
+        assertEquals("com.example.tostring-id", PluginDescriptorReader.extractPluginIdString(pd))
     }
 
     @Test
     fun `extractPluginIdString returns null when descriptor lacks both getter and field`() {
-        assertNull(ExtensionPointInspector.extractPluginIdString(EmptyDescriptor()))
+        assertNull(PluginDescriptorReader.extractPluginIdString(EmptyDescriptor()))
     }
 
     // ====================================================================================
@@ -198,36 +200,19 @@ class ExtensionPointInspectorReflectionTest {
     }
 
     // ====================================================================================
-    // SECTION 6. tryReadClassNameField
+    // SECTION 6. className field resolution via kindAndClass
     // ====================================================================================
 
     @Test
-    fun `tryReadClassNameField picks up the className field`() {
-        assertEquals(
-            "com.example.ByClassName",
-            ExtensionPointInspector.tryReadClassNameField(EpWithClassNameField()),
-        )
+    fun `kindAndClass falls back to myClassName when className absent`() {
+        val (_, cls) = ExtensionPointInspector.kindAndClass(EpWithMyClassNameField())
+        assertEquals("com.example.ByMyClassName", cls)
     }
 
     @Test
-    fun `tryReadClassNameField falls back to myClassName when className absent`() {
-        assertEquals(
-            "com.example.ByMyClassName",
-            ExtensionPointInspector.tryReadClassNameField(EpWithMyClassNameField()),
-        )
-    }
-
-    @Test
-    fun `tryReadClassNameField walks the superclass chain`() {
-        assertEquals(
-            "com.example.OnParent",
-            ExtensionPointInspector.tryReadClassNameField(ChildEpInheritingClassName()),
-        )
-    }
-
-    @Test
-    fun `tryReadClassNameField returns null when no className-style field exists`() {
-        assertNull(ExtensionPointInspector.tryReadClassNameField(EpWithoutAnyClassResolution()))
+    fun `kindAndClass walks the superclass chain for the className field`() {
+        val (_, cls) = ExtensionPointInspector.kindAndClass(ChildEpInheritingClassName())
+        assertEquals("com.example.OnParent", cls)
     }
 
     // ====================================================================================
@@ -652,8 +637,7 @@ private class EpWithoutKindMethod : StubExtensionPoint() {
 }
 
 private class EpWithClassNameField : StubExtensionPoint() {
-    // Use a synthetic field name "className" but not the typed ExtensionPointImpl path —
-    // tryReadClassNameField scans declaredFields directly, so the @JvmField is enough.
+    // Synthetic "className" field — ReflectionAccess.readField scans declaredFields, so @JvmField is enough.
     @JvmField val className: String = "com.example.ByClassName"
     fun getKind(): String = "INTERFACE"
 }

@@ -1,6 +1,7 @@
 package com.github.xepozz.ide.introspector.toolwindow
 
 import com.github.xepozz.ide.introspector.core.PluginInventory
+import com.github.xepozz.ide.introspector.model.PluginInfo
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 
@@ -26,10 +27,7 @@ class PlatformExplorerTreeModel(
     }
 
     private fun populateByPlugin(root: DefaultMutableTreeNode) {
-        val plugins = inventory.plugins()
-            .filter { !hideBundled || !it.isBundled }
-            .filter { matchesFilter(it.id) || matchesFilter(it.name) }
-        for (p in plugins) {
+        for (p in visiblePlugins()) {
             val pluginNode = DefaultMutableTreeNode(PlatformExplorerNode.PluginNode(p))
             val eps = inventory.extensionPoints().filter { it.declaredByPluginId == p.id }
             if (eps.isNotEmpty()) {
@@ -41,103 +39,56 @@ class PlatformExplorerTreeModel(
                 }
                 pluginNode.add(group)
             }
-            val extensions = inventory.extensionsByPlugin(p.id)
-            if (extensions.isNotEmpty()) {
-                val group = DefaultMutableTreeNode(
-                    PlatformExplorerNode.GroupNode("Registered extensions", extensions.size)
-                )
-                extensions.take(MAX_CHILDREN).forEach { e ->
-                    group.add(DefaultMutableTreeNode(PlatformExplorerNode.ExtensionNode(e)))
-                }
-                if (extensions.size > MAX_CHILDREN) {
-                    group.add(DefaultMutableTreeNode(
-                        PlatformExplorerNode.LoadingNode("… and ${extensions.size - MAX_CHILDREN} more")
-                    ))
-                }
-                pluginNode.add(group)
+            pluginNode.addGroup("Registered extensions", inventory.extensionsByPlugin(p.id)) {
+                PlatformExplorerNode.ExtensionNode(it)
             }
-            val services = inventory.servicesByPlugin(p.id)
-            if (services.isNotEmpty()) {
-                val group = DefaultMutableTreeNode(
-                    PlatformExplorerNode.GroupNode("Services", services.size)
-                )
-                services.take(MAX_CHILDREN).forEach { s ->
-                    group.add(DefaultMutableTreeNode(PlatformExplorerNode.ServiceNode(s)))
-                }
-                if (services.size > MAX_CHILDREN) {
-                    group.add(DefaultMutableTreeNode(
-                        PlatformExplorerNode.LoadingNode("… and ${services.size - MAX_CHILDREN} more")
-                    ))
-                }
-                pluginNode.add(group)
+            pluginNode.addGroup("Services", inventory.servicesByPlugin(p.id)) {
+                PlatformExplorerNode.ServiceNode(it)
             }
-            val listeners = inventory.listenersByPlugin(p.id)
-            if (listeners.isNotEmpty()) {
-                val group = DefaultMutableTreeNode(
-                    PlatformExplorerNode.GroupNode("Listeners", listeners.size)
-                )
-                listeners.take(MAX_CHILDREN).forEach { l ->
-                    group.add(DefaultMutableTreeNode(PlatformExplorerNode.ListenerNode(l)))
-                }
-                if (listeners.size > MAX_CHILDREN) {
-                    group.add(DefaultMutableTreeNode(
-                        PlatformExplorerNode.LoadingNode("… and ${listeners.size - MAX_CHILDREN} more")
-                    ))
-                }
-                pluginNode.add(group)
+            pluginNode.addGroup("Listeners", inventory.listenersByPlugin(p.id)) {
+                PlatformExplorerNode.ListenerNode(it)
             }
-            if (p.dependencies.isNotEmpty()) {
-                val group = DefaultMutableTreeNode(
-                    PlatformExplorerNode.GroupNode("Dependencies", p.dependencies.size)
-                )
-                p.dependencies.take(MAX_CHILDREN).forEach { dep ->
-                    group.add(DefaultMutableTreeNode(PlatformExplorerNode.DependencyNode(dep)))
-                }
-                if (p.dependencies.size > MAX_CHILDREN) {
-                    group.add(DefaultMutableTreeNode(
-                        PlatformExplorerNode.LoadingNode("… and ${p.dependencies.size - MAX_CHILDREN} more")
-                    ))
-                }
-                pluginNode.add(group)
+            pluginNode.addGroup("Dependencies", p.dependencies) {
+                PlatformExplorerNode.DependencyNode(it)
             }
             val dependants = inventory.plugins().filter { other ->
                 other.id != p.id && other.dependencies.any { it.pluginId == p.id }
             }
-            if (dependants.isNotEmpty()) {
-                val group = DefaultMutableTreeNode(
-                    PlatformExplorerNode.GroupNode("Required by", dependants.size)
-                )
-                dependants.take(MAX_CHILDREN).forEach { other ->
-                    group.add(DefaultMutableTreeNode(PlatformExplorerNode.PluginNode(other)))
-                }
-                if (dependants.size > MAX_CHILDREN) {
-                    group.add(DefaultMutableTreeNode(
-                        PlatformExplorerNode.LoadingNode("… and ${dependants.size - MAX_CHILDREN} more")
-                    ))
-                }
-                pluginNode.add(group)
+            pluginNode.addGroup("Required by", dependants) {
+                PlatformExplorerNode.PluginNode(it)
             }
             // Topics scanning walks the plugin's classpath (slow on bundled IDE plugins —
             // some have tens of thousands of classes). Limit to non-bundled plugins; bundled
             // topics stay accessible via the events.list_topics MCP tool.
             val topics = if (p.isBundled) emptyList() else inventory.topicsByPlugin(p.id)
-            if (topics.isNotEmpty()) {
-                val group = DefaultMutableTreeNode(
-                    PlatformExplorerNode.GroupNode("Topics", topics.size)
-                )
-                topics.take(MAX_CHILDREN).forEach { t ->
-                    group.add(DefaultMutableTreeNode(PlatformExplorerNode.TopicNode(t)))
-                }
-                if (topics.size > MAX_CHILDREN) {
-                    group.add(DefaultMutableTreeNode(
-                        PlatformExplorerNode.LoadingNode("… and ${topics.size - MAX_CHILDREN} more")
-                    ))
-                }
-                pluginNode.add(group)
+            pluginNode.addGroup("Topics", topics) {
+                PlatformExplorerNode.TopicNode(it)
             }
             root.add(pluginNode)
         }
     }
+
+    private fun <T> DefaultMutableTreeNode.addGroup(
+        label: String,
+        items: List<T>,
+        toNode: (T) -> PlatformExplorerNode,
+    ) {
+        if (items.isEmpty()) return
+        val group = DefaultMutableTreeNode(PlatformExplorerNode.GroupNode(label, items.size))
+        items.take(MAX_CHILDREN).forEach { item ->
+            group.add(DefaultMutableTreeNode(toNode(item)))
+        }
+        if (items.size > MAX_CHILDREN) {
+            group.add(DefaultMutableTreeNode(
+                PlatformExplorerNode.LoadingNode("… and ${items.size - MAX_CHILDREN} more")
+            ))
+        }
+        add(group)
+    }
+
+    private fun visiblePlugins(): List<PluginInfo> = inventory.plugins()
+        .filter { !hideBundled || !it.isBundled }
+        .filter { matchesFilter(it.id) || matchesFilter(it.name) }
 
     private fun populateByEp(root: DefaultMutableTreeNode) {
         val bundledIds: Set<String> = if (!hideBundled) emptySet()
@@ -161,10 +112,7 @@ class PlatformExplorerTreeModel(
     }
 
     private fun populateByDependencies(root: DefaultMutableTreeNode) {
-        val plugins = inventory.plugins()
-            .filter { !hideBundled || !it.isBundled }
-            .filter { matchesFilter(it.id) || matchesFilter(it.name) }
-        for (p in plugins) {
+        for (p in visiblePlugins()) {
             if (p.dependencies.isEmpty()) continue
             val pluginNode = DefaultMutableTreeNode(PlatformExplorerNode.PluginNode(p))
             for (dep in p.dependencies) {

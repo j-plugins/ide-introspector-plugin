@@ -2,7 +2,8 @@ package com.github.xepozz.ide.introspector.tools
 
 import com.github.xepozz.ide.introspector.core.PluginInventory
 import com.github.xepozz.ide.introspector.model.ListServicesResponse
-import com.github.xepozz.ide.introspector.model.ServiceInfo
+import com.github.xepozz.ide.introspector.util.areaMatches
+import com.github.xepozz.ide.introspector.util.containsQuery
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
@@ -55,16 +56,12 @@ class ServicesToolset : McpToolset {
         limit: Int = 500,
     ): ListServicesResponse {
         val inv = PluginInventory.getInstance()
-        val all = mutableListOf<ServiceInfo>()
-        all.addAll(inv.services())
-        if (includeLightInstantiated) {
-            all.addAll(inv.lightInstantiatedServices())
-        }
+        val all = inv.services() + if (includeLightInstantiated) inv.lightInstantiatedServices() else emptyList()
         val filtered = all
-            .filter { area == "all" || it.area == area }
+            .filter { areaMatches(area, it.area) }
             .filter { providedByPlugin == null || it.providedByPluginId == providedByPlugin }
-            .filter { interfaceContains == null || (it.interfaceClass?.contains(interfaceContains, ignoreCase = true) ?: false) }
-            .filter { implementationContains == null || it.implementationClass.contains(implementationContains, ignoreCase = true) }
+            .filter { it.interfaceClass.containsQuery(interfaceContains) }
+            .filter { it.implementationClass.containsQuery(implementationContains) }
         return ListServicesResponse(filtered.take(limit), filtered.size)
     }
 

@@ -2,10 +2,9 @@ package com.github.xepozz.ide.introspector.core.interaction
 
 import com.github.xepozz.ide.introspector.model.WidgetItem
 import java.awt.Component
-import java.awt.Rectangle
 import javax.swing.JComboBox
 
-object ComboBoxInteractor : WidgetInteractor {
+object ComboBoxInteractor : IndexedWidgetInteractor() {
     override val widgetType: String = "comboBox"
 
     override fun supports(component: Component): Boolean = component is JComboBox<*>
@@ -21,20 +20,8 @@ object ComboBoxInteractor : WidgetInteractor {
         }
     }
 
-    override fun select(component: Component, selector: ItemSelector): InteractionOutcome {
+    override fun applySelection(component: Component, index: Int) {
         val comboBox = component as JComboBox<*>
-        val index = resolveIndex(comboBox, selector)
-            ?: return InteractionOutcome.notFound("No combo box item matched selector $selector")
         comboBox.selectedIndex = index
-        val itemsAfter = listItems(comboBox)
-        return InteractionOutcome(
-            matchedItem = itemsAfter[index],
-            selectionAfter = itemsAfter.filter { it.selected },
-        )
     }
-
-    override fun itemBounds(component: Component, selector: ItemSelector): Rectangle? = null
-
-    private fun resolveIndex(comboBox: JComboBox<*>, selector: ItemSelector): Int? =
-        ItemSelectorResolver.resolveIndex(listItems(comboBox), selector)
 }

@@ -15,6 +15,7 @@ import com.github.xepozz.ide.introspector.model.FindComponentsResponse
 import com.github.xepozz.ide.introspector.model.InteractionResponse
 import com.github.xepozz.ide.introspector.model.ListItemsResponse
 import com.github.xepozz.ide.introspector.model.UiTreeResponse
+import com.github.xepozz.ide.introspector.util.mcpError
 import com.github.xepozz.ide.introspector.util.onEdtBlocking
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
@@ -25,7 +26,6 @@ import java.awt.Window
 import javax.accessibility.Accessible
 import javax.swing.AbstractButton
 import javax.swing.JComponent
-import javax.swing.JLabel
 import javax.swing.SwingUtilities
 import kotlinx.serialization.Serializable
 
@@ -271,12 +271,12 @@ class UiInspectorToolset : McpToolset {
     ): ListItemsResponse {
         val component = resolveComponent(componentId)
         return onEdtBlocking {
-            val interactor = WidgetInteractorRegistry.forComponent(component)
+            val interactor = interactorFor(component)
                 ?: return@onEdtBlocking ListItemsResponse(
                     componentId = componentId,
                     widgetType = "unsupported",
                     items = emptyList(),
-                    warnings = listOf("Component is not an item-bearing widget (tree/list/table/tabbedPane/comboBox)."),
+                    warnings = listOf(NOT_ITEM_BEARING_WIDGET),
                 )
             ListItemsResponse(componentId, interactor.widgetType, interactor.listItems(component))
         }
@@ -326,7 +326,7 @@ class UiInspectorToolset : McpToolset {
         val component = resolveComponent(componentId)
         val selector = ItemSelector.of(index, text, matchMode, path)
         return onEdtBlocking {
-            val interactor = WidgetInteractorRegistry.forComponent(component)
+            val interactor = interactorFor(component)
                 ?: return@onEdtBlocking unsupportedInteraction(componentId, "select")
             interactor.select(component, selector).toResponse(componentId, "select", interactor.widgetType)
         }
@@ -372,7 +372,7 @@ class UiInspectorToolset : McpToolset {
         val component = resolveComponent(componentId)
         val selector = ItemSelector.of(index, text, matchMode, path)
         return onEdtBlocking {
-            val interactor = WidgetInteractorRegistry.forComponent(component)
+            val interactor = interactorFor(component)
                 ?: return@onEdtBlocking unsupportedInteraction(componentId, "activate")
             val outcome = interactor.select(component, selector)
             if (!outcome.success) {
@@ -457,6 +457,45 @@ class UiInspectorToolset : McpToolset {
 
     // -------------------- core implementations --------------------
 
+    private data class NodeMap(
+        val nodes: LinkedHashMap<String, ComponentInfo>,
+        val rootIds: List<String>,
+        val truncated: Boolean,
+    )
+
+    private fun collectNodeMap(
+        rootSelector: String?,
+        maxDepth: Int,
+        includeInvisible: Boolean,
+        includeProperties: Boolean,
+        truncateAt: Int,
+        cap: Int,
+    ): NodeMap {
+        val registry = ComponentRegistry.getInstance()
+        val roots = ComponentTreeWalker.collectRoots(rootSelector)
+        val nodes = LinkedHashMap<String, ComponentInfo>()
+        var truncated = false
+        for (root in roots) {
+            ComponentTreeWalker.walk(root, maxDepth, includeInvisible) { c, _ ->
+                if (nodes.size >= cap) {
+                    truncated = true
+                    return@walk false
+                }
+                val info = ComponentSerializer.toInfo(
+                    component = c,
+                    registry = registry,
+                    includeProperties = includeProperties,
+                    truncatePropertyValueAt = truncateAt,
+                )
+                nodes[info.id] = info
+                true
+            }
+            if (truncated) break
+        }
+        val rootIds = roots.map { registry.register(it) }
+        return NodeMap(nodes, rootIds, truncated)
+    }
+
     private fun buildTree(
         maxDepth: Int,
         rootSelector: String?,
@@ -464,35 +503,23 @@ class UiInspectorToolset : McpToolset {
         includeProperties: Boolean,
         truncatePropertyValueAt: Int,
     ): UiTreeResponse {
-        val registry = ComponentRegistry.getInstance()
-        val roots = ComponentTreeWalker.collectRoots(rootSelector)
-        val nodes = LinkedHashMap<String, ComponentInfo>()
-        val warnings = mutableListOf<String>()
-        var truncated = false
         val hardCap = 5_000
-
-        for (root in roots) {
-            ComponentTreeWalker.walk(root, maxDepth, includeInvisible) { c, _ ->
-                if (nodes.size >= hardCap) { truncated = true; return@walk false }
-                val info = ComponentSerializer.toInfo(
-                    component = c,
-                    registry = registry,
-                    includeProperties = includeProperties,
-                    truncatePropertyValueAt = truncatePropertyValueAt,
-                )
-                nodes[info.id] = info
-                true
-            }
-            if (truncated) break
-        }
-        if (truncated) {
+        val nodeMap = collectNodeMap(
+            rootSelector = rootSelector,
+            maxDepth = maxDepth,
+            includeInvisible = includeInvisible,
+            includeProperties = includeProperties,
+            truncateAt = truncatePropertyValueAt,
+            cap = hardCap,
+        )
+        val warnings = mutableListOf<String>()
+        if (nodeMap.truncated) {
             warnings.add("Tree truncated at hardCap=$hardCap nodes. Narrow rootSelector or lower maxDepth.")
         }
-        val rootIds = roots.map { registry.register(it) }
         return UiTreeResponse(
-            nodes = nodes.values.toList(),
-            rootIds = rootIds,
-            truncated = truncated,
+            nodes = nodeMap.nodes.values.toList(),
+            rootIds = nodeMap.rootIds,
+            truncated = nodeMap.truncated,
             warnings = warnings,
         )
     }
@@ -535,7 +562,7 @@ class UiInspectorToolset : McpToolset {
         for (field in searchIn) {
             when (field) {
                 "name" -> c.name?.let(out::add)
-                "text" -> textOf(c)?.let(out::add)
+                "text" -> ComponentSerializer.extractText(c)?.let(out::add)
                 "accessibleName" -> (c as? Accessible)?.accessibleContext?.accessibleName?.let(out::add)
                 "toolTipText" -> (c as? JComponent)?.toolTipText?.let(out::add)
                 "className" -> {
@@ -545,12 +572,6 @@ class UiInspectorToolset : McpToolset {
             }
         }
         return out
-    }
-
-    private fun textOf(c: Component): String? = when (c) {
-        is AbstractButton -> c.text
-        is JLabel -> c.text
-        else -> null
     }
 
     private fun findByCoordinates(x: Int, y: Int, space: String, returnAncestors: Boolean): FindComponentsResponse {
@@ -583,20 +604,15 @@ class UiInspectorToolset : McpToolset {
     }
 
     private fun findByXPath(xpath: String, limit: Int): FindComponentsResponse {
-        val registry = ComponentRegistry.getInstance()
-        val roots = ComponentTreeWalker.collectRoots(null)
-        val nodes = LinkedHashMap<String, ComponentInfo>()
-        val rootIds = mutableListOf<String>()
-        for (root in roots) {
-            ComponentTreeWalker.walk(root, maxDepth = 50, includeInvisible = false) { c, _ ->
-                if (nodes.size >= 8_000) return@walk false
-                val info = ComponentSerializer.toInfo(c, registry, includeProperties = false, truncatePropertyValueAt = 200)
-                nodes[info.id] = info
-                true
-            }
-            rootIds.add(registry.register(root))
-        }
-        val matches = XPathMatcher(nodes, rootIds).query(xpath, limit)
+        val nodeMap = collectNodeMap(
+            rootSelector = null,
+            maxDepth = 50,
+            includeInvisible = false,
+            includeProperties = false,
+            truncateAt = 200,
+            cap = 8_000,
+        )
+        val matches = XPathMatcher(nodeMap.nodes, nodeMap.rootIds).query(xpath, limit)
         return FindComponentsResponse(matches, matches.size)
     }
 
@@ -617,10 +633,7 @@ class UiInspectorToolset : McpToolset {
             props.add(ComponentProperty("locationOnScreen", "${it.x},${it.y}"))
         }
         if (includeClientProperties && component is JComponent) {
-            listOf(
-                "JComponent.sizeVariant", "place", "action",
-                "html.disable", "ActionToolbar.smallVariant",
-            ).forEach { k ->
+            ComponentSerializer.WELL_KNOWN_CLIENT_PROPERTY_KEYS.forEach { k ->
                 component.getClientProperty(k)?.let { props.add(ComponentProperty("clientProperty[$k]", it.toString())) }
             }
         }
@@ -657,11 +670,9 @@ class UiInspectorToolset : McpToolset {
 
     private fun resolveComponent(componentId: String): Component =
         ComponentRegistry.getInstance().lookup(componentId)
-            ?: throw com.intellij.mcpserver.McpExpectedError(
-                "Component '$componentId' is no longer attached (panel closed or IDE restarted). " +
-                    "Call ui.find_by_* or ui.get_tree again to get a fresh id.",
-                kotlinx.serialization.json.JsonObject(emptyMap())
-            )
+            ?: mcpError(componentDetachedMessage(componentId))
+
+    private fun interactorFor(component: Component) = WidgetInteractorRegistry.forComponent(component)
 
     private fun unsupportedInteraction(componentId: String, action: String): InteractionResponse =
         InteractionResponse(
@@ -669,7 +680,7 @@ class UiInspectorToolset : McpToolset {
             action = action,
             success = false,
             widgetType = "unsupported",
-            warnings = listOf("Component is not an item-bearing widget (tree/list/table/tabbedPane/comboBox)."),
+            warnings = listOf(NOT_ITEM_BEARING_WIDGET),
         )
 
     private fun InteractionOutcome.toResponse(componentId: String, action: String, widgetType: String): InteractionResponse =
@@ -685,5 +696,11 @@ class UiInspectorToolset : McpToolset {
 
     companion object {
         val DEFAULT_SEARCH_FIELDS = listOf("name", "text", "accessibleName", "toolTipText")
+        private const val NOT_ITEM_BEARING_WIDGET =
+            "Component is not an item-bearing widget (tree/list/table/tabbedPane/comboBox)."
+
+        internal fun componentDetachedMessage(componentId: String): String =
+            "Component '$componentId' is no longer attached (panel closed or IDE restarted). " +
+                "Call ui.find_by_* or ui.get_tree again to get a fresh id."
     }
 }

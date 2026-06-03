@@ -1,5 +1,6 @@
 package com.github.xepozz.ide.introspector.core
 
+import com.github.xepozz.ide.introspector.core.internal.ContainerDescriptorReader
 import com.github.xepozz.ide.introspector.model.ListenerInfo
 import com.github.xepozz.ide.introspector.util.ReflectionAccess
 import com.intellij.ide.plugins.IdeaPluginDescriptor
@@ -33,16 +34,16 @@ object ListenerInspector {
     private fun collectFor(descriptor: IdeaPluginDescriptor, out: MutableList<ListenerInfo>) {
         val pluginId = descriptor.pluginId.idString
         val pluginName = descriptor.name
-        for ((areaTag, getter) in AREA_GETTERS) {
-            val container = readContainer(descriptor, getter) ?: continue
-            val listeners = readListenerList(container)
-            for (ld in listeners) {
-                out += try {
-                    toListenerInfo(ld, areaTag, pluginId, pluginName)
-                } catch (t: Throwable) {
-                    thisLogger().debug("Failed to read ListenerDescriptor for $pluginId/$areaTag", t)
-                    null
-                } ?: continue
+        out += ContainerDescriptorReader.collectFromContainers(
+            descriptor = descriptor,
+            areaGetters = AREA_GETTERS,
+            fieldName = "listeners",
+        ) { element, areaTag ->
+            try {
+                toListenerInfo(element, areaTag, pluginId, pluginName)
+            } catch (t: Throwable) {
+                thisLogger().debug("Failed to read ListenerDescriptor for $pluginId/$areaTag", t)
+                null
             }
         }
     }
@@ -53,11 +54,11 @@ object ListenerInspector {
         pluginId: String,
         pluginName: String?,
     ): ListenerInfo? {
-        val listenerClass = readField(ld, "listenerClassName")?.toString() ?: return null
-        val topicClass = readField(ld, "topicClassName")?.toString() ?: return null
-        val activeInTest = (readField(ld, "activeInTestMode") as? Boolean) ?: true
-        val activeInHeadless = (readField(ld, "activeInHeadlessMode") as? Boolean) ?: true
-        val os = readField(ld, "os")?.let { runCatching { (it as Enum<*>).name }.getOrNull() }
+        val listenerClass = ReflectionAccess.readField(ld, "listenerClassName")?.toString() ?: return null
+        val topicClass = ReflectionAccess.readField(ld, "topicClassName")?.toString() ?: return null
+        val activeInTest = (ReflectionAccess.readField(ld, "activeInTestMode") as? Boolean) ?: true
+        val activeInHeadless = (ReflectionAccess.readField(ld, "activeInHeadlessMode") as? Boolean) ?: true
+        val os = ReflectionAccess.readEnumName(ld, "os")
         return ListenerInfo(
             topicClass = topicClass,
             listenerClass = listenerClass,
@@ -69,23 +70,6 @@ object ListenerInspector {
             providedByPluginName = pluginName,
         )
     }
-
-    private fun readContainer(descriptor: IdeaPluginDescriptor, getterName: String): Any? {
-        val m = descriptor.javaClass.methods.firstOrNull {
-            it.name == getterName && it.parameterCount == 0
-        } ?: return null
-        return try { m.invoke(descriptor) } catch (_: Throwable) { null }
-    }
-
-    private fun readListenerList(container: Any): List<Any> {
-        // ContainerDescriptor.listeners is a @JvmField — public field on the JVM.
-        val field = container.javaClass.fields.firstOrNull { it.name == "listeners" }
-            ?: return emptyList()
-        val raw = try { field.get(container) } catch (_: Throwable) { return emptyList() }
-        return (raw as? List<*>)?.filterNotNull().orEmpty()
-    }
-
-    private fun readField(target: Any, name: String): Any? = ReflectionAccess.readField(target, name)
 
     private val AREA_GETTERS = listOf(
         "application" to "getAppContainerDescriptor",

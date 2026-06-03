@@ -26,30 +26,25 @@ class PlatformExplorerCellRenderer : ColoredTreeCellRenderer() {
             is PlatformExplorerNode.PluginNode -> {
                 icon = AllIcons.Nodes.Plugin
                 append(node.plugin.name)
-                append("  ")
-                append("[${node.plugin.id}]", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                appendGray("[${node.plugin.id}]")
                 if (!node.plugin.isEnabled) {
                     append("  ")
                     append("(disabled)", SimpleTextAttributes.ERROR_ATTRIBUTES)
                 }
                 if (node.plugin.isBundled) {
-                    append("  ")
-                    append("[bundled]", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                    appendGray("[bundled]")
                 }
             }
             is PlatformExplorerNode.GroupNode -> {
                 icon = AllIcons.Nodes.Folder
                 append(node.displayName)
-                append("  ")
-                append("(${node.count})", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                appendGray("(${node.count})")
             }
             is PlatformExplorerNode.ExtensionPointNode -> {
                 icon = AllIcons.Nodes.Interface
                 append(node.ep.name)
-                append("  ")
-                append("[${node.ep.kind}]", SimpleTextAttributes.GRAY_ATTRIBUTES)
-                append("  ")
-                append("(${node.ep.extensionsCount})", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                appendGray("[${node.ep.kind}]")
+                appendGray("(${node.ep.extensionsCount})")
             }
             is PlatformExplorerNode.ExtensionNode -> {
                 icon = AllIcons.Nodes.Class
@@ -61,30 +56,22 @@ class PlatformExplorerCellRenderer : ColoredTreeCellRenderer() {
                 if (e.effectiveClass != null && e.implementationClass != null &&
                     e.effectiveClass != e.implementationClass
                 ) {
-                    append("  ")
-                    append("via ${e.implementationClass.substringAfterLast('.')}", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                    appendGray("via ${e.implementationClass.substringAfterLast('.')}")
                 }
-                append("  ")
-                append("← ${e.providedByPluginId}", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                appendGray("← ${e.providedByPluginId}")
             }
             is PlatformExplorerNode.DependencyNode -> {
                 icon = AllIcons.Nodes.PpLib
                 append(node.dep.pluginId)
-                append("  ")
-                append(
-                    if (node.dep.optional) "(optional)" else "(required)",
-                    SimpleTextAttributes.GRAY_ATTRIBUTES,
-                )
+                appendGray(if (node.dep.optional) "(optional)" else "(required)")
             }
             is PlatformExplorerNode.ServiceNode -> {
                 icon = AllIcons.Nodes.Services
                 val s = node.service
                 append(s.implementationClass)
-                append("  ")
-                append("[${s.area}]", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                appendGray("[${s.area}]")
                 if (s.preload != "FALSE") {
-                    append("  ")
-                    append("preload=${s.preload}", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                    appendGray("preload=${s.preload}")
                 }
                 if (s.source == "light_instantiated") {
                     append("  ")
@@ -95,17 +82,14 @@ class PlatformExplorerCellRenderer : ColoredTreeCellRenderer() {
                 icon = AllIcons.General.Inline_edit
                 val l = node.listener
                 append(l.listenerClass)
-                append("  ")
-                append("→ ${l.topicClass.substringAfterLast('.')}", SimpleTextAttributes.GRAY_ATTRIBUTES)
-                append("  ")
-                append("[${l.area}]", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                appendGray("→ ${l.topicClass.substringAfterLast('.')}")
+                appendGray("[${l.area}]")
             }
             is PlatformExplorerNode.TopicNode -> {
                 icon = AllIcons.Hierarchy.Subtypes
                 val t = node.topic
                 append("${t.declaringClassName.substringAfterLast('.')}.${t.fieldName}")
-                append("  ")
-                append("→ ${t.listenerClassName.substringAfterLast('.')}", SimpleTextAttributes.GRAY_ATTRIBUTES)
+                appendGray("→ ${t.listenerClassName.substringAfterLast('.')}")
                 if (t.onCompanion) {
                     append("  ")
                     append("(companion)", SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
@@ -116,5 +100,10 @@ class PlatformExplorerCellRenderer : ColoredTreeCellRenderer() {
                 append(node.displayName, SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
             }
         }
+    }
+
+    private fun appendGray(text: String) {
+        append("  ")
+        append(text, SimpleTextAttributes.GRAY_ATTRIBUTES)
     }
 }

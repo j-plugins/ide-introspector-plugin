@@ -1,5 +1,6 @@
 package com.github.xepozz.ide.introspector.toolwindow.details
 
+import com.github.xepozz.ide.introspector.util.simpleClassName
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
@@ -31,9 +32,6 @@ object FqnLink {
         return actionLink(text) { navigateTo(project, text) }
     }
 
-    /** Plain label variant when the link semantics don't apply (e.g. unresolved value). */
-    fun text(s: String?): JComponent = JBLabel(s.orDash())
-
     private fun navigateTo(project: Project, fqn: String) {
         // PSI / FilenameIndex lookups require a read action even when invoked from the EDT.
         val psiFile = ReadAction.compute<PsiFile?, RuntimeException> {
@@ -44,16 +42,14 @@ object FqnLink {
 
     /**
      * Resolves via JavaPsiFacade by reflection so this class stays loadable when
-     * com.intellij.modules.java is absent. Catches ClassNotFoundException at the boundary —
-     * other exceptions (LinkageError, IndexOutOfBoundsException, etc.) bubble up and are
-     * caught at the navigateTo level via the [SUPPORTED_EXTENSIONS] fallback below.
+     * com.intellij.modules.java is absent. Gated on [javaPsiAvailable] so the reflective lookup
+     * only runs when the module is present — other exceptions (LinkageError,
+     * IndexOutOfBoundsException, etc.) bubble up and are caught at the navigateTo level via the
+     * [SUPPORTED_EXTENSIONS] fallback below.
      */
     private fun tryFindByPsiFacade(project: Project, fqn: String): PsiFile? {
-        val facadeClass = try {
-            Class.forName("com.intellij.psi.JavaPsiFacade")
-        } catch (_: ClassNotFoundException) {
-            return null
-        }
+        if (!javaPsiAvailable) return null
+        val facadeClass = Class.forName("com.intellij.psi.JavaPsiFacade")
         return runCatching {
             val facade = facadeClass.getMethod("getInstance", Project::class.java).invoke(null, project)
             val findClass = facadeClass.getMethod(
@@ -69,7 +65,7 @@ object FqnLink {
     }
 
     private fun tryFindBySimpleName(project: Project, fqn: String): PsiFile? {
-        val simple = fqn.substringAfterLast('.').substringAfterLast('$')
+        val simple = fqn.simpleClassName()
         if (simple.isBlank()) return null
         val scope = GlobalSearchScope.allScope(project)
         return SUPPORTED_EXTENSIONS

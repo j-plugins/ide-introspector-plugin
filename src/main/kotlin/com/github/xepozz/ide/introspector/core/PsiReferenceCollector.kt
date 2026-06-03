@@ -2,6 +2,7 @@ package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.model.ResolveTarget
 import com.github.xepozz.ide.introspector.model.ResolvedReference
+import com.github.xepozz.ide.introspector.util.truncateChars
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
@@ -132,8 +133,8 @@ object PsiReferenceCollector {
 
             out += ResolvedReference(
                 sourceNodeId = elementId,
-                sourcePsiClass = element.javaClass.simpleName.ifEmpty { element.javaClass.name },
-                sourceText = truncate(sourceText, truncateTextAt),
+                sourcePsiClass = psiClassName(element),
+                sourceText = truncateChars(sourceText, truncateTextAt),
                 sourceRange = PsiStructureWalker.textRangeInfoOf(TextRange(absStart, absEnd), hostDocument),
                 referenceClass = ref.javaClass.name,
                 isSoft = isSoft,
@@ -157,7 +158,7 @@ object PsiReferenceCollector {
             sourceContainingFile.viewProvider == targetFile.viewProvider
 
         val targetText = try {
-            target.text?.let { truncate(it, truncateTextAt) }
+            target.text?.let { truncateChars(it, truncateTextAt) }
         } catch (_: Throwable) {
             null
         }
@@ -171,7 +172,7 @@ object PsiReferenceCollector {
 
         return ResolveTarget(
             resolved = true,
-            targetPsiClass = target.javaClass.simpleName.ifEmpty { target.javaClass.name },
+            targetPsiClass = psiClassName(target),
             targetText = targetText,
             targetRange = rangeInfo,
             targetFileUrl = if (!sameFile) targetVf?.url else null,
@@ -179,7 +180,4 @@ object PsiReferenceCollector {
             declarationName = (target as? PsiNamedElement)?.name,
         )
     }
-
-    private fun truncate(s: String, max: Int): String =
-        if (s.length <= max) s else s.substring(0, max) + "…"
 }

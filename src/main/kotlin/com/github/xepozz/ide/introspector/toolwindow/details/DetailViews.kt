@@ -8,18 +8,21 @@ import com.github.xepozz.ide.introspector.model.PluginInfo
 import com.github.xepozz.ide.introspector.model.ServiceInfo
 import com.github.xepozz.ide.introspector.model.TopicInfo
 import com.github.xepozz.ide.introspector.toolwindow.PlatformExplorerNode
+import com.github.xepozz.ide.introspector.util.simpleClassName
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
-import com.intellij.util.ui.UIUtil
 import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.Font
 import java.awt.datatransfer.StringSelection
-import javax.swing.BoxLayout
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import javax.swing.JComponent
 import javax.swing.JPanel
+import javax.swing.SwingUtilities
 
 /**
  * Per-node renderers. Each `render*` returns a self-contained vertical panel.
@@ -109,12 +112,7 @@ class DetailViews(
                     FqnLink.render(project, impl),
                 )
             }
-            if (extensions.size > 10) {
-                form.custom(JBLabel("… and ${extensions.size - 10} more").apply {
-                    foreground = UIUtil.getLabelInfoForeground()
-                    border = JBUI.Borders.emptyTop(4)
-                })
-            }
+            overflowNote(form, total = extensions.size, shown = 10)
         }
 
         // External "Open in Platform Explorer (web)" — keeps the existing affordance.
@@ -158,7 +156,7 @@ class DetailViews(
         val implFqn = e.effectiveClass ?: e.implementationClass
         implFqn?.let { MembersSection.build(project, it) }?.let { form.custom(it) }
 
-        val simple = title.substringAfterLast('.').substringAfterLast('$')
+        val simple = title.simpleClassName()
         val crumbs = Breadcrumb.render(
             pluginSegment(e.providedByPluginId, e.providedByPluginName),
             epSegment(e.extensionPointName),
@@ -196,7 +194,7 @@ class DetailViews(
 
         MembersSection.build(project, s.implementationClass)?.let { form.custom(it) }
 
-        val simple = s.implementationClass.substringAfterLast('.').substringAfterLast('$')
+        val simple = s.implementationClass.simpleClassName()
         val crumbs = Breadcrumb.render(
             pluginSegment(s.providedByPluginId, s.providedByPluginName),
             Breadcrumb.Segment("Services", icon = Breadcrumb.EP_ICON),
@@ -221,7 +219,7 @@ class DetailViews(
 
         MembersSection.build(project, l.listenerClass)?.let { form.custom(it) }
 
-        val simple = l.listenerClass.substringAfterLast('.').substringAfterLast('$')
+        val simple = l.listenerClass.simpleClassName()
         val crumbs = Breadcrumb.render(
             pluginSegment(l.providedByPluginId, l.providedByPluginName),
             Breadcrumb.Segment("Listeners", icon = Breadcrumb.EP_ICON),
@@ -252,17 +250,12 @@ class DetailViews(
                     FqnLink.render(project, l.listenerClass),
                 )
             }
-            if (subscribers.size > 20) {
-                form.custom(JBLabel("… and ${subscribers.size - 20} more").apply {
-                    foreground = UIUtil.getLabelInfoForeground()
-                    border = JBUI.Borders.emptyTop(4)
-                })
-            }
+            overflowNote(form, total = subscribers.size, shown = 20)
         }
 
         MembersSection.build(project, t.listenerClassName)?.let { form.custom(it) }
 
-        val simple = "${t.declaringClassName.substringAfterLast('.').substringAfterLast('$')}.${t.fieldName}"
+        val simple = "${t.declaringClassName.simpleClassName()}.${t.fieldName}"
         val crumbs = Breadcrumb.render(
             pluginSegment(t.providedByPluginId, t.providedByPluginName),
             Breadcrumb.Segment("Topics", icon = Breadcrumb.EP_ICON),
@@ -285,33 +278,39 @@ class DetailViews(
 
     // ---------- helpers ----------
 
+    /** Renders [text] as an ActionLink when a [navigator] is present, otherwise as a plain label. */
+    private fun navLink(text: String, onClick: () -> Unit): JComponent =
+        if (navigator == null) JBLabel(text) else actionLink(text, onClick)
+
     private fun pluginLink(pluginId: String, pluginName: String?): JComponent {
         val text = if (!pluginName.isNullOrBlank() && pluginName != pluginId) "$pluginName ($pluginId)"
         else pluginId
-        val nav = navigator ?: return JBLabel(text)
-        return actionLink(text) { nav.selectPluginById(pluginId) }
+        return navLink(text) { navigator?.selectPluginById(pluginId) }
     }
 
-    private fun epLink(epName: String): JComponent {
-        val nav = navigator ?: return JBLabel(epName)
-        return actionLink(epName) { nav.selectExtensionPointByName(epName) }
-    }
+    private fun epLink(epName: String): JComponent =
+        navLink(epName) { navigator?.selectExtensionPointByName(epName) }
 
-    private fun dependencyLink(d: PluginDependencyInfo): JComponent {
-        val nav = navigator ?: return JBLabel(d.pluginId)
-        return actionLink(d.pluginId) { nav.selectPluginById(d.pluginId) }
+    private fun dependencyLink(d: PluginDependencyInfo): JComponent = pluginLink(d.pluginId, null)
+
+    /** Appends a muted "… and N more" row when [total] exceeds [shown]. */
+    private fun overflowNote(form: DetailForm, total: Int, shown: Int) {
+        if (total <= shown) return
+        form.custom(infoLabel("… and ${total - shown} more").apply {
+            border = JBUI.Borders.emptyTop(4)
+        })
     }
 
     private fun copyableMonospace(text: String): JComponent {
         val label = JBLabel(text).apply {
             font = font.deriveFont(font.size2D).let {
-                java.awt.Font(java.awt.Font.MONOSPACED, it.style, it.size)
+                Font(Font.MONOSPACED, it.style, it.size)
             }
             toolTipText = "Right-click to copy"
         }
-        label.addMouseListener(object : java.awt.event.MouseAdapter() {
-            override fun mouseClicked(event: java.awt.event.MouseEvent) {
-                if (javax.swing.SwingUtilities.isRightMouseButton(event)) {
+        label.addMouseListener(object : MouseAdapter() {
+            override fun mouseClicked(event: MouseEvent) {
+                if (SwingUtilities.isRightMouseButton(event)) {
                     CopyPasteManager.getInstance().setContents(StringSelection(text))
                 }
             }
@@ -319,16 +318,11 @@ class DetailViews(
         return label
     }
 
-    private fun wrap(vararg parts: JComponent): JComponent {
-        val panel = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            isOpaque = false
-        }
+    private fun wrap(vararg parts: JComponent): JComponent = verticalPanel().apply {
         for (p in parts) {
             p.alignmentX = Component.LEFT_ALIGNMENT
-            panel.add(p)
+            add(p)
         }
-        return panel
     }
 
     private fun pluginSegment(pluginId: String, pluginName: String?): Breadcrumb.Segment {
@@ -351,7 +345,7 @@ class DetailViews(
             border = JBUI.Borders.empty(20)
             isOpaque = false
         }
-        panel.add(JBLabel(text).apply { foreground = UIUtil.getLabelInfoForeground() }, BorderLayout.NORTH)
+        panel.add(infoLabel(text), BorderLayout.NORTH)
         return panel
     }
 }

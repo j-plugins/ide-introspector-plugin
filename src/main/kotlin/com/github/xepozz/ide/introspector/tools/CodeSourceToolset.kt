@@ -9,14 +9,14 @@ import com.github.xepozz.ide.introspector.model.GetSourceResponse
 import com.github.xepozz.ide.introspector.model.ListMembersResponse
 import com.github.xepozz.ide.introspector.model.MemberInfo
 import com.github.xepozz.ide.introspector.model.ParameterInfo
+import com.github.xepozz.ide.introspector.util.mcpError
 import com.github.xepozz.ide.introspector.util.onEdtBlocking
 import com.github.xepozz.ide.introspector.util.readActionBlocking
+import com.github.xepozz.ide.introspector.util.requireFocusedProject
 import com.github.xepozz.ide.introspector.util.truncateUtf8
-import com.intellij.mcpserver.McpExpectedError
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
-import com.intellij.mcpserver.projectOrNull
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionUiKind
@@ -29,8 +29,6 @@ import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.psi.PsiMethod
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.serialization.json.JsonObject
 
 /**
  * `code.*` — find a class by FQN, return its source text (real / attached / decompiled / stubs),
@@ -77,9 +75,9 @@ class CodeSourceToolset : McpToolset {
         @McpDescription("Fully-qualified class name. Inner classes use '$' or '.' separator (e.g. 'java.util.Map\$Entry' or 'java.util.Map.Entry').")
         fqn: String,
     ): FindClassResponse {
-        val project = requireProject()
+        val project = requireFocusedProject("(code.* tools resolve FQNs against a project's classpath)")
         return readActionBlocking {
-            val res = ClassSourceResolver.resolve(project, normalizeFqn(fqn))
+            val res = ClassSourceResolver.resolve(project, fqn.trim())
             if (res.state == ClassSourceState.NOT_FOUND || res.psiClass == null) {
                 FindClassResponse(state = ClassSourceState.NOT_FOUND.name, found = false)
             } else {
@@ -136,11 +134,11 @@ class CodeSourceToolset : McpToolset {
         maxBytes: Int = 64 * 1024,
     ): GetSourceResponse {
         require(maxBytes in 1..(2 * 1024 * 1024)) { "maxBytes must be in 1..2MiB, got $maxBytes" }
-        val project = requireProject()
+        val project = requireFocusedProject("(code.* tools resolve FQNs against a project's classpath)")
         return readActionBlocking {
-            val res = ClassSourceResolver.resolve(project, normalizeFqn(fqn))
-            if (res.state == ClassSourceState.NOT_FOUND || res.textFile == null) {
-                throw McpExpectedError("Class not found: $fqn", JsonObject(emptyMap()))
+            val res = resolveOrThrow(project, fqn)
+            if (res.textFile == null) {
+                mcpError("Class not found: $fqn")
             }
             // PsiFile.getText() handles all four states transparently — for .class files
             // ClsFileImpl routes through the registered Light decompiler.
@@ -192,14 +190,11 @@ class CodeSourceToolset : McpToolset {
         @McpDescription("Cap on returned members. Default 500.")
         limit: Int = 500,
     ): ListMembersResponse {
-        val project = requireProject()
+        val project = requireFocusedProject("(code.* tools resolve FQNs against a project's classpath)")
         val allowed = kinds.toSet()
         return readActionBlocking {
-            val res = ClassSourceResolver.resolve(project, normalizeFqn(fqn))
-            if (res.state == ClassSourceState.NOT_FOUND || res.psiClass == null) {
-                throw McpExpectedError("Class not found: $fqn", JsonObject(emptyMap()))
-            }
-            val cls = res.psiClass
+            val res = resolveOrThrow(project, fqn)
+            val cls = res.psiClass ?: mcpError("Class not found: $fqn")
             val all = buildList {
                 if ("method" in allowed || "constructor" in allowed) {
                     val methods = if (includeInherited) cls.allMethods else cls.methods
@@ -285,13 +280,8 @@ class CodeSourceToolset : McpToolset {
         @McpDescription("Fully-qualified class name whose library should get sources downloaded.")
         fqn: String,
     ): AttachSourcesResponse {
-        val project = requireProject()
-        val resolution = readActionBlocking {
-            ClassSourceResolver.resolve(project, normalizeFqn(fqn))
-        }
-        if (resolution.state == ClassSourceState.NOT_FOUND) {
-            throw McpExpectedError("Class not found: $fqn", JsonObject(emptyMap()))
-        }
+        val project = requireFocusedProject("(code.* tools resolve FQNs against a project's classpath)")
+        val resolution = readActionBlocking { resolveOrThrow(project, fqn) }
         if (resolution.state == ClassSourceState.SOURCE ||
             resolution.state == ClassSourceState.ATTACHED_SOURCE
         ) {
@@ -367,14 +357,13 @@ class CodeSourceToolset : McpToolset {
         }
     }
 
-    private suspend fun requireProject(): Project = currentCoroutineContext().projectOrNull
-        ?: throw McpExpectedError(
-            "No focused project. Open a project in this IDE first (code.* tools resolve FQNs against a project's classpath).",
-            JsonObject(emptyMap())
-        )
-
-    /** Accept both java.util.Map.Entry and java.util.Map\$Entry — findClass wants `$`. */
-    private fun normalizeFqn(fqn: String): String = fqn.trim()
+    private fun resolveOrThrow(project: Project, fqn: String): ClassSourceResolver.Resolution {
+        val resolution = ClassSourceResolver.resolve(project, fqn.trim())
+        if (resolution.state == ClassSourceState.NOT_FOUND) {
+            mcpError("Class not found: $fqn")
+        }
+        return resolution
+    }
 
     private fun methodSignature(m: PsiMethod): String {
         val params = m.parameterList.parameters.joinToString(", ") {

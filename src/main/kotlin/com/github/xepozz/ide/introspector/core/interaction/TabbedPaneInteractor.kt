@@ -5,7 +5,7 @@ import java.awt.Component
 import java.awt.Rectangle
 import javax.swing.JTabbedPane
 
-object TabbedPaneInteractor : WidgetInteractor {
+object TabbedPaneInteractor : IndexedWidgetInteractor() {
     override val widgetType: String = "tabbedPane"
 
     override fun supports(component: Component): Boolean = component is JTabbedPane
@@ -22,24 +22,13 @@ object TabbedPaneInteractor : WidgetInteractor {
         }
     }
 
-    override fun select(component: Component, selector: ItemSelector): InteractionOutcome {
+    override fun applySelection(component: Component, index: Int) {
         val tabbedPane = component as JTabbedPane
-        val index = resolveIndex(tabbedPane, selector)
-            ?: return InteractionOutcome.notFound("No tab matched selector $selector")
         tabbedPane.selectedIndex = index
-        val itemsAfter = listItems(tabbedPane)
-        return InteractionOutcome(
-            matchedItem = itemsAfter[index],
-            selectionAfter = itemsAfter.filter { it.selected },
-        )
     }
 
-    override fun itemBounds(component: Component, selector: ItemSelector): Rectangle? {
+    override fun boundsForIndex(component: Component, index: Int): Rectangle? {
         val tabbedPane = component as JTabbedPane
-        val index = resolveIndex(tabbedPane, selector) ?: return null
         return tabbedPane.getBoundsAt(index)
     }
-
-    private fun resolveIndex(tabbedPane: JTabbedPane, selector: ItemSelector): Int? =
-        ItemSelectorResolver.resolveIndex(listItems(tabbedPane), selector)
 }
