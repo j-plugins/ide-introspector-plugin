@@ -225,30 +225,24 @@ class XPathMatcher(
         return -1
     }
 
-    private fun containsTopLevelOr(s: String): Boolean {
-        val lower = s.lowercase()
-        var inSingle = false
-        var inDouble = false
-        var i = 0
-        while (i < s.length) {
-            val c = s[i]
-            when {
-                inSingle -> if (c == '\'') inSingle = false
-                inDouble -> if (c == '"') inDouble = false
-                c == '\'' -> inSingle = true
-                c == '"' -> inDouble = true
-                !inSingle && !inDouble &&
-                    i + 3 < s.length && lower.startsWith(" or ", i) -> return true
-            }
-            i++
-        }
-        return false
-    }
+    private fun containsTopLevelOr(s: String): Boolean =
+        topLevelSeparatorIndices(s, " or ").isNotEmpty()
 
     private fun splitByAnd(s: String): List<String> {
-        val out = mutableListOf<String>()
-        val lower = s.lowercase()
+        val separator = " and "
+        val separatorIndices = topLevelSeparatorIndices(s, separator)
+        val parts = mutableListOf<String>()
         var start = 0
+        for (index in separatorIndices) {
+            parts.add(s.substring(start, index).trim())
+            start = index + separator.length
+        }
+        parts.add(s.substring(start).trim())
+        return parts.filter { it.isNotEmpty() }
+    }
+
+    private fun topLevelSeparatorIndices(s: String, separator: String): List<Int> {
+        val indices = mutableListOf<Int>()
         var inSingle = false
         var inDouble = false
         var i = 0
@@ -259,17 +253,14 @@ class XPathMatcher(
                 inDouble -> if (c == '"') inDouble = false
                 c == '\'' -> inSingle = true
                 c == '"' -> inDouble = true
-                !inSingle && !inDouble &&
-                    i + 4 < s.length && lower.startsWith(" and ", i) -> {
-                    out.add(s.substring(start, i).trim())
-                    start = i + 5
-                    i += 4
+                s.regionMatches(i, separator, 0, separator.length, ignoreCase = true) -> {
+                    indices.add(i)
+                    i += separator.length - 1
                 }
             }
             i++
         }
-        out.add(s.substring(start).trim())
-        return out.filter { it.isNotEmpty() }
+        return indices
     }
 
     private fun parsePredicate(raw: String): Pair<String, String> {
