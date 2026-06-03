@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [2026.0.4] - 2026-06-03
+
+### Fixed
+
+- Project-dependent tools (`ide.indexing_status`, `editor.*`, `psi.*`) threw
+  `ClassNotFoundException: com.intellij.mcpserver.McpCallInfoKt` on IDE builds whose bundled
+  `com.intellij.mcpServer` version differs from the one compiled against (that class declares
+  the `projectOrNull` extension). Project resolution now uses stable platform API
+  (`ProjectManager` / `IdeFocusManager`) via `IdeProjectResolver`, removing the
+  mcpServer-internal binding.
+
 ## [2026.0.3] - 2026-06-03
 
 ### Added
@@ -42,6 +53,7 @@
   per-call confirmation dialog, textual safety blacklist, and audit log.
 - Settings page under Settings → Tools → IDE Introspector for the Phase 2 opt-in.
 
-[Unreleased]: https://github.com/xepozz/introspector-plugin/compare/2026.0.3...HEAD
+[Unreleased]: https://github.com/xepozz/introspector-plugin/compare/2026.0.4...HEAD
+[2026.0.4]: https://github.com/xepozz/introspector-plugin/compare/2026.0.3...2026.0.4
 [2026.0.3]: https://github.com/xepozz/introspector-plugin/compare/2026.0.2...2026.0.3
 [2026.0.2]: https://github.com/xepozz/introspector-plugin/commits/2026.0.2
