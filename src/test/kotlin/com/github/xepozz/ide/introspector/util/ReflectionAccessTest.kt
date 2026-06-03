@@ -9,9 +9,14 @@ open class ReflectionAccessTestBase {
     val baseField: String = "base-value"
 }
 
+enum class ReflectionAccessTestColor { RED, GREEN }
+
 class ReflectionAccessTestChild : ReflectionAccessTestBase() {
     @JvmField
     val childField: Int = 42
+
+    @JvmField
+    val color: ReflectionAccessTestColor = ReflectionAccessTestColor.GREEN
 
     fun label(): String = "label"
 
@@ -48,5 +53,25 @@ class ReflectionAccessTest {
     @Test
     fun `readMethod swallows an exception thrown by the target method and returns null`() {
         assertNull(ReflectionAccess.readMethod(ReflectionAccessTestChild(), "boom"))
+    }
+
+    @Test
+    fun `readField tries the next candidate name when the first is absent`() {
+        assertEquals(42, ReflectionAccess.readField(ReflectionAccessTestChild(), "absentField", "childField"))
+    }
+
+    @Test
+    fun `readMethod tries the next candidate name when the first is absent`() {
+        assertEquals("label", ReflectionAccess.readMethod(ReflectionAccessTestChild(), "absentMethod", "label"))
+    }
+
+    @Test
+    fun `readEnumName returns the enum constant name`() {
+        assertEquals("GREEN", ReflectionAccess.readEnumName(ReflectionAccessTestChild(), "color"))
+    }
+
+    @Test
+    fun `readEnumName returns null for a non-enum field`() {
+        assertNull(ReflectionAccess.readEnumName(ReflectionAccessTestChild(), "childField"))
     }
 }
