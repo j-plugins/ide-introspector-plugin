@@ -92,12 +92,27 @@ Direct typed calls are worth it **only where the member is genuinely public/stab
 
 ## Remaining work (re-scoped)
 
-### A. Worth doing — direct typed calls for PUBLIC members only (compiler-checked, zero version risk)
-- `core/ComponentSerializer.kt` — `ActionButton.getAction()`: `com.intellij.openapi.actionSystem.impl.ActionButton`
-  is public; call it directly instead of reflecting by method name.
-- `core/internal/PluginDescriptorReader.kt` — id/name come from `IdeaPluginDescriptor.getPluginId().idString`
-  and `.getName()`, both PUBLIC. The `pd: Any?` reflection can be mostly direct; keep a thin
-  fallback only for the light-service path where the descriptor type isn't statically known.
+### A. Direct typed calls for PUBLIC members — EVALUATED, both kept as reflection
+- `core/ComponentSerializer.kt` — `ActionButton.getAction()`: **REJECTED.** `ActionButton` lives in
+  `com.intellij.openapi.actionSystem.**impl**` — it is INTERNAL, not public. A direct reference
+  would touch an internal class and reintroduce version fragility. The current name-based
+  reflection (`cls.name.contains("ActionButton")` + reflective `getAction`) correctly avoids the
+  internal compile-time dependency — keep it.
+- `core/internal/PluginDescriptorReader.kt` — **KEPT.** The reflection here targets PUBLIC members
+  of the public `IdeaPluginDescriptor`, so it is low-fragility and already centralized + tested.
+  A direct `as? IdeaPluginDescriptor` cast compiles in main but needs a constructible
+  `IdeaPluginDescriptor` in the unit tests (no public stand-in on the plain test classpath), so the
+  conversion is churn for marginal gain — not worth it.
+
+Net: item A produced no safe conversion. De-reflection is at its safe terminus.
+
+### Internal-package audit (no direct references to internal IntelliJ APIs, except two pre-existing)
+A grep of `import com.intellij.*` for `.impl.` / `.internal.` in `src/main` finds only two direct
+references, both pre-existing and on long-stable utilities (not the McpCallInfoKt risk class):
+- `core/PsiStructureWalker.kt` → `com.intellij.psi.impl.source.SourceTreeToPsiMap`
+- `tools/CodeSourceToolset.kt` → `com.intellij.openapi.actionSystem.impl.SimpleDataContext`
+Everything else that touches internal IntelliJ API does so via reflection-by-name (no compile-time
+internal reference). The two above are candidates for a future public-API swap if one exists.
 
 ### B. Keep as centralized reflection — do NOT convert (internal API on an open range)
 - `core/PluginLookup` (PluginManagerCore, `@ApiStatus.Internal`), `core/ExtensionPointInspector`
