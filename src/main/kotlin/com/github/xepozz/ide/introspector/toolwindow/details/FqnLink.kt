@@ -4,6 +4,7 @@ import com.github.xepozz.ide.introspector.util.simpleClassName
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
@@ -55,12 +56,9 @@ object FqnLink {
             val findClass = facadeClass.getMethod(
                 "findClass", String::class.java, GlobalSearchScope::class.java
             )
-            val psiClass = findClass.invoke(facade, fqn, GlobalSearchScope.allScope(project))
+            val psiClass = findClass.invoke(facade, fqn, GlobalSearchScope.allScope(project)) as? PsiElement
                 ?: return@runCatching null
-            val nav = psiClass.javaClass.getMethod("getNavigationElement").invoke(psiClass)
-            nav.javaClass.methods
-                .firstOrNull { it.name == "getContainingFile" }
-                ?.invoke(nav) as? PsiFile
+            psiClass.navigationElement?.containingFile
         }.getOrNull()
     }
 

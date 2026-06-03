@@ -166,9 +166,9 @@ class ExtensionPointInspectorReflectionTest {
     }
 
     @Test
-    fun `kindAndClass preserves the raw kind toString for unknown values`() {
-        val (kind, _) = ExtensionPointInspector.kindAndClass(EpWithKindCustom())
-        assertEquals("MY_CUSTOM_KIND", kind)
+    fun `kindAndClass defaults to BEAN_CLASS when getKind returns a non-Kind value`() {
+        val (kind, _) = ExtensionPointInspector.kindAndClass(EpWithKindDrift())
+        assertEquals("BEAN_CLASS", kind)
     }
 
     @Test
@@ -590,15 +590,15 @@ private class EpWithThrowingNameField : StubExtensionPoint() {
 
 private class EpWithKindInterfaceAndClassName : StubExtensionPoint() {
     @JvmField val className: String = "com.example.Interfaced"
-    fun getKind(): String = "INTERFACE"
+    fun getKind(): ExtensionPoint.Kind = ExtensionPoint.Kind.INTERFACE
 }
 
 private class EpWithKindBean : StubExtensionPoint() {
     @JvmField val className: String = "com.example.BeanCls"
-    fun getKind(): String = "BEAN_CLASS"
+    fun getKind(): ExtensionPoint.Kind = ExtensionPoint.Kind.BEAN_CLASS
 }
 
-private class EpWithKindCustom : StubExtensionPoint() {
+private class EpWithKindDrift : StubExtensionPoint() {
     @JvmField val className: String = "com.example.Custom"
     fun getKind(): String = "MY_CUSTOM_KIND"
 }
@@ -610,7 +610,7 @@ private class EpWithoutKindMethod : StubExtensionPoint() {
 private class EpWithClassNameField : StubExtensionPoint() {
     // Synthetic "className" field — ReflectionAccess.readField scans declaredFields, so @JvmField is enough.
     @JvmField val className: String = "com.example.ByClassName"
-    fun getKind(): String = "INTERFACE"
+    fun getKind(): ExtensionPoint.Kind = ExtensionPoint.Kind.INTERFACE
 }
 
 private class EpWithMyClassNameField : StubExtensionPoint() {
@@ -679,7 +679,7 @@ private class EpWithPluginDescriptorNullId : StubExtensionPoint() {
 private class EpWithEverything : StubExtensionPoint() {
     @JvmField val name: String = "com.example.everything"
     @JvmField val className: String = "com.example.IFace"
-    fun getKind(): String = "INTERFACE"
+    fun getKind(): ExtensionPoint.Kind = ExtensionPoint.Kind.INTERFACE
     override fun isDynamic(): Boolean = true
     override fun size(): Int = 42
     override fun getPluginDescriptor(): PluginDescriptor = ControllablePluginDescriptor.create(

@@ -103,12 +103,8 @@ object ExtensionPointInspector {
         // also handles platform-version drift (`className` / `myClassName`) and falls back
         // to the lazily-resolved Class<*> for EPs registered by Class reference.
         try {
-            val kindRaw = ReflectionAccess.readMethod(ep, "getKind")
-            val kindStr = when (kindRaw?.toString()) {
-                "INTERFACE" -> "INTERFACE"
-                "BEAN_CLASS" -> "BEAN_CLASS"
-                else -> kindRaw?.toString() ?: "BEAN_CLASS"
-            }
+            val kind = ReflectionAccess.readMethod(ep, "getKind") as? ExtensionPoint.Kind
+            val kindStr = kind?.name ?: "BEAN_CLASS"
             val resolvedName = ReflectionAccess.readField(ep, "className", "myClassName") as? String
                 ?: tryReadExtensionClass(ep)
                 ?: "?"
@@ -183,10 +179,10 @@ object ExtensionPointInspector {
             ?: ReflectionAccess.readField(adapter, "implementationClassOrName")?.toString()
             ?: ReflectionAccess.readMethod(adapter, "getOrderId")?.toString()
         // ExtensionComponentAdapter exposes `pluginDescriptor` as a public field, not a getter.
+        // The value is a public `PluginDescriptor`, so id + name come from typed access.
         val pd = ReflectionAccess.readField(adapter, "pluginDescriptor")
             ?: ReflectionAccess.readMethod(adapter, "getPluginDescriptor")
-        val pluginId = pd?.let { PluginDescriptorReader.extractPluginIdString(it) } ?: "unknown"
-        val pluginName = pd?.let { ReflectionAccess.readMethod(it, "getName")?.toString() }
+        val (pluginId, pluginName) = pd?.let { PluginDescriptorReader.idAndName(it) } ?: ("unknown" to null)
         val attributes = readAdditionalAttributes(adapter)
         val effectiveClass = ExtensionMetadata.pickEffectiveClass(implClass, attributes)
         return ExtensionInfo(
