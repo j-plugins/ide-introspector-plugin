@@ -5,6 +5,7 @@ import com.github.xepozz.ide.introspector.core.internal.PluginDescriptorReader
 import com.github.xepozz.ide.introspector.model.ExtensionInfo
 import com.github.xepozz.ide.introspector.model.ExtensionPointInfo
 import com.github.xepozz.ide.introspector.util.ReflectionAccess
+import com.github.xepozz.ide.introspector.util.ReflectionDriftException
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.extensions.ExtensionPoint
 import com.intellij.openapi.extensions.ExtensionsArea
@@ -34,18 +35,13 @@ object ExtensionPointInspector {
 
     private fun collectFromArea(area: ExtensionsArea, areaTag: String): List<ExtensionPointInfo> {
         val out = mutableListOf<ExtensionPointInfo>()
-        try {
-            val eps: List<ExtensionPoint<Any>> = extractAllEps(area)
-            for (ep in eps) {
-                out += try {
-                    extensionPointInfoOf(ep, areaTag)
-                } catch (t: Throwable) {
-                    thisLogger().debug("Failed to inspect EP ${epName(ep)}", t)
-                    null
-                } ?: continue
-            }
-        } catch (t: Throwable) {
-            thisLogger().warn("Failed to enumerate extension points for area=$areaTag", t)
+        for (ep in extractAllEps(area)) {
+            out += try {
+                extensionPointInfoOf(ep, areaTag)
+            } catch (t: Throwable) {
+                thisLogger().debug("Failed to inspect EP ${epName(ep)}", t)
+                null
+            } ?: continue
         }
         return out
     }
@@ -64,7 +60,10 @@ object ExtensionPointInspector {
         if (field is Map<*, *>) {
             return field.values.filterIsInstance<ExtensionPoint<*>>() as List<ExtensionPoint<Any>>
         }
-        return emptyList()
+        throw ReflectionDriftException(
+            "Cannot enumerate extension points: neither ExtensionsArea.getExtensionPoints() nor " +
+                "the 'extensionPoints' field resolved on ${area.javaClass.name} — internal API drift",
+        )
     }
 
     internal fun extensionPointInfoOf(ep: ExtensionPoint<*>, areaTag: String): ExtensionPointInfo {
@@ -156,14 +155,8 @@ object ExtensionPointInspector {
     }
 
     /** For each registered extension instance, produce an [ExtensionInfo]. */
-    private fun extensionsOf(ep: ExtensionPoint<*>, pointName: String): List<ExtensionInfo> {
-        val adapters = try {
-            adaptersOf(ep)
-        } catch (t: Throwable) {
-            thisLogger().debug("Failed to enumerate extensions for $pointName", t)
-            return emptyList()
-        }
-        return adapters.mapNotNull { adapter ->
+    private fun extensionsOf(ep: ExtensionPoint<*>, pointName: String): List<ExtensionInfo> =
+        adaptersOf(ep).mapNotNull { adapter ->
             try {
                 adapterToExtensionInfo(adapter, pointName)
             } catch (t: Throwable) {
@@ -171,13 +164,19 @@ object ExtensionPointInspector {
                 null
             }
         }
-    }
 
     /** ExtensionPointImpl#sortedAdapters returns the ExtensionComponentAdapter list. */
-    private fun adaptersOf(ep: ExtensionPoint<*>): List<Any> =
-        (ReflectionAccess.readMethod(ep, "getSortedAdapters", "sortedAdapters") as? List<*>)
-            ?.filterNotNull()
-            .orEmpty()
+    private fun adaptersOf(ep: ExtensionPoint<*>): List<Any> {
+        val raw = ReflectionAccess.readMethod(ep, "getSortedAdapters", "sortedAdapters")
+            ?: throw ReflectionDriftException(
+                "Cannot enumerate extensions: neither getSortedAdapters() nor the 'sortedAdapters' " +
+                    "member resolved on ${ep.javaClass.name} — internal API drift",
+            )
+        return (raw as? List<*>)?.filterNotNull()
+            ?: throw ReflectionDriftException(
+                "getSortedAdapters() on ${ep.javaClass.name} returned ${raw.javaClass.name}, expected List — internal API drift",
+            )
+    }
 
     internal fun adapterToExtensionInfo(adapter: Any, pointName: String): ExtensionInfo {
         val implClass = ReflectionAccess.readMethod(adapter, "getAssignableToClassName")?.toString()

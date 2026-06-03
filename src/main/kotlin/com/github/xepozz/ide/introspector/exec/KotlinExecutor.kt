@@ -170,7 +170,8 @@ object KotlinExecutor {
         val compilerKtClass = compilerClassLoader.loadClass(
             "com.github.xepozz.ide.introspector.exec.wrapper.EmbeddedCompilerKt"
         )
-        val method = compilerKtClass.declaredMethods.single { it.name == "compile" }
+        val method = compilerKtClass.declaredMethods.firstOrNull { it.name == "compile" }
+            ?: error("EmbeddedCompilerKt exposes no 'compile' method — embedded-compiler wrapper version mismatch")
         @Suppress("UNCHECKED_CAST")
         return method.invoke(
             null,

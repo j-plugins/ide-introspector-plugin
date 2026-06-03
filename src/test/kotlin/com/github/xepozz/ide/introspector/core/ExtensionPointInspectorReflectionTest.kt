@@ -2,6 +2,7 @@ package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.core.internal.PluginDescriptorReader
 import com.github.xepozz.ide.introspector.util.ReflectionAccess
+import com.github.xepozz.ide.introspector.util.ReflectionDriftException
 import com.intellij.ide.plugins.PluginNode
 import com.intellij.openapi.extensions.ExtensionPoint
 import com.intellij.openapi.extensions.PluginId
@@ -364,18 +365,14 @@ class ExtensionPointInspectorReflectionTest {
         assertTrue("expected ep1 picked up from field fallback, got $result", result.contains(ep1))
     }
 
-    @Test
-    fun `extractAllEps returns empty when neither method nor field present`() {
-        val area = AreaWithNothing()
-        val result = ExtensionPointInspector.extractAllEps(area)
-        assertTrue("expected empty result when no method/field exposed, got $result", result.isEmpty())
+    @Test(expected = ReflectionDriftException::class)
+    fun `extractAllEps throws drift when neither method nor field present`() {
+        ExtensionPointInspector.extractAllEps(AreaWithNothing())
     }
 
-    @Test
-    fun `extractAllEps returns empty when getExtensionPoints returns a wrong type`() {
-        val area = AreaWithStringMethod("not-a-collection")
-        val result = ExtensionPointInspector.extractAllEps(area)
-        assertTrue("expected empty result for non-collection return type, got $result", result.isEmpty())
+    @Test(expected = ReflectionDriftException::class)
+    fun `extractAllEps throws drift when getExtensionPoints returns a wrong type`() {
+        ExtensionPointInspector.extractAllEps(AreaWithStringMethod("not-a-collection"))
     }
 
     // ====================================================================================
