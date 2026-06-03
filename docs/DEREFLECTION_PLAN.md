@@ -1,8 +1,9 @@
 # De-reflection plan — replace fragile reflection with compiler-checked APIs
 
-Status: planning. Motivation: MCP requests fail on some users' projects on the
-2026.0.3 build; reflection on internal IntelliJ APIs (which drift across IDE builds and
-silently swallow errors) is the prime structural suspect.
+Status: ACTUALIZED after the 2026.0.x de-duplication pass. Motivation: MCP requests fail on
+some users' projects on the 2026.0.3 build. The actual cause turned out to be a volatile
+mcpServer binding (see ACTUAL ROOT CAUSE), not internal-API reflection — and that finding
+also re-shapes the remaining de-reflection work (see Re-assessment).
 
 ## Verified facts (checked against source, not guessed)
 
@@ -62,101 +63,69 @@ Original notes:
 Note: the de-reflection work below is still worthwhile hardening, but it is NOT the cause of the
 current failures.
 
-## Core thesis
+## Current state (after the de-duplication pass — commits 18b4ffa, 922c9b7, 6cb0025)
 
-The internal impl classes we reflect on (`ExtensionPointImpl`, `ExtensionComponentAdapter`,
-`ContainerDescriptor`, `ServiceDescriptor`, `ListenerDescriptor`, `PluginManagerCore`) are on
-the **compile classpath** when building against the IntelliJ Platform. `@ApiStatus.Internal`
-is a plugin-verifier concern (CI-only, already accepted here), NOT a compile barrier.
+The dedup pass **centralized** reflection; it did **not** eliminate it. Concretely:
+- All `readField`/`readMethod`/`readEnumName` go through one tested `util.ReflectionAccess`
+  (vararg candidate-names, superclass-hierarchy walk, `setAccessible`, WARN-on-real-error).
+- Descriptor/container reflection extracted to `core/internal/ContainerDescriptorReader`;
+  plugin id/name reflection to `core/internal/PluginDescriptorReader`. Per-adapter mapping
+  split into pure `adapterToExtensionInfo` (partial-results-on-throw restored).
+- The reflection is now **DRY, logged, and test-adjacent — but still reflection.** The
+  original tier-1 goal (replace internal-API reflection with DIRECT TYPED CALLS so the
+  compiler gates drift) was **never started**.
+- `McpCallInfoKt`/`projectOrNull` decoupling is DONE for every project-resolving tool,
+  including `CodeSourceToolset` and `ExecToolset` (both moved to `IdeProjectResolver`).
 
-Therefore: **call them directly with real types.** Benefits:
-- The compiler validates every member on each platform bump — drift fails `compileKotlin`
-  / CI instead of failing at the user's runtime.
-- Removes `ClassCastException` / `NoSuchMethodError` risk that reflection hid.
-- Removes silent degradation: today the `catch (_: Throwable) -> null` helpers turn a real
-  incompatibility into empty results that look like success.
+## Re-assessment (the McpCallInfoKt lesson changes the plan)
 
-Trade-offs (acceptable): verifier warnings (CI-only, see CLAUDE.md "Known plugin-verifier
-warnings"); a harder binding to the supported platform range (sinceBuild 252).
+The original thesis was "go direct, let the compiler gate drift." But the 2026.0.x failure
+was *exactly* a direct binding to a member (`projectOrNull`) that was **absent on the user's
+IDE build** → hard `ClassNotFoundException` at runtime. We support an **open version range**
+(`sinceBuild 252`, no `untilBuild`). Converting `@ApiStatus.Internal` members to direct typed
+calls would reintroduce the SAME failure class (`NoSuchMethodError`/`NoSuchFieldError`) on any
+build where the internal API differs — moving the risk from one symbol to dozens.
 
-## Strategy — 3 tiers
+**Conclusion:** for genuinely `@ApiStatus.Internal` members, the centralized
+reflection-with-graceful-fallback we now have is the *safer* end-state — NOT direct calls.
+Direct typed calls are worth it **only where the member is genuinely public/stable API.**
 
-1. **Direct typed call** — for any symbol on the 252 compile classpath. This is the default
-   and covers most HIGH/MEDIUM sites. Reflection there was only verifier-avoidance/habit.
-2. **Typed call + thin reflection fallback** — only for members genuinely renamed within the
-   supported range (e.g. `getSortedAdapters`/`sortedAdapters`, `className`/`myClassName`).
-   Primary path is the direct typed call; the fallback lives in ONE `IdePlatformCompat`
-   object with a unit test asserting which path is chosen.
-3. **Keep isolated reflection** — only where the symbol is NOT always on the classpath:
-   - cross-classloader compiler bridge in `KotlinExecutor` (embedded Kotlin compiler);
-   - optional modules absent in some IDEs (`JavaPsiFacade` in non-Java IDEs —
-     `FqnLink`, `MembersSection` already do this correctly; leave them);
-   - `UiInspectorContextProvider` (internal, optional) — already cleanly guarded.
+## Remaining work (re-scoped)
 
-## Compiler-testability
+### A. Worth doing — direct typed calls for PUBLIC members only (compiler-checked, zero version risk)
+- `core/ComponentSerializer.kt` — `ActionButton.getAction()`: `com.intellij.openapi.actionSystem.impl.ActionButton`
+  is public; call it directly instead of reflecting by method name.
+- `core/internal/PluginDescriptorReader.kt` — id/name come from `IdeaPluginDescriptor.getPluginId().idString`
+  and `.getName()`, both PUBLIC. The `pd: Any?` reflection can be mostly direct; keep a thin
+  fallback only for the light-service path where the descriptor type isn't statically known.
 
-- Direct calls = type-checked against the target SDK; renamed/retyped members break the
-  build, never the user.
-- Extract the pure adapter→model mapping into pure functions with JUnit tests (pattern:
-  `EditorTabsAssembler`). The reflection today mixes extraction with mapping; split them.
-- Residual reflection sits behind one `IdePlatformCompat` boundary with a contract unit test.
+### B. Keep as centralized reflection — do NOT convert (internal API on an open range)
+- `core/PluginLookup` (PluginManagerCore, `@ApiStatus.Internal`), `core/ExtensionPointInspector`
+  (ExtensionPointImpl/adapters), `core/internal/ContainerDescriptorReader` (ContainerDescriptor),
+  `ServiceInspector`/`ListenerInspector` descriptor fields. Already DRY + logged + tested via
+  `ReflectionAccess`/the readers — that is the correct resilience posture here.
 
-## Inventory by risk (file:line — action)
+### C. Keep isolated (tier-3 — correct as-is)
+- `exec/KotlinExecutor` cross-classloader compiler bridge (minor nit: replace `.single { }`
+  with `.firstOrNull()` + explicit error), `JavaPsiFacade` probes (`FqnLink`/`MembersSection`/
+  `JavaMembersPreview`/`DetailForm` `javaPsiAvailable` gate), `UiInspectorContextProvider`
+  (`UiInspectorToolset`), `TopicInspector` `Class.forName(initialize=false)`,
+  `ExtensionMetadata` bean-field harvest.
 
-### HIGH — internal API, version-fragile
-- `core/PluginLookup.kt:21,25,29` — `Class.forName("PluginManagerCore")` + `getMethod`
-  `getPlugins`/`getPlugin`. Action: call `PluginManagerCore.getPlugins()` /
-  `getPlugin(id)` directly (typed). Accept verifier warning. Keep `PluginLookup` as the
-  single typed façade.
-- `core/ExtensionPointInspector.kt:56,69,104,119,138,159,170,186,220,229` — `getExtensionPoints`,
-  `extensionPoints` field, EP `name`/`getName`, `getKind`, `className`/`myClassName`,
-  `getExtensionClass`, `getPluginDescriptor`, `isDynamic`, `getSortedAdapters`/`sortedAdapters`,
-  adapter `implementationClassOrName`/`pluginDescriptor`. Action: tier-1 direct calls on
-  `ExtensionsAreaImpl`/`ExtensionPointImpl`/`ExtensionComponentAdapter`; tier-2 compat only
-  for the genuinely variant names (`getSortedAdapters`/`sortedAdapters`, `className`/
-  `myClassName`). Move the model mapping to a pure tested function.
+### D. Still open (cross-cutting)
+- **Propagate real reflection errors into the tool response** (today: WARN-logged + null
+  fallback). Deferred — would change the response contract; do it as a deliberate opt-in
+  diagnostic field, not a silent change.
+- **Optional health-check probe** — a tool/service that exercises each reflective access once
+  and reports which are broken on the running IDE build, turning silent degradation into a
+  visible signal.
 
-### MEDIUM — internal API, reasonable fallbacks today
-- `core/ListenerInspector.kt:55,73,81,87` — `getAppContainerDescriptor`/`getProjectContainerDescriptor`,
-  `ContainerDescriptor.listeners`, `ListenerDescriptor.*`. Action: direct typed access.
-- `core/ServiceInspector.kt:76,80,87,131,170,179,184,202` — `ServiceDescriptor.preload/os/
-  configurationSchemaKey`, `ContainerDescriptor.services`, `processAllImplementationClasses`.
-  Action: direct typed access; keep `@Service` annotation reads (already public/JDK).
-- `core/internal/ExtensionMetadata.kt:32` — generic bean-field harvest. Action: keep
-  (genuinely generic), but log failed reads instead of swallowing.
-- `core/ComponentSerializer.kt:97` — `ActionButton.getAction()`. Action: `ActionButton` is
-  public UI API; call directly (typed) and drop the reflection.
-- `exec/KotlinExecutor.kt:104,173,256` — generated `Plugin.run`, embedded-compiler `compile`,
-  `JavaSdkUtil.getJdkClassesRoots`. Action: keep (cross-classloader / generated code), but
-  replace `.single { }` with `.firstOrNull()` + explicit error; surface real errors.
-
-### LOW — keep as-is (correct/idiomatic)
-- `tools/UiInspectorToolset.kt:637` `UiInspectorContextProvider` — optional, well guarded.
-- `toolwindow/details/FqnLink.kt`, `MembersSection.kt`, `JavaMembersPreview.kt` — optional
-  Java module probe; correct.
-- `core/TopicInspector.kt` — `Class.forName(initialize=false)` + JDK generic-type reads;
-  intentional and safe.
-- `core/PsiUsageSearcher.kt:181` `simpleName` heuristics; JDK `getClass()` calls.
-
-## Cross-cutting fixes (also help diagnose the current failures)
-
-- **De-duplicate `readField`/`readMethod` — DONE.** The three identical helpers
-  (`ExtensionPointInspector`, `ListenerInspector`, `ServiceInspector`) now delegate to one
-  tested `util.ReflectionAccess` (`readMethod` also sets the member accessible, matching
-  `readField`).
-- **Surface swallowed errors — PARTIALLY DONE.** `ReflectionAccess` now logs a WARN (target
-  class, member, exception) in the `catch`. The `catch` fires only on a real `get`/`invoke`
-  failure — member-not-found returns null without throwing — so it is not noisy. Still open
-  (deliberately deferred, changes the response contract): propagate the real error into the
-  tool response so a failing request reports *why*.
-
-## Execution order
-
-1. DONE — Root cause was the mcpServer `McpCallInfoKt` / `projectOrNull` mismatch (see top);
-   fixed via `IdeProjectResolver`.
-2. DONE — Consolidate `readField`/`readMethod` into `util.ReflectionAccess` + WARN logging.
-3. Tier-1 for HIGH: `PluginLookup`, `ExtensionPointInspector` → direct typed calls, pure
-   mapping + tests. Build becomes the gate.
-4. Tier-1 for MEDIUM inspectors: `ServiceInspector`, `ListenerInspector`, `ComponentSerializer`.
-5. Introduce `IdePlatformCompat` for the few tier-2 variant members + unit test.
-6. `./gradlew build` (compiler now guards) + live re-verify via MCP.
+## Execution status
+1. DONE — `McpCallInfoKt`/`projectOrNull` fix across all project-resolving tools.
+2. DONE — Consolidate reflection into `ReflectionAccess` (+ vararg / `readEnumName` / WARN
+   logging) and `ContainerDescriptorReader` / `PluginDescriptorReader`.
+3. RE-SCOPED — tier-1 direct calls: do **only** for public members (A above); do NOT convert
+   internal-API sites (B) — that reintroduces the McpCallInfoKt failure class.
+4. DROPPED — blanket direct-call conversion of the internal inspectors (see Re-assessment).
+5. DROPPED — `IdePlatformCompat` tier-2 layer: unnecessary while we keep centralized reflection.
+6. OPEN — items in D, then `./gradlew build` + live re-verify via MCP.
