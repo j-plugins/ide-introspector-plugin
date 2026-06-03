@@ -1,14 +1,13 @@
 package com.github.xepozz.ide.introspector.tools
 
 import com.github.xepozz.ide.introspector.model.IndexingStatusResponse
+import com.github.xepozz.ide.introspector.util.IdeProjectResolver
 import com.intellij.mcpserver.McpExpectedError
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
-import com.intellij.mcpserver.projectOrNull
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.json.JsonObject
 
 class IdeStateToolset : McpToolset {
@@ -45,9 +44,9 @@ class IdeStateToolset : McpToolset {
         )
     }
 
-    private suspend fun requireProject(): Project = currentCoroutineContext().projectOrNull
+    private fun requireProject(): Project = IdeProjectResolver.focusedProject()
         ?: throw McpExpectedError(
-            "No focused project. Open a project in this IDE first.",
+            "No open project. Open a project in this IDE first.",
             JsonObject(emptyMap())
         )
 }

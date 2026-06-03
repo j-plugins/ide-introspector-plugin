@@ -10,11 +10,11 @@ import com.github.xepozz.ide.introspector.model.OpenFileInfo
 import com.github.xepozz.ide.introspector.model.OpenFilesResponse
 import com.github.xepozz.ide.introspector.util.onEdtBlocking
 import com.github.xepozz.ide.introspector.util.readActionBlocking
+import com.github.xepozz.ide.introspector.util.IdeProjectResolver
 import com.intellij.mcpserver.McpExpectedError
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
-import com.intellij.mcpserver.projectOrNull
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.DumbService
@@ -25,7 +25,6 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiUtilBase
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -483,9 +482,9 @@ class PsiToolset : McpToolset {
         return (lineStart + col).coerceAtMost(lineEnd)
     }
 
-    private suspend fun requireProject(): Project = currentCoroutineContext().projectOrNull
+    private fun requireProject(): Project = IdeProjectResolver.focusedProject()
         ?: throw McpExpectedError(
-            "No focused project. Open a project in this IDE first (psi.* tools operate on an open editor).",
+            "No open project. Open a project in this IDE first (psi.* tools operate on an open editor).",
             JsonObject(emptyMap())
         )
 }

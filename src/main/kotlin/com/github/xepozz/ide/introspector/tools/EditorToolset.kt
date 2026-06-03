@@ -4,17 +4,16 @@ import com.github.xepozz.ide.introspector.core.editor.EditorTabsAssembler
 import com.github.xepozz.ide.introspector.core.editor.RawEditorTab
 import com.github.xepozz.ide.introspector.model.ActiveEditorResponse
 import com.github.xepozz.ide.introspector.model.EditorTabsResponse
+import com.github.xepozz.ide.introspector.util.IdeProjectResolver
 import com.github.xepozz.ide.introspector.util.onEdtBlocking
 import com.intellij.mcpserver.McpExpectedError
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
-import com.intellij.mcpserver.projectOrNull
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.json.JsonObject
 
 class EditorToolset : McpToolset {
@@ -141,9 +140,9 @@ class EditorToolset : McpToolset {
         )
     }
 
-    private suspend fun requireProject(): Project = currentCoroutineContext().projectOrNull
+    private fun requireProject(): Project = IdeProjectResolver.focusedProject()
         ?: throw McpExpectedError(
-            "No focused project. Open a project in this IDE first (editor.* tools operate on an open editor).",
+            "No open project. Open a project in this IDE first (editor.* tools operate on an open editor).",
             JsonObject(emptyMap()),
         )
 }
