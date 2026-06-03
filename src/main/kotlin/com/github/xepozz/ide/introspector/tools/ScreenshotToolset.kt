@@ -29,7 +29,7 @@ data class ImageReference(
 
 class ScreenshotToolset : McpToolset {
 
-    @McpTool(name = "screenshot.capture")
+    @McpTool(name = "screenshot__capture")
     @McpDescription(
         """
         |Captures a PNG screenshot of part or all of the IDE, writes it to a temp file, and
@@ -89,7 +89,7 @@ class ScreenshotToolset : McpToolset {
         return finalise(image, scale)
     }
 
-    @McpTool(name = "screenshot.crop")
+    @McpTool(name = "screenshot__crop")
     @McpDescription(
         """
         |Returns a rectangular crop of either the active IDE frame or the virtual desktop,

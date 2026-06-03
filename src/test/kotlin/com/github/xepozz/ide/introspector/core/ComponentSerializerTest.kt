@@ -1,6 +1,9 @@
 package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.model.Bounds
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.AnActionHolder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -9,7 +12,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.awt.Component
 import java.awt.Rectangle
-import javax.swing.AbstractAction
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JLabel
@@ -219,19 +221,15 @@ class ComponentSerializerTest {
     }
 
     @Test
-    fun `action property collected for ActionButton-like class`() {
+    fun `action property collected for an AnActionHolder component`() {
         val registry = freshRegistry()
         val info = onEdt {
-            // FakeActionButton's class name contains the literal substring "ActionButton",
-            // so ComponentSerializer takes the reflection path that calls getAction().
-            // JButton.getAction() returns the Action set via setAction(...).
-            val button = FakeActionButton()
-            button.action = MyTestAction()
-            ComponentSerializer.toInfo(button, registry, includeProperties = true, truncatePropertyValueAt = 200)
+            val holder = FakeActionHolder(MyTestAnAction())
+            ComponentSerializer.toInfo(holder, registry, includeProperties = true, truncatePropertyValueAt = 200)
         }
         val action = info.properties.firstOrNull { it.name == "action" }
-        assertNotNull("expected an 'action' property for an ActionButton-like class", action)
-        assertEquals(MyTestAction::class.java.name, action!!.value)
+        assertNotNull("expected an 'action' property for an AnActionHolder", action)
+        assertEquals(MyTestAnAction::class.java.name, action!!.value)
     }
 
     // ====================================================================================
@@ -320,17 +318,14 @@ class ComponentSerializerTest {
     }
 
     @Test
-    fun `action property absent for ActionButton-like class without getAction method`() {
-        // Class name contains "ActionButton" so the reflection probe runs, but no
-        // `getAction()` method exists, so the result is silently empty rather than
-        // throwing NoSuchMethodException.
+    fun `action property absent for a non-AnActionHolder component`() {
         val registry = freshRegistry()
         val info = onEdt {
-            val odd = BareActionButton()
-            ComponentSerializer.toInfo(odd, registry, includeProperties = true, truncatePropertyValueAt = 200)
+            val plain = JButton("x")
+            ComponentSerializer.toInfo(plain, registry, includeProperties = true, truncatePropertyValueAt = 200)
         }
         assertNull(
-            "no 'action' property must be reported when getAction is missing",
+            "no 'action' property must be reported for a component that is not an AnActionHolder",
             info.properties.firstOrNull { it.name == "action" },
         )
     }
@@ -391,14 +386,12 @@ class ComponentSerializerTest {
     private class InnerTree : JComponent()
 
 
-    /**
-     * Name is deliberately chosen so the FQN contains "ActionButton" — that's the substring
-     * `ComponentSerializer.collectProperties` looks for before invoking `getAction()`.
-     */
-    private class FakeActionButton : JButton()
+    private class FakeActionHolder(private val anAction: AnAction) : JComponent(), AnActionHolder {
+        override fun getAction(): AnAction = anAction
+    }
 
-    private class MyTestAction : AbstractAction() {
-        override fun actionPerformed(e: java.awt.event.ActionEvent?) { /* no-op */ }
+    private class MyTestAnAction : AnAction() {
+        override fun actionPerformed(event: AnActionEvent) { /* no-op */ }
     }
 
     /**
@@ -408,14 +401,6 @@ class ComponentSerializerTest {
      * by the AWT Component constructor.
      */
     private class NonJComponent : Component()
-
-    /**
-     * Class name contains "ActionButton" so [ComponentSerializer.collectProperties] takes
-     * the reflection path — but `getAction()` is not declared, so `methods.firstOrNull`
-     * returns null. The class extends [JPanel] (no inherited `getAction()`) to keep the
-     * shape predictable.
-     */
-    private class BareActionButton : JPanel()
 
     /**
      * A JComponent whose AccessibleContext reports null for `getAccessibleRole`. Drives

@@ -4,6 +4,7 @@ import com.github.xepozz.ide.introspector.model.Bounds
 import com.github.xepozz.ide.introspector.model.ComponentInfo
 import com.github.xepozz.ide.introspector.model.ComponentProperty
 import com.github.xepozz.ide.introspector.util.truncateChars
+import com.intellij.openapi.actionSystem.AnActionHolder
 import java.awt.Component
 import java.awt.Container
 import javax.accessibility.Accessible
@@ -91,17 +92,8 @@ object ComponentSerializer {
             }
         }
 
-        // For ActionButton subclasses we want to know which AnAction they represent.
-        try {
-            val cls = component.javaClass
-            if (cls.name.contains("ActionButton")) {
-                val method = cls.methods.firstOrNull { it.name == "getAction" && it.parameterCount == 0 }
-                val action = method?.invoke(component)
-                if (action != null) {
-                    out.add(ComponentProperty("action", truncateChars(action.javaClass.name, truncateAt)))
-                }
-            }
-        } catch (_: Throwable) {
+        (component as? AnActionHolder)?.action?.let { action ->
+            out.add(ComponentProperty("action", truncateChars(action.javaClass.name, truncateAt)))
         }
 
         return out

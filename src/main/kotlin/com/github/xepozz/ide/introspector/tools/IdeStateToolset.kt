@@ -9,7 +9,7 @@ import com.intellij.openapi.project.DumbService
 
 class IdeStateToolset : McpToolset {
 
-    @McpTool(name = "ide.indexing_status")
+    @McpTool(name = "ide__indexing_status")
     @McpDescription(
         """
         |Reports whether the IDE is in dumb mode (indexing) or smart mode (ready) for the focused

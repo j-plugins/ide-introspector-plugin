@@ -29,7 +29,7 @@ data class ExecuteKotlinResponse(
 
 class ExecToolset : McpToolset {
 
-    @McpTool(name = "exec.execute_kotlin_in_ide")
+    @McpTool(name = "exec__execute_kotlin_in_ide")
     @McpDescription(
         """
         |Compiles and executes arbitrary Kotlin code inside the running IDE JVM. The escape

@@ -2,7 +2,9 @@ package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.core.internal.PluginDescriptorReader
 import com.github.xepozz.ide.introspector.util.ReflectionAccess
+import com.intellij.ide.plugins.PluginNode
 import com.intellij.openapi.extensions.ExtensionPoint
+import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.extensions.ExtensionPointListener
 import com.intellij.openapi.extensions.ExtensionsArea
@@ -99,32 +101,25 @@ class ExtensionPointInspectorReflectionTest {
     // ====================================================================================
 
     @Test
-    fun `extractPluginIdString resolves via getPluginId then getIdString`() {
-        val pd = DescriptorWithPluginIdGetter("com.example.real")
-        assertEquals("com.example.real", PluginDescriptorReader.extractPluginIdString(pd))
+    fun `extractPluginIdString reads the id from an IdeaPluginDescriptor`() {
+        val descriptor = PluginNode(PluginId.getId("com.example.real"))
+        assertEquals("com.example.real", PluginDescriptorReader.extractPluginIdString(descriptor))
     }
 
     @Test
-    fun `extractPluginIdString falls back to pluginId field when getter absent`() {
-        val pd = DescriptorWithPluginIdField(PluginIdWithIdStringGetter("com.example.via-field"))
-        assertEquals("com.example.via-field", PluginDescriptorReader.extractPluginIdString(pd))
+    fun `extractPluginIdString returns null for a non-descriptor object`() {
+        assertNull(PluginDescriptorReader.extractPluginIdString("not a descriptor"))
     }
 
     @Test
-    fun `extractPluginIdString falls back to idString field when getIdString absent`() {
-        val pd = DescriptorWithPluginIdGetter2(PluginIdWithIdStringField("com.example.field-id"))
-        assertEquals("com.example.field-id", PluginDescriptorReader.extractPluginIdString(pd))
+    fun `idAndName returns the descriptor id and name`() {
+        val descriptor = PluginNode(PluginId.getId("com.example.real"), "My Plugin", null)
+        assertEquals("com.example.real" to "My Plugin", PluginDescriptorReader.idAndName(descriptor))
     }
 
     @Test
-    fun `extractPluginIdString falls back to PluginId toString when neither getter nor field present`() {
-        val pd = DescriptorWithPluginIdGetter2(PluginIdWithToString("com.example.tostring-id"))
-        assertEquals("com.example.tostring-id", PluginDescriptorReader.extractPluginIdString(pd))
-    }
-
-    @Test
-    fun `extractPluginIdString returns null when descriptor lacks both getter and field`() {
-        assertNull(PluginDescriptorReader.extractPluginIdString(EmptyDescriptor()))
+    fun `idAndName returns unknown and null for a non-descriptor object`() {
+        assertEquals("unknown" to null, PluginDescriptorReader.idAndName(42))
     }
 
     // ====================================================================================
@@ -525,28 +520,7 @@ private class ObjectWithPrivateField {
 }
 
 // ========================================================================================
-// SECTION 13. Fixtures — descriptors for extractPluginIdString
-// ========================================================================================
-
-private class DescriptorWithPluginIdGetter(private val id: String) {
-    fun getPluginId(): PluginIdWithIdStringGetter = PluginIdWithIdStringGetter(id)
-}
-private class DescriptorWithPluginIdField(@JvmField val pluginId: Any)
-private class DescriptorWithPluginIdGetter2(private val id: Any) {
-    fun getPluginId(): Any = id
-}
-private class EmptyDescriptor
-
-private class PluginIdWithIdStringGetter(private val id: String) {
-    fun getIdString(): String = id
-}
-private class PluginIdWithIdStringField(@JvmField val idString: String)
-private class PluginIdWithToString(private val id: String) {
-    override fun toString(): String = id
-}
-
-// ========================================================================================
-// SECTION 14. Fixtures — synthetic ExtensionPoint subclasses
+// SECTION 13. Fixtures — synthetic ExtensionPoint subclasses
 // ========================================================================================
 
 /**

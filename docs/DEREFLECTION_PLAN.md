@@ -92,19 +92,20 @@ Direct typed calls are worth it **only where the member is genuinely public/stab
 
 ## Remaining work (re-scoped)
 
-### A. Direct typed calls for PUBLIC members — EVALUATED, both kept as reflection
-- `core/ComponentSerializer.kt` — `ActionButton.getAction()`: **REJECTED.** `ActionButton` lives in
-  `com.intellij.openapi.actionSystem.**impl**` — it is INTERNAL, not public. A direct reference
-  would touch an internal class and reintroduce version fragility. The current name-based
-  reflection (`cls.name.contains("ActionButton")` + reflective `getAction`) correctly avoids the
-  internal compile-time dependency — keep it.
-- `core/internal/PluginDescriptorReader.kt` — **KEPT.** The reflection here targets PUBLIC members
-  of the public `IdeaPluginDescriptor`, so it is low-fragility and already centralized + tested.
-  A direct `as? IdeaPluginDescriptor` cast compiles in main but needs a constructible
-  `IdeaPluginDescriptor` in the unit tests (no public stand-in on the plain test classpath), so the
-  conversion is churn for marginal gain — not worth it.
+### A. Direct typed calls for PUBLIC members — DONE
+- `core/ComponentSerializer.kt` — was name-based reflection on `*ActionButton*` + reflective
+  `getAction()`. `ActionButton` itself is internal (`…actionSystem.impl`), BUT it implements the
+  **public** interface `com.intellij.openapi.actionSystem.AnActionHolder` (NOT in `impl`), which
+  declares `getAction(): AnAction`. Now: `(component as? AnActionHolder)?.action` — public,
+  compiler-checked, no reflection, and broader (any holder, not just name matches). Tested with a
+  real `AnActionHolder`/`AnAction` fixture.
+- `core/internal/PluginDescriptorReader.kt` — was reflection on `getPluginId`/`getName`/`getIdString`.
+  Now casts to the **public base** `com.intellij.openapi.extensions.PluginDescriptor` (has both
+  `getPluginId()` and `getName()`) and reads them directly, null-safe. Tested with a real
+  `PluginNode` (public `IdeaPluginDescriptor` impl) + the existing `PluginDescriptor` proxy.
 
-Net: item A produced no safe conversion. De-reflection is at its safe terminus.
+Net: both safe public-API conversions landed; two reflection sites removed. Remaining reflection is
+confined to genuinely internal members (kept centralized, see B) and tier-3 (C).
 
 ### Internal-package audit (no direct references to internal IntelliJ APIs, except two pre-existing)
 A grep of `import com.intellij.*` for `.impl.` / `.internal.` in `src/main` finds only two direct

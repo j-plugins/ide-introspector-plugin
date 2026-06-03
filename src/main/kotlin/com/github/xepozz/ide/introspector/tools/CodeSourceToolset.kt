@@ -25,6 +25,7 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.LangDataKeys
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -40,7 +41,7 @@ import com.intellij.psi.PsiMethod
  */
 class CodeSourceToolset : McpToolset {
 
-    @McpTool(name = "code.find_class")
+    @McpTool(name = "code__find_class")
     @McpDescription(
         """
         |Resolves a fully-qualified class name within a project and reports what level of source
@@ -75,6 +76,8 @@ class CodeSourceToolset : McpToolset {
         @McpDescription("Fully-qualified class name. Inner classes use '$' or '.' separator (e.g. 'java.util.Map\$Entry' or 'java.util.Map.Entry').")
         fqn: String,
     ): FindClassResponse {
+        thisLogger().warn("code.find_class ENTER fqn=$fqn")
+        try {
         val project = requireFocusedProject("(code.* tools resolve FQNs against a project's classpath)")
         return readActionBlocking {
             val res = ClassSourceResolver.resolve(project, fqn.trim())
@@ -99,9 +102,13 @@ class CodeSourceToolset : McpToolset {
                 )
             }
         }
+        } catch (throwable: Throwable) {
+            thisLogger().error("code.find_class FAILED for fqn=$fqn", throwable)
+            throw throwable
+        }
     }
 
-    @McpTool(name = "code.get_source")
+    @McpTool(name = "code__get_source")
     @McpDescription(
         """
         |Returns the source text of a class. Picks the best available representation for the
@@ -156,7 +163,7 @@ class CodeSourceToolset : McpToolset {
         }
     }
 
-    @McpTool(name = "code.list_members")
+    @McpTool(name = "code__list_members")
     @McpDescription(
         """
         |Lists methods, constructors, fields, and inner classes of a class as a structured array
@@ -245,7 +252,7 @@ class CodeSourceToolset : McpToolset {
         modifiers = PsiModifiers.read(c.modifierList, PsiModifiers.CLASS),
     )
 
-    @McpTool(name = "code.attach_sources")
+    @McpTool(name = "code__attach_sources")
     @McpDescription(
         """
         |Triggers the IDE's built-in action(s) to download sources for the library that owns the

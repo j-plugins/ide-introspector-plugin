@@ -1,5 +1,4 @@
 <idea-plugin>
-    <depends optional="true" config-file="java-introspect.xml">com.intellij.modules.java</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.UiInspectorToolset"/>

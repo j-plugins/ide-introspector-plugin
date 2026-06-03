@@ -36,7 +36,7 @@ import kotlinx.serialization.Serializable
  */
 class UiInspectorToolset : McpToolset {
 
-    @McpTool(name = "ui.get_tree")
+    @McpTool(name = "ui__get_tree")
     @McpDescription(
         """
         |Returns the IDE's live Swing component tree (BFS, capped by maxDepth). Each node
@@ -86,7 +86,7 @@ class UiInspectorToolset : McpToolset {
         buildTree(maxDepth, rootSelector, includeInvisible, includeProperties, truncatePropertyValueAt)
     }
 
-    @McpTool(name = "ui.find_by_name")
+    @McpTool(name = "ui__find_by_name")
     @McpDescription(
         """
         |Locates Swing components by their text-bearing attributes: `name` (programmatic),
@@ -126,7 +126,7 @@ class UiInspectorToolset : McpToolset {
         findByName(query, matchMode, caseSensitive, searchIn, limit)
     }
 
-    @McpTool(name = "ui.find_by_coordinates")
+    @McpTool(name = "ui__find_by_coordinates")
     @McpDescription(
         """
         |Returns the deepest visible component at point (x, y) — equivalent to clicking that
@@ -162,7 +162,7 @@ class UiInspectorToolset : McpToolset {
         findByCoordinates(x, y, coordinateSpace, returnAncestors)
     }
 
-    @McpTool(name = "ui.find_by_xpath")
+    @McpTool(name = "ui__find_by_xpath")
     @McpDescription(
         """
         |Finds components by an XPath subset compatible with intellij-ui-test-robot — handy
@@ -200,7 +200,7 @@ class UiInspectorToolset : McpToolset {
         findByXPath(xpath, limit)
     }
 
-    @McpTool(name = "ui.get_properties")
+    @McpTool(name = "ui__get_properties")
     @McpDescription(
         """
         |Returns the complete property bag for one previously-located component, identified
@@ -241,7 +241,7 @@ class UiInspectorToolset : McpToolset {
         }
     }
 
-    @McpTool(name = "ui.list_items")
+    @McpTool(name = "ui__list_items")
     @McpDescription(
         """
         |Enumerates the logical items inside one composite widget — the rows of a tree, the
@@ -282,7 +282,7 @@ class UiInspectorToolset : McpToolset {
         }
     }
 
-    @McpTool(name = "ui.select_item")
+    @McpTool(name = "ui__select_item")
     @McpDescription(
         """
         |Selects an item inside a composite widget (tree node, list element, table row, tab,
@@ -332,7 +332,7 @@ class UiInspectorToolset : McpToolset {
         }
     }
 
-    @McpTool(name = "ui.activate")
+    @McpTool(name = "ui__activate")
     @McpDescription(
         """
         |Activates an item inside a composite widget — the double-click / Enter gesture that
@@ -392,7 +392,7 @@ class UiInspectorToolset : McpToolset {
         }
     }
 
-    @McpTool(name = "ui.click")
+    @McpTool(name = "ui__click")
     @McpDescription(
         """
         |Clicks one located component. For an AbstractButton (button, checkbox, radio, action

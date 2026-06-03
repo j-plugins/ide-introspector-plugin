@@ -128,7 +128,7 @@ class McpDocProcessor(private val env: SymbolProcessorEnvironment) : SymbolProce
         appendLine()
         appendLine("## Tools by group")
         appendLine()
-        val grouped = tools.groupBy { it.name.substringBefore('.', missingDelimiterValue = "other") }
+        val grouped = tools.groupBy { it.name.substringBefore('_', missingDelimiterValue = "other") }
         for ((group, list) in grouped.entries.sortedBy { it.key }) {
             appendLine("### `$group.*` (${list.size})")
             appendLine()

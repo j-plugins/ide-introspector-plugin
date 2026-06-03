@@ -40,7 +40,7 @@ import com.intellij.psi.util.PsiUtilBase
  */
 class PsiToolset : McpToolset {
 
-    @McpTool(name = "psi.list_open_files")
+    @McpTool(name = "psi__list_open_files")
     @McpDescription(
         """
         |Lists the editor tabs currently open in the focused project, identifying the focused tab
@@ -92,7 +92,7 @@ class PsiToolset : McpToolset {
         }
     }
 
-    @McpTool(name = "psi.get_structure")
+    @McpTool(name = "psi__get_structure")
     @McpDescription(
         """
         |Returns the full PSI tree of an open file — every language root in the file's view
@@ -184,7 +184,7 @@ class PsiToolset : McpToolset {
         }
     }
 
-    @McpTool(name = "psi.get_references")
+    @McpTool(name = "psi__get_references")
     @McpDescription(
         """
         |Returns PSI references in a file, with their resolved declarations. A reference is a
@@ -311,7 +311,7 @@ class PsiToolset : McpToolset {
         }
     }
 
-    @McpTool(name = "psi.find_usages")
+    @McpTool(name = "psi__find_usages")
     @McpDescription(
         """
         |Finds every usage of the declaration at a given position — the inverse of

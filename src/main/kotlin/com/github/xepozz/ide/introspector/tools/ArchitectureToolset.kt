@@ -18,7 +18,7 @@ import kotlinx.serialization.json.JsonObject
 
 class ArchitectureToolset : McpToolset {
 
-    @McpTool(name = "arch.list_extension_points")
+    @McpTool(name = "arch__list_extension_points")
     @McpDescription(
         """
         |Enumerates Extension Points (EPs) live from this specific IDE instance — bundled
@@ -72,7 +72,7 @@ class ArchitectureToolset : McpToolset {
         return ListExtensionPointsResponse(all.take(limit), all.size)
     }
 
-    @McpTool(name = "arch.list_extensions_for_ep")
+    @McpTool(name = "arch__list_extensions_for_ep")
     @McpDescription(
         """
         |Lists every extension registered against one specific Extension Point — i.e. every
@@ -109,7 +109,7 @@ class ArchitectureToolset : McpToolset {
         return ListExtensionsResponse(list, list.size)
     }
 
-    @McpTool(name = "arch.list_plugins")
+    @McpTool(name = "arch__list_plugins")
     @McpDescription(
         """
         |Lists every plugin installed in this IDE instance, with id, name, version, vendor,
@@ -147,7 +147,7 @@ class ArchitectureToolset : McpToolset {
         return ListPluginsResponse(list, list.size)
     }
 
-    @McpTool(name = "arch.get_plugin_details")
+    @McpTool(name = "arch__get_plugin_details")
     @McpDescription(
         """
         |Returns the full inventory for one plugin: its metadata (version, vendor, deps),
@@ -209,7 +209,7 @@ class ArchitectureToolset : McpToolset {
         return PluginDetails(plugin, declaredEps, extensions, services, listeners, topics, actions)
     }
 
-    @McpTool(name = "arch.find_extenders_of")
+    @McpTool(name = "arch__find_extenders_of")
     @McpDescription(
         """
         |Reverse-lookup: "who implements / plugs into X?". Given an EP name or a fully-qualified

@@ -12,70 +12,70 @@ To refresh: any `./gradlew build` (or `./gradlew compileKotlin`) regenerates thi
 
 ### `arch.*` (5)
 
-- [`arch.find_extenders_of`](#arch-findextendersof)
-- [`arch.get_plugin_details`](#arch-getplugindetails)
-- [`arch.list_extension_points`](#arch-listextensionpoints)
-- [`arch.list_extensions_for_ep`](#arch-listextensionsforep)
-- [`arch.list_plugins`](#arch-listplugins)
+- [`arch__find_extenders_of`](#archfindextendersof)
+- [`arch__get_plugin_details`](#archgetplugindetails)
+- [`arch__list_extension_points`](#archlistextensionpoints)
+- [`arch__list_extensions_for_ep`](#archlistextensionsforep)
+- [`arch__list_plugins`](#archlistplugins)
 
 ### `code.*` (4)
 
-- [`code.attach_sources`](#code-attachsources)
-- [`code.find_class`](#code-findclass)
-- [`code.get_source`](#code-getsource)
-- [`code.list_members`](#code-listmembers)
+- [`code__attach_sources`](#codeattachsources)
+- [`code__find_class`](#codefindclass)
+- [`code__get_source`](#codegetsource)
+- [`code__list_members`](#codelistmembers)
 
 ### `editor.*` (2)
 
-- [`editor.get_active`](#editor-getactive)
-- [`editor.list_tabs`](#editor-listtabs)
+- [`editor__get_active`](#editorgetactive)
+- [`editor__list_tabs`](#editorlisttabs)
 
 ### `events.*` (3)
 
-- [`events.find_listeners_of_topic`](#events-findlistenersoftopic)
-- [`events.list_listeners`](#events-listlisteners)
-- [`events.list_topics`](#events-listtopics)
+- [`events__find_listeners_of_topic`](#eventsfindlistenersoftopic)
+- [`events__list_listeners`](#eventslistlisteners)
+- [`events__list_topics`](#eventslisttopics)
 
 ### `exec.*` (1)
 
-- [`exec.execute_kotlin_in_ide`](#exec-executekotlininide)
+- [`exec__execute_kotlin_in_ide`](#execexecutekotlininide)
 
 ### `ide.*` (1)
 
-- [`ide.indexing_status`](#ide-indexingstatus)
+- [`ide__indexing_status`](#ideindexingstatus)
 
 ### `psi.*` (4)
 
-- [`psi.find_usages`](#psi-findusages)
-- [`psi.get_references`](#psi-getreferences)
-- [`psi.get_structure`](#psi-getstructure)
-- [`psi.list_open_files`](#psi-listopenfiles)
+- [`psi__find_usages`](#psifindusages)
+- [`psi__get_references`](#psigetreferences)
+- [`psi__get_structure`](#psigetstructure)
+- [`psi__list_open_files`](#psilistopenfiles)
 
 ### `screenshot.*` (2)
 
-- [`screenshot.capture`](#screenshot-capture)
-- [`screenshot.crop`](#screenshot-crop)
+- [`screenshot__capture`](#screenshotcapture)
+- [`screenshot__crop`](#screenshotcrop)
 
 ### `services.*` (2)
 
-- [`services.find`](#services-find)
-- [`services.list`](#services-list)
+- [`services__find`](#servicesfind)
+- [`services__list`](#serviceslist)
 
 ### `ui.*` (9)
 
-- [`ui.activate`](#ui-activate)
-- [`ui.click`](#ui-click)
-- [`ui.find_by_coordinates`](#ui-findbycoordinates)
-- [`ui.find_by_name`](#ui-findbyname)
-- [`ui.find_by_xpath`](#ui-findbyxpath)
-- [`ui.get_properties`](#ui-getproperties)
-- [`ui.get_tree`](#ui-gettree)
-- [`ui.list_items`](#ui-listitems)
-- [`ui.select_item`](#ui-selectitem)
+- [`ui__activate`](#uiactivate)
+- [`ui__click`](#uiclick)
+- [`ui__find_by_coordinates`](#uifindbycoordinates)
+- [`ui__find_by_name`](#uifindbyname)
+- [`ui__find_by_xpath`](#uifindbyxpath)
+- [`ui__get_properties`](#uigetproperties)
+- [`ui__get_tree`](#uigettree)
+- [`ui__list_items`](#uilistitems)
+- [`ui__select_item`](#uiselectitem)
 
 ---
 
-## `arch.find_extenders_of`
+## `arch__find_extenders_of`
 
 *ArchitectureToolset*
 
@@ -110,7 +110,7 @@ Examples:
 
 ---
 
-## `arch.get_plugin_details`
+## `arch__get_plugin_details`
 
 *ArchitectureToolset*
 
@@ -158,7 +158,7 @@ Examples:
 
 ---
 
-## `arch.list_extension_points`
+## `arch__list_extension_points`
 
 *ArchitectureToolset*
 
@@ -206,7 +206,7 @@ Examples:
 
 ---
 
-## `arch.list_extensions_for_ep`
+## `arch__list_extensions_for_ep`
 
 *ArchitectureToolset*
 
@@ -244,7 +244,7 @@ Examples:
 
 ---
 
-## `arch.list_plugins`
+## `arch__list_plugins`
 
 *ArchitectureToolset*
 
@@ -279,7 +279,7 @@ Examples:
 
 ---
 
-## `code.attach_sources`
+## `code__attach_sources`
 
 *CodeSourceToolset*
 
@@ -320,7 +320,7 @@ Examples:
 
 ---
 
-## `code.find_class`
+## `code__find_class`
 
 *CodeSourceToolset*
 
@@ -361,7 +361,7 @@ Examples:
 
 ---
 
-## `code.get_source`
+## `code__get_source`
 
 *CodeSourceToolset*
 
@@ -398,7 +398,7 @@ Examples:
 
 ---
 
-## `code.list_members`
+## `code__list_members`
 
 *CodeSourceToolset*
 
@@ -435,7 +435,7 @@ Examples:
 
 ---
 
-## `editor.get_active`
+## `editor__get_active`
 
 *EditorToolset*
 
@@ -461,7 +461,7 @@ Example:
 
 ---
 
-## `editor.list_tabs`
+## `editor__list_tabs`
 
 *EditorToolset*
 
@@ -487,7 +487,7 @@ Example:
 
 ---
 
-## `events.find_listeners_of_topic`
+## `events__find_listeners_of_topic`
 
 *EventsToolset*
 
@@ -514,7 +514,7 @@ Examples:
 
 ---
 
-## `events.list_listeners`
+## `events__list_listeners`
 
 *EventsToolset*
 
@@ -557,7 +557,7 @@ Examples:
 
 ---
 
-## `events.list_topics`
+## `events__list_topics`
 
 *EventsToolset*
 
@@ -609,7 +609,7 @@ Examples:
 
 ---
 
-## `exec.execute_kotlin_in_ide`
+## `exec__execute_kotlin_in_ide`
 
 *ExecToolset*
 
@@ -687,7 +687,7 @@ Examples:
 
 ---
 
-## `ide.indexing_status`
+## `ide__indexing_status`
 
 *IdeStateToolset*
 
@@ -713,7 +713,7 @@ Example:
 
 ---
 
-## `psi.find_usages`
+## `psi__find_usages`
 
 *PsiToolset*
 
@@ -783,7 +783,7 @@ Examples:
 
 ---
 
-## `psi.get_references`
+## `psi__get_references`
 
 *PsiToolset*
 
@@ -842,7 +842,7 @@ Examples:
 
 ---
 
-## `psi.get_structure`
+## `psi__get_structure`
 
 *PsiToolset*
 
@@ -902,7 +902,7 @@ Examples:
 
 ---
 
-## `psi.list_open_files`
+## `psi__list_open_files`
 
 *PsiToolset*
 
@@ -936,7 +936,7 @@ Examples:
 
 ---
 
-## `screenshot.capture`
+## `screenshot__capture`
 
 *ScreenshotToolset*
 
@@ -983,7 +983,7 @@ Examples:
 
 ---
 
-## `screenshot.crop`
+## `screenshot__crop`
 
 *ScreenshotToolset*
 
@@ -1028,7 +1028,7 @@ Examples:
 
 ---
 
-## `services.find`
+## `services__find`
 
 *ServicesToolset*
 
@@ -1059,7 +1059,7 @@ Examples:
 
 ---
 
-## `services.list`
+## `services__list`
 
 *ServicesToolset*
 
@@ -1105,7 +1105,7 @@ Examples:
 
 ---
 
-## `ui.activate`
+## `ui__activate`
 
 *UiInspectorToolset*
 
@@ -1144,7 +1144,7 @@ Examples:
 
 ---
 
-## `ui.click`
+## `ui__click`
 
 *UiInspectorToolset*
 
@@ -1184,7 +1184,7 @@ Examples:
 
 ---
 
-## `ui.find_by_coordinates`
+## `ui__find_by_coordinates`
 
 *UiInspectorToolset*
 
@@ -1220,7 +1220,7 @@ Examples:
 
 ---
 
-## `ui.find_by_name`
+## `ui__find_by_name`
 
 *UiInspectorToolset*
 
@@ -1259,7 +1259,7 @@ Examples:
 
 ---
 
-## `ui.find_by_xpath`
+## `ui__find_by_xpath`
 
 *UiInspectorToolset*
 
@@ -1299,7 +1299,7 @@ Returns: { matches: ComponentInfo[], total: int }.
 
 ---
 
-## `ui.get_properties`
+## `ui__get_properties`
 
 *UiInspectorToolset*
 
@@ -1338,7 +1338,7 @@ Examples:
 
 ---
 
-## `ui.get_tree`
+## `ui__get_tree`
 
 *UiInspectorToolset*
 
@@ -1387,7 +1387,7 @@ Examples:
 
 ---
 
-## `ui.list_items`
+## `ui__list_items`
 
 *UiInspectorToolset*
 
@@ -1421,7 +1421,7 @@ Examples:
 
 ---
 
-## `ui.select_item`
+## `ui__select_item`
 
 *UiInspectorToolset*
 

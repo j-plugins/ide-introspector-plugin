@@ -5,6 +5,7 @@
   code.* tools simply don't appear, keeping the rest of the plugin functional.
 -->
 <idea-plugin>
+    <depends>com.intellij.mcpServer</depends>
     <extensions defaultExtensionNs="com.intellij">
         <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.CodeSourceToolset"/>
     </extensions>

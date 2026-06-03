@@ -11,7 +11,7 @@ import com.intellij.mcpserver.annotations.McpTool
 
 class EventsToolset : McpToolset {
 
-    @McpTool(name = "events.list_listeners")
+    @McpTool(name = "events__list_listeners")
     @McpDescription(
         """
         |Lists IntelliJ message-bus listeners declared statically in plugin.xml via
@@ -60,7 +60,7 @@ class EventsToolset : McpToolset {
         return ListListenersResponse(filtered.take(limit), filtered.size)
     }
 
-    @McpTool(name = "events.find_listeners_of_topic")
+    @McpTool(name = "events__find_listeners_of_topic")
     @McpDescription(
         """
         |Reverse-lookup: given a Topic FQCN, lists every static listener registered against it.
@@ -86,7 +86,7 @@ class EventsToolset : McpToolset {
         return ListListenersResponse(matches, matches.size)
     }
 
-    @McpTool(name = "events.list_topics")
+    @McpTool(name = "events__list_topics")
     @McpDescription(
         """
         |Lists message-bus `Topic<L>` declarations contributed by plugins. A Topic is a

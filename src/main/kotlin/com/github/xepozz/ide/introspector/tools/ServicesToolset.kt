@@ -10,7 +10,7 @@ import com.intellij.mcpserver.annotations.McpTool
 
 class ServicesToolset : McpToolset {
 
-    @McpTool(name = "services.list")
+    @McpTool(name = "services__list")
     @McpDescription(
         """
         |Lists IntelliJ services declared in plugin.xml via `<applicationService>` /
@@ -65,7 +65,7 @@ class ServicesToolset : McpToolset {
         return ListServicesResponse(filtered.take(limit), filtered.size)
     }
 
-    @McpTool(name = "services.find")
+    @McpTool(name = "services__find")
     @McpDescription(
         """
         |Reverse-lookup for services: given an interface or implementation FQCN, returns every

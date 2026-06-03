@@ -16,7 +16,7 @@ import com.intellij.openapi.vfs.VirtualFile
 
 class EditorToolset : McpToolset {
 
-    @McpTool(name = "editor.list_tabs")
+    @McpTool(name = "editor__list_tabs")
     @McpDescription(
         """
         |Lists the open editor tabs of the focused project, grouped by split window, and marks
@@ -43,7 +43,7 @@ class EditorToolset : McpToolset {
         return onEdtBlocking { collectTabs(project) }
     }
 
-    @McpTool(name = "editor.get_active")
+    @McpTool(name = "editor__get_active")
     @McpDescription(
         """
         |Returns the currently focused text editor: its file, caret position, and selection.
