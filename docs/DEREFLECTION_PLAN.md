@@ -140,20 +140,23 @@ warnings"); a harder binding to the supported platform range (sinceBuild 252).
 
 ## Cross-cutting fixes (also help diagnose the current failures)
 
-- **Stop swallowing `Throwable`.** The `readField`/`readMethod` helpers return `null` on any
-  exception, turning incompatibilities into silent empty results. Distinguish
-  member-not-found from `LinkageError`/`NoSuchMethodError`, log at warn, and propagate real
-  errors into the tool response so a failing request reports *why*.
-- **De-duplicate** the three identical `readField`/`readMethod` helpers
-  (`ExtensionPointInspector`, `ListenerInspector`, `ServiceInspector`) into one tested util,
-  used only by the residual tier-2 fallback.
+- **De-duplicate `readField`/`readMethod` — DONE.** The three identical helpers
+  (`ExtensionPointInspector`, `ListenerInspector`, `ServiceInspector`) now delegate to one
+  tested `util.ReflectionAccess` (`readMethod` also sets the member accessible, matching
+  `readField`).
+- **Surface swallowed errors — PARTIALLY DONE.** `ReflectionAccess` now logs a WARN (target
+  class, member, exception) in the `catch`. The `catch` fires only on a real `get`/`invoke`
+  failure — member-not-found returns null without throwing — so it is not noisy. Still open
+  (deliberately deferred, changes the response contract): propagate the real error into the
+  tool response so a failing request reports *why*.
 
 ## Execution order
 
-1. (Blocked on info) Get the failing tool name / stacktrace → fix that specific bug first.
-2. Tier-1 for HIGH: `PluginLookup`, `ExtensionPointInspector` → direct typed calls, pure
-   mapping + tests, stop swallowing errors. Build becomes the gate.
-3. Tier-1 for MEDIUM inspectors: `ServiceInspector`, `ListenerInspector`, `ComponentSerializer`.
-4. Introduce `IdePlatformCompat` for the few tier-2 variant members + unit test.
-5. Consolidate `readField`/`readMethod`; add logging.
+1. DONE — Root cause was the mcpServer `McpCallInfoKt` / `projectOrNull` mismatch (see top);
+   fixed via `IdeProjectResolver`.
+2. DONE — Consolidate `readField`/`readMethod` into `util.ReflectionAccess` + WARN logging.
+3. Tier-1 for HIGH: `PluginLookup`, `ExtensionPointInspector` → direct typed calls, pure
+   mapping + tests. Build becomes the gate.
+4. Tier-1 for MEDIUM inspectors: `ServiceInspector`, `ListenerInspector`, `ComponentSerializer`.
+5. Introduce `IdePlatformCompat` for the few tier-2 variant members + unit test.
 6. `./gradlew build` (compiler now guards) + live re-verify via MCP.
