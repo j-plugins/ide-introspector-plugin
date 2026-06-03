@@ -3,6 +3,7 @@ package com.github.xepozz.ide.introspector.core
 import com.github.xepozz.ide.introspector.core.internal.ExtensionMetadata
 import com.github.xepozz.ide.introspector.model.ExtensionInfo
 import com.github.xepozz.ide.introspector.model.ExtensionPointInfo
+import com.github.xepozz.ide.introspector.util.ReflectionAccess
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.extensions.ExtensionPoint
 import com.intellij.openapi.extensions.ExtensionsArea
@@ -251,30 +252,9 @@ object ExtensionPointInspector {
         return out
     }
 
-    internal fun readMethod(target: Any, name: String): Any? = try {
-        val m = target.javaClass.methods.firstOrNull { it.name == name && it.parameterCount == 0 }
-        m?.invoke(target)
-    } catch (_: Throwable) {
-        null
-    }
+    internal fun readMethod(target: Any, name: String): Any? = ReflectionAccess.readMethod(target, name)
 
-    /** Walks the class hierarchy looking for a field, honoring superclasses. */
-    internal fun readField(target: Any, name: String): Any? {
-        var c: Class<*>? = target.javaClass
-        while (c != null) {
-            val f = c.declaredFields.firstOrNull { it.name == name }
-            if (f != null) {
-                return try {
-                    f.isAccessible = true
-                    f.get(target)
-                } catch (_: Throwable) {
-                    null
-                }
-            }
-            c = c.superclass
-        }
-        return null
-    }
+    internal fun readField(target: Any, name: String): Any? = ReflectionAccess.readField(target, name)
 
     /** Pulls the idString out of a PluginDescriptor's PluginId — handles both 'idString' field and toString(). */
     internal fun extractPluginIdString(pd: Any): String? {

@@ -1,6 +1,7 @@
 package com.github.xepozz.ide.introspector.core
 
 import com.github.xepozz.ide.introspector.model.ServiceInfo
+import com.github.xepozz.ide.introspector.util.ReflectionAccess
 import com.intellij.ide.plugins.IdeaPluginDescriptor
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
@@ -84,20 +85,7 @@ object ServiceInspector {
         )
     }
 
-    private fun readField(target: Any, name: String): Any? {
-        var c: Class<*>? = target.javaClass
-        while (c != null) {
-            val f = c.declaredFields.firstOrNull { it.name == name }
-            if (f != null) {
-                return try {
-                    f.isAccessible = true
-                    f.get(target)
-                } catch (_: Throwable) { null }
-            }
-            c = c.superclass
-        }
-        return null
-    }
+    private fun readField(target: Any, name: String): Any? = ReflectionAccess.readField(target, name)
 
     private fun readEnumName(target: Any, name: String): String? =
         (readField(target, name) as? Enum<*>)?.name
