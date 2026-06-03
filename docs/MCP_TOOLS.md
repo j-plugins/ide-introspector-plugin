@@ -6,380 +6,66 @@ Generated from the `@McpTool` / `@McpDescription` annotations on the `McpToolset
 classes by a KSP processor (`doc-processor/`) that runs as part of `compileKotlin`.
 To refresh: any `./gradlew build` (or `./gradlew compileKotlin`) regenerates this file.
 
-**Total tools:** 9
+**Total tools:** 2
 
 ## Tools by group
 
-### `ui.*` (9)
+### `editor.*` (2)
 
-- [`ui.activate`](#ui-activate)
-- [`ui.click`](#ui-click)
-- [`ui.find_by_coordinates`](#ui-findbycoordinates)
-- [`ui.find_by_name`](#ui-findbyname)
-- [`ui.find_by_xpath`](#ui-findbyxpath)
-- [`ui.get_properties`](#ui-getproperties)
-- [`ui.get_tree`](#ui-gettree)
-- [`ui.list_items`](#ui-listitems)
-- [`ui.select_item`](#ui-selectitem)
+- [`editor.get_active`](#editor-getactive)
+- [`editor.list_tabs`](#editor-listtabs)
 
 ---
 
-## `ui.activate`
+## `editor.get_active`
 
-*UiInspectorToolset*
+*EditorToolset*
 
-Activates an item inside a composite widget — the double-click / Enter gesture that
-OPENS or runs it (open the file under a tree node, jump to a test, follow a list entry).
-First selects the item through the model, then dispatches a synthetic double-click at
-the item's on-screen bounds so the widget's activation listeners fire.
+Returns the currently focused text editor: its file, caret position, and selection.
+Caret line and column are 1-based (as the editor shows them); offsets are 0-based
+character positions in the document.
 
-Use this when: selecting is not enough and you need the "open it" behaviour — navigate
-to source from the test tree, open a file from a list.
+Use this when: you need to know where the user is editing — the active file, the caret
+location, or the selected text/range — before a navigation or edit.
 
-Do NOT use this when: you only want to highlight the item (use ui.select_item), or the
-target is a plain button (use ui.click).
+Do NOT use this when: you want all open tabs (use editor.list_tabs), or the focused
+editor is not a text editor (then `file` is reported but caret fields are -1 with a
+warning).
 
-Address the item by exactly one of index / text / path, same as ui.select_item.
+Returns: { projectName, file, fileType, caretLine, caretColumn, caretOffset,
+selectionText, selectionStartOffset, selectionEndOffset, modified, warnings }.
+Caret fields are -1 and selection is null when there is no active text editor.
 
-Returns: { componentId, action, success, widgetType, matchedItem, selectionAfter[],
-warnings[] }. success=false when no item matched; a warning is added when the item has
-no on-screen bounds (off-screen / not realized) so the double-click could not be sent.
+Example:
+  (no args)   — report the active editor's file, caret, and selection
 
-Examples:
-  componentId="c_tree", path=["Project","src","Main.kt"]   — open a file from a tree
-  componentId="c_list", text="failingTest"                 — activate a list entry
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `componentId` | `String` | Component id of the widget (from ui.find_by_* / ui.list_items). |
-| `index` | `Int` | 0-based item index. Use -1 when addressing by text or path. |
-| `text` | `String?` | Item text to match. Null when addressing by index or path. |
-| `matchMode` | `String` | 'exact' (default) \| 'contains' \| 'regex'. Applies to the text selector. |
-| `path` | `List<String>` | Tree path as node texts from the root. Empty for non-tree widgets or when using index/text. |
-
-**Returns:** `InteractionResponse`
+**Returns:** `ActiveEditorResponse`
 
 ---
 
-## `ui.click`
+## `editor.list_tabs`
 
-*UiInspectorToolset*
+*EditorToolset*
 
-Clicks one located component. For an AbstractButton (button, checkbox, radio, action
-button) with no explicit coordinates it calls doClick() — the robust, model-level
-press. Otherwise it dispatches a synthetic mouse click at the given component-local
-point (or the component centre when x/y are omitted).
+Lists the open editor tabs of the focused project, grouped by split window, and marks
+the selected tab in each window plus the globally active file. Reads the live
+FileEditorManager — no PSI parsing.
 
-Use this when: you want to press a button/checkbox, or send a raw click to a specific
-component at a known local offset.
+Use this when: you need to know which files are open as editor tabs, how they are
+split across editor windows, which is pinned/modified, and which one is focused.
 
-Do NOT use this when: the target is an item inside a tree/list/table/tabs/combo — use
-ui.select_item (to choose) or ui.activate (to open). Use ui.find_by_* first to get the
-component id.
+Do NOT use this when: you want the PSI/language view of open files (use
+psi.list_open_files), or the caret/selection of the active editor (use
+editor.get_active), or tabs of a tool window (those are not editor tabs).
 
-Coordinates are component-local pixels (origin = component top-left). Omit x/y (leave
--1) to click the centre. button is 'left' | 'middle' | 'right'.
+Returns: { projectName, windows: [{ windowIndex, tabs: [{ path, name, fileType,
+selected, pinned, modified }] }], activeFile, total }. `selected` marks the chosen tab
+within its split window; `activeFile` is the path of the currently focused editor.
 
-Returns: { componentId, action, success, warnings[] }.
+Example:
+  (no args)   — list every open editor tab across all split windows
 
-Examples:
-  componentId="c_runButton"                          — press the Run button (doClick)
-  componentId="c_panel", x=12, y=8, button="right"   — right-click at local (12,8)
-  componentId="c_cell", clickCount=2                 — double-click the component centre
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `componentId` | `String` | Component id from a prior ui.find_by_* / ui.get_tree call. |
-| `x` | `Int` | Component-local X in pixels. -1 (default) clicks the component centre. |
-| `y` | `Int` | Component-local Y in pixels. -1 (default) clicks the component centre. |
-| `clickCount` | `Int` | Number of clicks. 1 = single, 2 = double. |
-| `button` | `String` | 'left' (default) \| 'middle' \| 'right'. |
-
-**Returns:** `InteractionResponse`
-
----
-
-## `ui.find_by_coordinates`
-
-*UiInspectorToolset*
-
-Returns the deepest visible component at point (x, y) — equivalent to clicking that
-pixel and seeing which Swing component would receive the event. With
-returnAncestors=true, also walks up the parent chain so you can see container context.
-
-Use this when: you have screen coordinates (e.g. from a screenshot, a click log, or
-the user pointing at a spot) and need the component there.
-
-Do NOT use this when: you know the component's name or text — ui.find_by_name is
-faster. The coordinate space matters: 'screen' (default) uses virtual-desktop
-pixels (multi-monitor friendly); 'frame' uses the active frame's local coords.
-
-Returns: { matches: ComponentInfo[], total: int } where matches[0] is the deepest
-component and (if requested) matches[1..N] are its ancestors up to the window root.
-
-Examples:
-  x=42, y=80, coordinateSpace="frame"                  — what's at the frame's (42,80)
-  x=1280, y=400, coordinateSpace="screen"              — virtual-desktop coords
-  x=300, y=200, returnAncestors=false                  — just the deepest component
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `x` | `Int` | X coordinate in pixels (virtual desktop if coordinateSpace=screen). |
-| `y` | `Int` | Y coordinate in pixels. |
-| `coordinateSpace` | `String` | 'screen' (default, virtual desktop) or 'frame' (active IDE frame, top-left origin). |
-| `returnAncestors` | `Boolean` | Include the parent chain from the deepest component up to the root window. |
-
-**Returns:** `FindComponentsResponse`
-
----
-
-## `ui.find_by_name`
-
-*UiInspectorToolset*
-
-Locates Swing components by their text-bearing attributes: `name` (programmatic),
-`text` (button/label caption), `accessibleName` (a11y label), `toolTipText`. Walks the
-entire UI tree once and returns the first `limit` matches. matchMode controls the
-comparison: "exact", "contains" (default, case-insensitive substring), or "regex".
-
-Use this when: you know what the component says or what its programmatic name is
-("Run", "ProjectViewTree", "buildButton") and want its id so you can inspect or
-screenshot it.
-
-Do NOT use this when: you need XML-path-style queries with class+attribute predicates
-(use ui.find_by_xpath), or you only know screen coordinates (use
-ui.find_by_coordinates), or you need the structural surroundings (use ui.get_tree).
-
-Returns: { matches: ComponentInfo[], total: int }. Matches include id you can reuse
-with ui.get_properties / screenshot.capture(target='component').
-
-Examples:
-  query="Run", matchMode="exact", searchIn=["text"]           — the Run toolbar button
-  query="ProjectViewTree", searchIn=["name"]                  — programmatic-name match
-  query="^Save( All)?$", matchMode="regex", searchIn=["text"] — Save / Save All buttons
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `query` | `String` | Search string. Treated as substring (contains), exact text, or regex per matchMode. |
-| `matchMode` | `String` | 'exact' \| 'contains' (default) \| 'regex'. |
-| `caseSensitive` | `Boolean` | Case sensitivity for 'exact'/'contains'. Ignored for 'regex' (use (?i) for case-insensitive regex). |
-| `searchIn` | `List<String>` | Which fields to test. Default ['name','text','accessibleName','toolTipText']. Also supports 'className' (matches the FQCN and every superclass simple name, so 'Tree' finds a ProjectViewTree). Platform widgets often have a null programmatic name — prefer accessibleName or className for them. |
-| `limit` | `Int` | Cap on returned matches. Default 50. |
-
-**Returns:** `FindComponentsResponse`
-
----
-
-## `ui.find_by_xpath`
-
-*UiInspectorToolset*
-
-Finds components by an XPath subset compatible with intellij-ui-test-robot — handy
-when ui.find_by_name's free-text match is too loose and you need to filter by class
-AND attribute together.
-
-Use this when: you need precise structural queries like "the ActionButton whose text
-is 'Run'" or "the third row in this tree" — i.e. class + attribute + position
-constraints in a single expression.
-
-Do NOT use this when: a plain substring search is enough (ui.find_by_name is cheaper
-and easier), or you have coordinates (ui.find_by_coordinates).
-
-Supported syntax:
-  - axes: '/' (child), '//' (descendant-or-self), '.' (self)
-  - element names: simple class name (e.g. 'ActionButton'), 'div' or '*' (any)
-  - attribute predicates: [@class=..], [@name=..], [@accessibleName=..], [@text=..],
-    [@toolTipText=..]; combine with 'and'
-  - positional predicate: [N], 1-based
-
-Examples:
-  //div[@class='ActionButton' and @text='Run']
-  //JPanel[@accessibleName='Project view']//JTree
-  //JButton[2]
-
-Returns: { matches: ComponentInfo[], total: int }.
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `xpath` | `String` | XPath expression in the syntax above. Wrap attribute values in single quotes. |
-| `limit` | `Int` | Cap on returned matches. Default 50. |
-
-**Returns:** `FindComponentsResponse`
-
----
-
-## `ui.get_properties`
-
-*UiInspectorToolset*
-
-Returns the complete property bag for one previously-located component, identified
-by its id. Includes basic Swing fields (class, name, bounds, visibility), accessible
-context (a11y name/role/description), JComponent client properties (UI hints set via
-putClientProperty), and the IntelliJ UI-Inspector PropertyBeans when the internal
-API is reachable.
-
-Use this when: you've already located a component via ui.find_by_name /
-ui.find_by_coordinates / ui.find_by_xpath / ui.get_tree and now want everything
-the platform knows about it.
-
-Do NOT use this when: you don't already have an id from a prior ui.* call in the same
-IDE session — ids do not survive an IDE restart and dead ids return an "is no longer
-attached" error once the panel closes. Locate the component first via ui.find_by_* or
-ui.get_tree.
-
-Returns: { componentId, className, properties: [{name,value}...], warnings: string[] }.
-Properties are key-value pairs like "bounds": "10,20 100x30", "accessibleName": "Run",
-"clientProperty[place]": "MainToolbar", "uiInspector[ActionId]": "RunAction", etc.
-
-Examples:
-  componentId="c_a3f2e1b8"                              — full property bag
-  componentId="c_a3f2e1b8", includeClientProperties=false — slim, accessibility-only view
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `componentId` | `String` | Component id (e.g. 'c_a3f2e1b8') obtained from a prior ui.find_by_* or ui.get_tree call in the same IDE session. |
-| `includeClientProperties` | `Boolean` | Include JComponent client properties (UI hints stored via putClientProperty). |
-| `includeAccessibleContext` | `Boolean` | Include accessibleContext (a11y name/role/description). Cheap; leave on unless responses get noisy. |
-
-**Returns:** `PropertiesResponse`
-
----
-
-## `ui.get_tree`
-
-*UiInspectorToolset*
-
-Returns the IDE's live Swing component tree (BFS, capped by maxDepth). Each node
-carries a stable id ("c_xxxxxxxx") you can pass to ui.get_properties or
-screenshot.capture to drill into a specific component.
-
-Use this when: you need to see the current UI structure of the IDE — what windows,
-panels, toolbars and actions are on screen right now. Typical first step before any
-targeted ui.* call when you don't yet know the component id.
-
-Do NOT use this when: you already know the component id (call ui.get_properties),
-you only need to locate one component by visible text (use ui.find_by_name —
-much cheaper), or you have screen coordinates (use ui.find_by_coordinates).
-
-Defaults are tuned for cheapness: depth 12, includeProperties=false. Property
-collection per node hits reflection on thousands of components and can saturate
-the EDT — fetch them point-by-point via ui.get_properties instead. Hard-capped at
-5000 nodes; if truncated the response has truncated=true and a warning.
-
-Scope with rootSelector: "frame" (top-level frames only), "dialog" (only modal
-dialogs), "tool_window:<id>" (a specific tool window's content, e.g.
-"tool_window:Project"), or null for everything visible. Narrow the scope whenever
-you can — it's the single biggest perf knob.
-
-Returns: { nodes: ComponentInfo[], rootIds: string[], truncated: boolean, warnings: string[] }.
-Each ComponentInfo has id, class (FQCN), name, accessibleName, accessibleRole,
-bounds {x,y,width,height}, visible, enabled, text, toolTipText, properties[], children[].
-
-Examples:
-  rootSelector="tool_window:Project", maxDepth=10   — Project view subtree
-  rootSelector="frame", maxDepth=6                  — shallow frame overview
-  rootSelector="dialog"                             — only open modal dialogs
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `maxDepth` | `Int` | Max BFS depth. Default 12. Keep ≤15 for the full frame; full IDE trees easily exceed 5000 nodes. |
-| `rootSelector` | `String?` | Scope filter: 'frame', 'dialog', 'tool_window:<id>' (e.g. 'tool_window:Project'), or null for everything visible. |
-| `includeInvisible` | `Boolean` | Include invisible components (those with isVisible()==false). Off by default. |
-| `includeProperties` | `Boolean` | Attach UI-Inspector-style property bag to every node. Expensive — prefer ui.get_properties for a single id. |
-| `truncatePropertyValueAt` | `Int` | Maximum character length for any single property value before truncation. |
-
-**Returns:** `UiTreeResponse`
-
----
-
-## `ui.list_items`
-
-*UiInspectorToolset*
-
-Enumerates the logical items inside one composite widget — the rows of a tree, the
-elements of a list, the rows of a table, the tabs of a tabbed pane, or the entries of
-a combo box. These items are NOT separate Swing components, so ui.get_tree / find_by_*
-cannot see them; this tool reads the widget's own model instead.
-
-Use this when: you located a JTree / JList / JTable / JTabbedPane / JComboBox (e.g. the
-test-results tree, a file list, the editor's tab strip) via ui.find_by_* and now need
-the selectable items inside it before calling ui.select_item / ui.activate.
-
-Do NOT use this when: you need the component hierarchy (use ui.get_tree), or the
-component is a plain button/label with no items (use ui.click).
-
-Returns: { componentId, widgetType, items: WidgetItem[], warnings[] }. Each WidgetItem
-has index, text, selected, enabled, and for trees path[] / depth / expanded / leaf.
-widgetType is one of "tree" | "list" | "table" | "tabbedPane" | "comboBox", or
-"unsupported" when the component bears no items.
-
-Examples:
-  componentId="c_a3f2e1b8"   — list the rows of a located JTree
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `componentId` | `String` | Component id of a JTree/JList/JTable/JTabbedPane/JComboBox from a prior ui.find_by_* or ui.get_tree call. |
-
-**Returns:** `ListItemsResponse`
-
----
-
-## `ui.select_item`
-
-*UiInspectorToolset*
-
-Selects an item inside a composite widget (tree node, list element, table row, tab,
-combo entry) through the widget's own selection model — the same effect as clicking it,
-but reliable and independent of on-screen visibility. Fires the widget's selection
-listeners (e.g. selecting a test row shows its details), scrolls the item into view,
-and for trees expands the ancestors first.
-
-Use this when: you want to highlight/choose a specific item you saw via ui.list_items
-— select a test in the run tree, switch to a tab, pick a list row.
-
-Do NOT use this when: you want to OPEN/navigate the item (double-click semantics — use
-ui.activate), or the target is a plain button (use ui.click).
-
-Address the item by exactly one of: index (0-based, as returned by ui.list_items),
-text (matched per matchMode against the item's rendered text), or path (a list of node
-texts from the root, for trees). Provide index=-1 / text=null / empty path for the ones
-you don't use.
-
-Returns: { componentId, action, success, widgetType, matchedItem, selectionAfter[],
-warnings[] }. success=false with a warning when no item matched.
-
-Examples:
-  componentId="c_tree", path=["Root","MyTest","testFoo"]      — select a tree node by path
-  componentId="c_list", text="config.yml", matchMode="exact"  — select a list element by text
-  componentId="c_tabs", index=2                               — switch to the third tab
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `componentId` | `String` | Component id of the widget (from ui.find_by_* / ui.list_items). |
-| `index` | `Int` | 0-based item index (as returned by ui.list_items). Use -1 when selecting by text or path. |
-| `text` | `String?` | Item text to match. Null when selecting by index or path. |
-| `matchMode` | `String` | 'exact' (default) \| 'contains' \| 'regex'. Applies to the text selector. |
-| `path` | `List<String>` | Tree path as node texts from the root (e.g. ['Root','Child']). Empty for non-tree widgets or when using index/text. |
-
-**Returns:** `InteractionResponse`
+**Returns:** `EditorTabsResponse`
 
 ---
 
