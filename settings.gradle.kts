@@ -4,6 +4,7 @@ rootProject.name = "ide-introspector"
 
 include(":doc-processor")
 include(":kotlin-compiler-wrapper")
+include(":corpus-core")
 
 pluginManagement {
     plugins {

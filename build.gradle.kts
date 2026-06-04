@@ -99,3 +99,35 @@ tasks.withType<Test>().configureEach {
 ksp {
     arg("docOutput", layout.projectDirectory.file("docs/MCP_TOOLS.md").asFile.absolutePath)
 }
+
+val corpusAssembler: Configuration by configurations.creating
+
+dependencies {
+    corpusAssembler(project(":corpus-core"))
+    corpusAssembler("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+}
+
+val corpusGeneratedForBuild: String =
+    providers.gradleProperty("corpus.generatedForBuild").orNull ?: "252.28238.29"
+
+val assembleContextCorpus by tasks.registering(JavaExec::class) {
+    val corpusDirectory = layout.projectDirectory.dir("corpus")
+    val outputDirectory = layout.buildDirectory.dir("corpus")
+    inputs.dir(corpusDirectory).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.property("generatedForBuild", corpusGeneratedForBuild)
+    outputs.dir(outputDirectory)
+    classpath = corpusAssembler
+    mainClass.set("com.github.xepozz.ide.introspector.context.CorpusAssemblerMainKt")
+    args(
+        corpusDirectory.asFile.absolutePath,
+        outputDirectory.get().asFile.absolutePath,
+        corpusGeneratedForBuild,
+    )
+}
+
+tasks.processResources {
+    dependsOn(assembleContextCorpus)
+    from(layout.buildDirectory.dir("corpus")) {
+        into("context-corpus")
+    }
+}
