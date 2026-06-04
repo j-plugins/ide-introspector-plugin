@@ -9,7 +9,7 @@ include(":corpus-core")
 pluginManagement {
     plugins {
         id("org.jetbrains.kotlin.jvm") version "2.4.0"
-        id("org.jetbrains.kotlin.plugin.serialization") version "2.3.21"
+        id("org.jetbrains.kotlin.plugin.serialization") version "2.4.0"
         id("org.jetbrains.changelog") version "2.5.0"
         id("com.google.devtools.ksp") version "2.3.8"
         id("org.jetbrains.kotlinx.kover") version "0.9.8"
