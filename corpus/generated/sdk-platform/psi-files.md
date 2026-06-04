@@ -14,15 +14,13 @@ Unlike [Virtual Files](https://plugins.jetbrains.com/docs/intellij/virtual-file.
 [VirtualFile](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/vfs/VirtualFile.java) instance), PSI has [Project](https://plugins.jetbrains.com/docs/intellij/project.html) scope:
 the same file is represented by multiple `PsiFile` instances if the file belongs to multiple projects open at the same time.
 
-## Subtopics
-
-- How do I get a PSI file? — `sdk.psi-files.how-do-i-get-a-psi-file`
-- What can I do with a PSI file? — `sdk.psi-files.what-can-i-do-with-a-psi-file`
-- Where does a PSI file come from? — `sdk.psi-files.where-does-a-psi-file-come-from`
-- How long do PSI files persist? — `sdk.psi-files.how-long-do-psi-files-persist`
-- How do I create a PSI file? — `sdk.psi-files.how-do-i-create-a-psi-file`
-- How do I get notified when PSI files change? — `sdk.psi-files.how-do-i-get-notified-when-psi-files-change`
-- How do I extend PSI? — `sdk.psi-files.how-do-i-extend-psi`
-- What are the rules for working with PSI? — `sdk.psi-files.what-are-the-rules-for-working-with-psi`
+## How do I get a PSI file? (psi-files/how-do-i-get-a-psi-file.md)
+## What can I do with a PSI file? (psi-files/what-can-i-do-with-a-psi-file.md)
+## Where does a PSI file come from? (psi-files/where-does-a-psi-file-come-from.md)
+## How long do PSI files persist? (psi-files/how-long-do-psi-files-persist.md)
+## How do I create a PSI file? (psi-files/how-do-i-create-a-psi-file.md)
+## How do I get notified when PSI files change? (psi-files/how-do-i-get-notified-when-psi-files-change.md)
+## How do I extend PSI? (psi-files/how-do-i-extend-psi.md)
+## What are the rules for working with PSI? (psi-files/what-are-the-rules-for-working-with-psi.md)
 
 > Source: IntelliJ Platform SDK docs — PSI Files (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

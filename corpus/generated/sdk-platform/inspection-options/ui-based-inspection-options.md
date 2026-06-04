@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, based, inspection, options]
 ---
-Part of `sdk.inspection-options`.
-
 Tip:
 
 If you target versions 2023.1+ only, it is highly recommended to implement [Declarative Inspection Options](#declarative-inspection-options).
@@ -34,4 +32,3 @@ Be careful when you have a hierarchy of inspection classes.
 For example, if an inspection superclass is converted to the declarative approach, any `createOptionsPanel()` methods in subclasses will be ignored.
 If you can't convert all of them at once, you may temporarily add `getOptionsPane()` returning `OptPane.EMPTY` to subclasses, where `createOptionsPanel()` is still used.
 
-> Source: IntelliJ Platform SDK docs — Inspection Options: UI-Based Inspection Options (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

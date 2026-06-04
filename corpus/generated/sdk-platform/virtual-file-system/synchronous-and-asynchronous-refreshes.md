@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, synchronous, asynchronous, refreshes]
 ---
-Part of `sdk.virtual-file-system`.
-
 From the point of view of the caller, refresh operations can be either synchronous or asynchronous.
 In fact, the refresh operations are executed according to their own threading policy.
 The synchronous flag simply means that the calling thread will be blocked until the refresh operation (which will most likely run on a different thread) is completed.
@@ -27,4 +25,3 @@ If there is some code that needs to be executed after the refresh is complete, t
 
 In some cases, synchronous refreshes can cause deadlocks, depending on which [locks](https://plugins.jetbrains.com/docs/intellij/threading-model.html#read-write-lock) are held by the thread invoking the refresh operation.
 
-> Source: IntelliJ Platform SDK docs — Virtual File System: Synchronous and Asynchronous Refreshes (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

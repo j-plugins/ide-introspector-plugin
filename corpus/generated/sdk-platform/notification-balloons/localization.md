@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, localization]
 ---
-Part of `sdk.notification-balloons`.
-
 The notification group identifier is not a technical identifier, but a human-readable string directly mapped to the IDE settings user interface.
 However, it can be localized.
 
@@ -34,4 +32,3 @@ Warning:
 The `id` attribute is mandatory, even if it is localized in the default resource bundle key.
 Alternatively, provide a resource bundle name in the `bundle` attribute to override a resource bundle name from the `<resource-bundle>` element.
 
-> Source: IntelliJ Platform SDK docs — Notification Balloons: Localization (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, nested, messages]
 ---
-Part of `sdk.messaging-infrastructure`.
-
 Nested message is a message sent (directly or indirectly) during another message processing.
 The IntelliJ Platform's messaging infrastructure guarantees that all messages sent to particular topic will be delivered at the sending order.
 
@@ -52,4 +50,3 @@ When a message is sent to the target topic, the following happens:
 
 * handler1 receives message2
 
-> Source: IntelliJ Platform SDK docs — Messaging Infrastructure: Nested Messages (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

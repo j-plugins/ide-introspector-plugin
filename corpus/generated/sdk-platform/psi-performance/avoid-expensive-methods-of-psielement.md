@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, avoid, expensive, methods, psielement]
 ---
-Part of `sdk.psi-performance`.
-
 Avoid Expensive Methods of `PsiElement`
 
 Avoid `PsiElement`'s methods, which are expensive with deep trees.
@@ -21,4 +19,3 @@ If you only need PSI element length, use `getTextLength()`.
 
 Additionally, methods such as `getText()`, `getNode()`, or `getTextRange()` require the AST, and accessing it can be an expensive operation, as explained in the next section.
 
-> Source: IntelliJ Platform SDK docs — PSI Performance: Avoid Expensive Methods of `PsiElement (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, configurationfactory]
 ---
-Part of `sdk.run-configurations.architecture-overview`.
-
 `ConfigurationFactory`
 
 [ConfigurationFactory](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/execution/src/com/intellij/execution/configurations/ConfigurationFactory.java) classes are responsible for creating [run configuration](#runconfiguration) instances.
@@ -20,4 +18,3 @@ If customization is needed, override the presentation methods in the factory cla
 By default, configurations created by a given factory are not editable in [dumb mode](https://plugins.jetbrains.com/docs/intellij/indexing-and-psi-stubs.html#dumb-mode).
 To enable editing them in Dumb Mode, return `true` from `isEditableInDumbMode()`.
 
-> Source: IntelliJ Platform SDK docs — Run Configurations: ConfigurationFactory (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

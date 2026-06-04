@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, suggestions]
 ---
-Part of `sdk.notification-balloons`.
-
 In some cases, the functionality needs to prompt or notify the user to take action or provide input.
 
 [Suggestions](https://plugins.jetbrains.com/docs/intellij/balloon.html#suggest-an-action-to-configure-a-project-or-an-ide) show the primary action as a noticeable button.
@@ -34,4 +32,3 @@ Tip:
 
 A `Notification` has the `expire` method for explicit expirations.
 
-> Source: IntelliJ Platform SDK docs — Notification Balloons: Suggestions (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

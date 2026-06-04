@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, indexes]
 ---
-Part of `sdk.indexing-and-psi-stubs`.
-
 The indexing framework provides a quick way to locate specific elements, e.g., files containing a certain word or methods with a particular name, in large codebases.
 Plugin developers can use the existing indexes built by the IDE itself and build and use their own indexes.
 
@@ -29,4 +27,3 @@ Tip:
 
 [Index Viewer](https://plugins.jetbrains.com/plugin/13029-index-viewer/) plugin can be used to inspect indexes' contents and properties.
 
-> Source: IntelliJ Platform SDK docs — Indexing and PSI Stubs: Indexes (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -14,11 +14,9 @@ To perform these operations, use methods such as `PsiElement.add()`, `PsiElement
 Like document operations, PSI modifications need to be wrapped in a write action and in command (and can only be performed in the event dispatch thread).
 See [the Documents article](https://plugins.jetbrains.com/docs/intellij/documents.html#what-are-the-rules-of-working-with-documents) for more information on commands and write actions.
 
-## Subtopics
-
-- Creating the New PSI — `sdk.modifying-the-psi.creating-the-new-psi`
-- Maintaining Tree Structure Consistency — `sdk.modifying-the-psi.maintaining-tree-structure-consistency`
-- Whitespaces and Imports — `sdk.modifying-the-psi.whitespaces-and-imports`
-- Combining PSI and Document Modifications — `sdk.modifying-the-psi.combining-psi-and-document-modifications`
+## Creating the New PSI (modifying-the-psi/creating-the-new-psi.md)
+## Maintaining Tree Structure Consistency (modifying-the-psi/maintaining-tree-structure-consistency.md)
+## Whitespaces and Imports (modifying-the-psi/whitespaces-and-imports.md)
+## Combining PSI and Document Modifications (modifying-the-psi/combining-psi-and-document-modifications.md)
 
 > Source: IntelliJ Platform SDK docs — Modifying the PSI (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

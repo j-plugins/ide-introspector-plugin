@@ -22,20 +22,21 @@ To display a notification, provide two things.
 First, a notification group to act as a configurable channel.
 Then, a notification instance itself.
 
-## Subtopics
-
-- Notification Group — `sdk.notification-balloons.notification-group`
-- Timeline notification — `sdk.notification-balloons.timeline-notification`
-- Configuring Notifications — `sdk.notification-balloons.configuring-notifications`
-- Notification Icons — `sdk.notification-balloons.notification-icons`
-- Notification Actions — `sdk.notification-balloons.notification-actions`
-- Notification Title and Body — `sdk.notification-balloons.notification-title-and-body`
-- Suggestions — `sdk.notification-balloons.suggestions`
-- Tool Window Notifications — `sdk.notification-balloons.tool-window-notifications`
-- Icons — `sdk.notification-balloons.icons`
-- Localization — `sdk.notification-balloons.localization`
-- Configuring notification display settings — `sdk.notification-balloons.configuring-notification-display-settings`
-- Obsolete API — `sdk.notification-balloons.obsolete-api`
-- Summary — `sdk.notification-balloons.summary`
+## Notification Group (notification-balloons/notification-group.md)
+## Timeline notification (notification-balloons/timeline-notification.md)
+## Configuring Notifications (notification-balloons/configuring-notifications.md)
+## Notification Icons (notification-balloons/notification-icons.md)
+## Notification Actions (notification-balloons/notification-actions.md)
+### Multiple Actions (notification-balloons/notification-actions/multiple-actions.md)
+## Notification Title and Body (notification-balloons/notification-title-and-body.md)
+## Suggestions (notification-balloons/suggestions.md)
+## Tool Window Notifications (notification-balloons/tool-window-notifications.md)
+## Icons (notification-balloons/icons.md)
+## Localization (notification-balloons/localization.md)
+## Configuring notification display settings (notification-balloons/configuring-notification-display-settings.md)
+### Notification balloons without entries in the Notifications tool window (notification-balloons/configuring-notification-display-settings/notification-balloons-without-entries-in-the-notifications-tool-window.md)
+### Notifications tool window entry without a notification balloon (notification-balloons/configuring-notification-display-settings/notifications-tool-window-entry-without-a-notification-balloon.md)
+## Obsolete API (notification-balloons/obsolete-api.md)
+## Summary (notification-balloons/summary.md)
 
 > Source: IntelliJ Platform SDK docs — Notification Balloons (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

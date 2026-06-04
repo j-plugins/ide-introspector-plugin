@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, progress, api]
 ---
-Part of `sdk.background-processes`.
-
 Warning: Use Kotlin Coroutines
 
 Plugins targeting 2024.1+ should use [Kotlin coroutines](https://plugins.jetbrains.com/docs/intellij/kotlin-coroutines.html), which is a more performant solution and provides the cancellation mechanism out of the box.
@@ -25,10 +23,8 @@ The key classes are:
 
 * [Task](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/progress/Task.java) – encapsulates an operation to perform. See `Task`'s inner subclasses for backgroundable, modal and other base task classes.
 
-## Subtopics
-
-- Starting — `sdk.background-processes.progress-api.starting`
-- Cancellation — `sdk.background-processes.progress-api.cancellation`
-- Tracking Progress — `sdk.background-processes.progress-api.tracking-progress`
-
-> Source: IntelliJ Platform SDK docs — Background Processes: Progress API (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
+### Starting (background-processes/progress-api/starting.md)
+### Cancellation (background-processes/progress-api/cancellation.md)
+#### Requesting Cancellation (background-processes/progress-api/cancellation/requesting-cancellation.md)
+#### Handling Cancellation (background-processes/progress-api/cancellation/handling-cancellation.md)
+### Tracking Progress (background-processes/progress-api/tracking-progress.md)

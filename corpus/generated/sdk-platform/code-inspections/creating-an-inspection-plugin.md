@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, creating, inspection, plugin]
 ---
-Part of `sdk.code-inspections`.
-
 The [comparing_string_references_inspection](https://github.com/JetBrains/intellij-sdk-code-samples/tree/main/comparing_string_references_inspection) code sample adds a new inspection to the Java | Probable Bugs group in the [Inspections list](https://www.jetbrains.com/help/idea/inspections-settings.html).
 The inspection reports when the `==` or `!=` operator is used between String expressions.
 
@@ -29,4 +27,3 @@ Although the code sample illustrates implementations of these components, it is 
 To identify a given inspection's implementation classes, try to find an inspection [by name](https://plugins.jetbrains.com/docs/intellij/explore-api.html#search-for-symbol-names) or [by UI texts](https://plugins.jetbrains.com/docs/intellij/explore-api.html#search-by-ui-text).
 Consider also searching for existing implementations in [IntelliJ Platform Explorer](https://jb.gg/ipe?extensions=com.intellij.localInspection).
 
-> Source: IntelliJ Platform SDK docs — Code Inspections: Creating an Inspection Plugin (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, dynamic, extension, points]
 ---
-Part of `sdk.extension-points`.
-
 To support [Dynamic Plugins](https://plugins.jetbrains.com/docs/intellij/dynamic-plugins.html), an extension point must adhere to specific usage rules:
 
 * extensions are enumerated on every use, and extension instances are not stored anywhere
@@ -27,4 +25,3 @@ Extension points matching these conditions can then be marked as dynamic by addi
 
 All non-dynamic extension points are highlighted via Plugin DevKit | Plugin descriptor | Plugin.xml dynamic plugin verification inspection.
 
-> Source: IntelliJ Platform SDK docs — Extension Points: Dynamic Extension Points (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

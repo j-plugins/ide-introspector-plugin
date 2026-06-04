@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, before, run, tasks]
 ---
-Part of `sdk.run-configurations`.
-
 Sometimes, it is necessary to perform specific tasks before a configuration is actually run, e.g., build the project, run a build tool preparation task, launch a web browser, etc.
 Plugins can provide custom tasks that can be added by users to a created run configuration.
 
@@ -18,4 +16,3 @@ The provider implementation is responsible for creating a task instance for a gi
 
 If access to indexes is not required, it can be marked [dumb aware](https://plugins.jetbrains.com/docs/intellij/indexing-and-psi-stubs.html#DumbAwareAPI).
 
-> Source: IntelliJ Platform SDK docs — Run Configurations: Before Run Tasks (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

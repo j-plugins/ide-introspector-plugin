@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, tool, window, notifications]
 ---
-Part of `sdk.notification-balloons`.
-
 A [tool window](https://plugins.jetbrains.com/docs/intellij/tool-windows.html) can trigger a long-running operation.
 For example, the Find in Files action takes a couple of seconds to search for a string in a large project tree, doing that in the background.
 When there are no matches, a notification balloon is shown.
@@ -46,4 +44,3 @@ Additionally, use at most one notification action, which will be rendered as a h
 Generally, the tool window notifications don’t need to be shown in the Notifications tool window.
 See the [corresponding section](#notification-balloons-without-entries-in-the-notifications-tool-window) for the implementation.
 
-> Source: IntelliJ Platform SDK docs — Notification Balloons: Tool Window Notifications (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, declaring, project, settings]
 ---
-Part of `sdk.settings-guide.extension-points-for-settings`.
-
 The project-level settings are declared using [com.intellij.projectConfigurable](https://jb.gg/ipe?extensions=com.intellij.projectConfigurable) extension point
 .
 
@@ -26,4 +24,3 @@ See [Settings Declaration Attributes](#settings-declaration-attributes) for deta
 </extensions>
 ```
 
-> Source: IntelliJ Platform SDK docs — Settings Guide: Declaring Project Settings (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

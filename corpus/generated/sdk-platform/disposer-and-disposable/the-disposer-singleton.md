@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, disposer, singleton]
 ---
-Part of `sdk.disposer-and-disposable`.
-
 The `Disposer` Singleton
 
 The primary purpose of the [Disposer](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/util/src/com/intellij/openapi/util/Disposer.java) singleton is to enforce the rule that a child `Disposable` never outlives its parent.
@@ -77,11 +75,7 @@ Registering a disposable is performed by calling `Disposer.register()`:
 Disposer.register(parentDisposable, childDisposable);
 ```
 
-## Subtopics
-
-- Choosing a Disposable Parent — `sdk.disposer-and-disposable.the-disposer-singleton.choosing-a-disposable-parent`
-- Registering Listeners with Parent Disposable — `sdk.disposer-and-disposable.the-disposer-singleton.registering-listeners-with-parent-disposable`
-- Determining Disposal Status — `sdk.disposer-and-disposable.the-disposer-singleton.determining-disposal-status`
-- Ending a Disposable Lifecycle — `sdk.disposer-and-disposable.the-disposer-singleton.ending-a-disposable-lifecycle`
-
-> Source: IntelliJ Platform SDK docs — Disposer and Disposable: The `Disposer` Singleton (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
+### Choosing a Disposable Parent (disposer-and-disposable/the-disposer-singleton/choosing-a-disposable-parent.md)
+### Registering Listeners with Parent Disposable (disposer-and-disposable/the-disposer-singleton/registering-listeners-with-parent-disposable.md)
+### Determining Disposal Status (disposer-and-disposable/the-disposer-singleton/determining-disposal-status.md)
+### Ending a Disposable Lifecycle (disposer-and-disposable/the-disposer-singleton/ending-a-disposable-lifecycle.md)

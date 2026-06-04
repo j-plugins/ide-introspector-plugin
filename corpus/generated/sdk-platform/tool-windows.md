@@ -25,13 +25,16 @@ There are two main scenarios for the use of tool windows in a plugin.
 Using [declarative setup](#declarative-setup), a tool window button is always visible, and the user can activate it and interact with the plugin functionality at any time.
 Alternatively, using [programmatic setup](#programmatic-setup), the tool window is created to show the results of a specific operation and can then be closed after the operation is completed.
 
-## Subtopics
-
-- Declarative Setup — `sdk.tool-windows.declarative-setup`
-- Programmatic Setup — `sdk.tool-windows.programmatic-setup`
-- Contents (Tabs) — `sdk.tool-windows.contents-tabs`
-- Tool Window FAQ — `sdk.tool-windows.tool-window-faq`
-- Sample Plugin — `sdk.tool-windows.sample-plugin`
-- Testing — `sdk.tool-windows.testing`
+## Declarative Setup (tool-windows/declarative-setup.md)
+### Conditional Display (tool-windows/declarative-setup/conditional-display.md)
+## Programmatic Setup (tool-windows/programmatic-setup.md)
+## Contents (Tabs) (tool-windows/contents-tabs.md)
+### Closing Tabs (tool-windows/contents-tabs/closing-tabs.md)
+## Tool Window FAQ (tool-windows/tool-window-faq.md)
+### Accessing Tool Window (tool-windows/tool-window-faq/accessing-tool-window.md)
+### Tool Window Notification (tool-windows/tool-window-faq/tool-window-notification.md)
+### Events (tool-windows/tool-window-faq/events.md)
+## Sample Plugin (tool-windows/sample-plugin.md)
+## Testing (tool-windows/testing.md)
 
 > Source: IntelliJ Platform SDK docs — Tool Windows (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

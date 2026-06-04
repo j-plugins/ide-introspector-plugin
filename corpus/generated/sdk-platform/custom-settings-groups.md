@@ -17,9 +17,11 @@ Tip:
 
 See [Inspecting Settings](https://plugins.jetbrains.com/docs/intellij/internal-ui-inspector.html#inspecting-settings) on how to gather information in the IDE instance for Settings dialog.
 
-## Subtopics
-
-- Extension Points for Parent-Child Settings Relationships — `sdk.custom-settings-groups.extension-points-for-parent-child-settings-relationships`
-- Implementations for Parent-Child Settings — `sdk.custom-settings-groups.implementations-for-parent-child-settings`
+## Extension Points for Parent-Child Settings Relationships (custom-settings-groups/extension-points-for-parent-child-settings-relationships.md)
+### Parent-Child Settings Using Separate EPs (custom-settings-groups/extension-points-for-parent-child-settings-relationships/parent-child-settings-using-separate-eps.md)
+### Parent-Child Settings Using Nested EPs (custom-settings-groups/extension-points-for-parent-child-settings-relationships/parent-child-settings-using-nested-eps.md)
+### Attributes for Parent-Child Settings EPs (custom-settings-groups/extension-points-for-parent-child-settings-relationships/attributes-for-parent-child-settings-eps.md)
+## Implementations for Parent-Child Settings (custom-settings-groups/implementations-for-parent-child-settings.md)
+### Configurable Marker Interfaces (custom-settings-groups/implementations-for-parent-child-settings/configurable-marker-interfaces.md)
 
 > Source: IntelliJ Platform SDK docs — Custom Settings Groups (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

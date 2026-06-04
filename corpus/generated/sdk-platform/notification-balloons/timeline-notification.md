@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, timeline, notification]
 ---
-Part of `sdk.notification-balloons`.
-
 Next, create a new [Notification](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/ide-core/src/com/intellij/notification/Notifications.java) instance.
 The constructor takes three arguments:
 
@@ -30,4 +28,3 @@ Use [Plugin DevKit](https://plugins.jetbrains.com/plugin/22851-plugin-devkit/) t
 
 By default, a notification is timed, as it will automatically disappear after 10 seconds. However, it will remain in the Notifications tool window, until cleared, in the Timeline section.
 
-> Source: IntelliJ Platform SDK docs — Notification Balloons: Timeline notification (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

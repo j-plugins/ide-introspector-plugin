@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, description]
 ---
-Part of `sdk.plugin-configuration-file.idea-plugin`.
-
 `description`
 
 
@@ -52,4 +50,3 @@ For more information visit the
 ]]></description>
 ```
 
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File: description (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, sample, plugin]
 ---
-Part of `sdk.tool-windows`.
-
 To clarify how to develop plugins that create tool windows, consider the toolWindow sample plugin available in the [code samples](https://github.com/JetBrains/intellij-sdk-code-samples/tree/main/tool_window).
 
 See [Code Samples](https://plugins.jetbrains.com/docs/intellij/code-samples.html) on how to set up and run the plugin.
@@ -17,4 +15,3 @@ When opened, this tool window is similar to the following screen:
 
 ![Sample Calendar](images/sample_calendar.png)
 
-> Source: IntelliJ Platform SDK docs — Tool Windows: Sample Plugin (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

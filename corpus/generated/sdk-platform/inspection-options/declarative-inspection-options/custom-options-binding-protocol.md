@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, custom, options, binding, protocol]
 ---
-Part of `sdk.inspection-options.declarative-inspection-options`.
-
 The default way of binding option form values to fields may be not enough in more advanced cases.
 It is possible to customize the way of binding options by providing a custom
 [OptionController](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/analysis-api/src/com/intellij/codeInspection/options/OptionController.java)
@@ -58,4 +56,3 @@ See
 and `OptionController.onPrefix()` methods for more details and an example implementation:
 [MissingJavadocInspection](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/java/java-impl/src/com/intellij/codeInspection/javaDoc/MissingJavadocInspection.java).
 
-> Source: IntelliJ Platform SDK docs — Inspection Options: Custom Options Binding Protocol (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

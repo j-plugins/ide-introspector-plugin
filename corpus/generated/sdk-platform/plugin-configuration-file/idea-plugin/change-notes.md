@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, change, notes]
 ---
-Part of `sdk.plugin-configuration-file.idea-plugin`.
-
 `change-notes`
 
 <tldr>
@@ -45,4 +43,3 @@ Example
 ]]></change-notes>
 ```
 
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File: change-notes (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

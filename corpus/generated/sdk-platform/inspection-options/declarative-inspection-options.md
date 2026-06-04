@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, declarative, inspection, options]
 ---
-Part of `sdk.inspection-options`.
-
 Declarative API allows:
 
 * delegate component rendering to the platform and make all the inspection options UI consistent and compliant with the [UI guidelines](https://plugins.jetbrains.com/docs/intellij/ui-guidelines-welcome.html)
@@ -63,9 +61,5 @@ The `OptPane` class exposes methods for building fields of other types, e.g., nu
 Note that the bind identifiers passed as a first string argument of methods creating form controls contain injected references that resolve to the bound fields.
 It enables resolving and other resolve-related features available, making it easy to rename fields and minimizing the risk of introducing typos resulting in bugs, as unresolved references will be highlighted as errors.
 
-## Subtopics
-
-- Custom Options Binding Protocol — `sdk.inspection-options.declarative-inspection-options.custom-options-binding-protocol`
-- Non-Profile Inspection Options — `sdk.inspection-options.declarative-inspection-options.non-profile-inspection-options`
-
-> Source: IntelliJ Platform SDK docs — Inspection Options: Declarative Inspection Options (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
+### Custom Options Binding Protocol (inspection-options/declarative-inspection-options/custom-options-binding-protocol.md)
+### Non-Profile Inspection Options (inspection-options/declarative-inspection-options/non-profile-inspection-options.md)

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform]
 ---
-Part of `sdk.plugin-configuration-file.idea-plugin`.
-
 `id`
 
 A unique identifier of the plugin.
@@ -37,4 +35,3 @@ Example
 <id>com.example.framework</id>
 ```
 
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File: id (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

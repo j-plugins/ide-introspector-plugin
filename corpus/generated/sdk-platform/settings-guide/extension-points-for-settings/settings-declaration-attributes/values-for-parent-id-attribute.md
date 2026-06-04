@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, values, for, parent, attribute]
 ---
-Part of `sdk.settings-guide.extension-points-for-settings.settings-declaration-attributes`.
-
 The table below shows all Settings groups and their corresponding value for the `parentId` attribute.
 See the [previous section](#table-of-attributes) for all supported attributes.
 
@@ -24,4 +22,3 @@ See the [previous section](#table-of-attributes) for all supported attributes.
 | Catch-all  Deprecated   |`other` |The IntelliJ Platform no longer uses this group. Do not use this group. Use the `tools` group instead. |
 | Project-related Settings  Deprecated   |`project` |The IntelliJ Platform no longer uses this group. It was intended to store some project-related settings. Do not use this group. |
 
-> Source: IntelliJ Platform SDK docs — Settings Guide: Values for Parent ID Attribute (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

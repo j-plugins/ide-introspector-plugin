@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, obsolete, api]
 ---
-Part of `sdk.notification-balloons`.
-
 Previously, there were multiple SDK approaches to notification balloons.
 They are considered to be obsolete or too complex.
 
@@ -17,4 +15,3 @@ They are considered to be obsolete or too complex.
 
 * `NotificationsManager` is considered to be internal. Its methods should be replaced by the corresponding methods in the `Notification` class.
 
-> Source: IntelliJ Platform SDK docs — Notification Balloons: Obsolete API (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, implementing, disposable, interface]
 ---
-Part of `sdk.disposer-and-disposable`.
-
 Implementing the `Disposable` Interface
 
 Creating a class requires implementing the `Disposable` interface and defining the `dispose()` method.
@@ -54,4 +52,3 @@ Warning:
 Never call `Disposable.dispose()` directly because it bypasses the parent-child relationships established in `Disposer`.
 Always call `Disposer.dispose(Disposable)` instead.
 
-> Source: IntelliJ Platform SDK docs — Disposer and Disposable: Implementing the `Disposable` Interface (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

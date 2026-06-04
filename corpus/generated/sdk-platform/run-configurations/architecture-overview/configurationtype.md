@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, configurationtype]
 ---
-Part of `sdk.run-configurations.architecture-overview`.
-
 `ConfigurationType`
 
 The entry point of a run configuration implementation is [ConfigurationType](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/execution/src/com/intellij/execution/configurations/ConfigurationType.java).
@@ -37,4 +35,3 @@ Sometimes, it is required to provide run configurations programmatically from co
 Implementing [VirtualConfigurationType](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/execution/src/com/intellij/execution/configurations/VirtualConfigurationType.java) blocks the possibility of adding and removing run configurations of this type in the Run/Debug Configurations panel.
 Editing its template is also not available.
 
-> Source: IntelliJ Platform SDK docs — Run Configurations: ConfigurationType (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

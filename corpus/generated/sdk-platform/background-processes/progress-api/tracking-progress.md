@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, tracking, progress]
 ---
-Part of `sdk.background-processes.progress-api`.
-
 Displaying progress to the user is achieved with:
 
 * `ProgressIndicator` - if available in the current context
@@ -27,4 +25,3 @@ To report progress with `ProgressIndicator`, use the following methods:
 `ProgressManager` allows for reporting progress texts through `progress()`/`progress2()` methods, which are counterparts of `ProgressIndicator.setText()`/`setText2()`.
 In addition, it exposes the `ProgressIndicator.getProgressIndicator()` method for getting an indicator instance associated with the current thread.
 
-> Source: IntelliJ Platform SDK docs — Background Processes: Tracking Progress (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

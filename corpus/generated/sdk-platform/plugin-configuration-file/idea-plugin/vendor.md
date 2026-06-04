@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, vendor]
 ---
-Part of `sdk.plugin-configuration-file.idea-plugin`.
-
 `vendor`
 
 
@@ -40,4 +38,3 @@ Examples
 
   * Organizational vendor with a website URL and email address provided: ```XML <vendor url="https://mycompany.example.com" email="contact@example.com"> My Company </vendor> ```
 
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File: vendor (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

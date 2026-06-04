@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, customizing, xml, format, persisted, values]
 ---
-Part of `sdk.persisting-state-of-components.using-persistentstatecomponent`.
-
 Note:
 
 Consider using annotation parameters only to achieve backward compatibility.
@@ -32,4 +30,3 @@ in stored values, implement [PathMacroFilter](https://github.com/JetBrains/intel
 and register in [com.intellij.pathMacroFilter](https://jb.gg/ipe?extensions=com.intellij.pathMacroFilter) extension point
 .
 
-> Source: IntelliJ Platform SDK docs — Persisting State of Components: Customizing the XML Format of Persisted Values (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

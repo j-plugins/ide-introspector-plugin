@@ -1,6 +1,7 @@
 package com.github.xepozz.ide.introspector.context
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -15,11 +16,37 @@ class SdkDocsConverterSplitTest {
         docs.firstOrNull { it.relativePath == path }
 
     @Test
-    fun largeTopicBecomesIndexPlusSubtopicFiles() {
+    fun mainIndexHoldsFullHeadingTreeWithFileLinks() {
         val text = """
             # Big Topic
 
-            Intro paragraph for the topic.
+            Intro paragraph.
+
+            ## First Section
+
+            $filler
+
+            ### Nested
+
+            $filler
+
+            ## Second Section
+
+            $filler
+        """.trimIndent()
+
+        val index = docByPath(converter.convert(text, setOf("Big Topic")), "big-topic.md")!!
+
+        assertTrue(index.content.contains("Intro paragraph."))
+        assertTrue(index.content.contains("## First Section (big-topic/first-section.md)"))
+        assertTrue(index.content.contains("### Nested (big-topic/first-section/nested.md)"))
+        assertTrue(index.content.contains("## Second Section (big-topic/second-section.md)"))
+    }
+
+    @Test
+    fun footerIsOnlyInMainIndexNotSectionFiles() {
+        val text = """
+            # Big Topic
 
             ## First Section
 
@@ -32,48 +59,57 @@ class SdkDocsConverterSplitTest {
 
         val docs = converter.convert(text, setOf("Big Topic"))
 
-        val index = docByPath(docs, "big-topic.md")
-        assertNotNull(index)
-        assertTrue(index!!.content.contains("## Subtopics"))
-        assertTrue(index.content.contains("sdk.big-topic.first-section"))
-        assertTrue(index.content.contains("sdk.big-topic.second-section"))
-
-        val first = docByPath(docs, "big-topic/first-section.md")
-        assertNotNull(first)
-        assertTrue(first!!.content.contains("id: sdk.big-topic.first-section"))
-        assertTrue(first.content.contains("title: Big Topic: First Section"))
-        assertTrue(first.content.contains("Part of `sdk.big-topic`."))
-        assertNotNull(docByPath(docs, "big-topic/second-section.md"))
+        assertTrue(docByPath(docs, "big-topic.md")!!.content.contains("> Source: IntelliJ Platform SDK docs"))
+        assertFalse(docByPath(docs, "big-topic/first-section.md")!!.content.contains("> Source:"))
+        assertFalse(docByPath(docs, "big-topic/second-section.md")!!.content.contains("> Source:"))
     }
 
     @Test
-    fun oversizedSectionRecursesIntoDeeperHeadings() {
+    fun sectionFileHoldsOwnBodyAndLinksToChildren() {
         val text = """
             # Big Topic
 
-            ## Huge Section
+            ## Parent
 
-            ### Alpha
+            parent body text
 
-            $filler
-
-            ### Beta
+            ### Child A
 
             $filler
 
-            ## Small Section
+            ### Child B
 
-            short.
+            $filler
+        """.trimIndent()
+
+        val parent = docByPath(converter.convert(text, setOf("Big Topic")), "big-topic/parent.md")!!
+
+        assertTrue(parent.content.contains("id: sdk.big-topic.parent"))
+        assertTrue(parent.content.contains("parent body text"))
+        assertTrue(parent.content.contains("### Child A (big-topic/parent/child-a.md)"))
+        assertTrue(parent.content.contains("### Child B (big-topic/parent/child-b.md)"))
+        assertNotNull(docByPath(converter.convert(text, setOf("Big Topic")), "big-topic/parent/child-a.md"))
+    }
+
+    @Test
+    fun headingLevelsMayJumpAndNestUnderNearestParent() {
+        val text = """
+            # Big Topic
+
+            ## Section
+
+            $filler
+
+            #### Deep
+
+            $filler
         """.trimIndent()
 
         val docs = converter.convert(text, setOf("Big Topic"))
 
-        assertNotNull(docByPath(docs, "big-topic.md"))
-        assertNotNull(docByPath(docs, "big-topic/huge-section.md"))
-        assertNotNull(docByPath(docs, "big-topic/huge-section/alpha.md"))
-        assertNotNull(docByPath(docs, "big-topic/huge-section/beta.md"))
-        val alpha = docByPath(docs, "big-topic/huge-section/alpha.md")!!
-        assertTrue(alpha.content.contains("id: sdk.big-topic.huge-section.alpha"))
+        assertNotNull(docByPath(docs, "big-topic/section.md"))
+        assertNotNull(docByPath(docs, "big-topic/section/deep.md"))
+        assertTrue(docByPath(docs, "big-topic/section.md")!!.content.contains("#### Deep (big-topic/section/deep.md)"))
     }
 
     @Test
@@ -98,12 +134,11 @@ class SdkDocsConverterSplitTest {
 
         assertNotNull(docByPath(docs, "big-topic/idea-plugin.md"))
         assertNotNull(docByPath(docs, "big-topic/extensions.md"))
-        val index = docByPath(docs, "big-topic.md")!!
-        assertTrue(index.content.contains("sdk.big-topic.idea-plugin"))
+        assertTrue(docByPath(docs, "big-topic.md")!!.content.contains("idea-plugin (big-topic/idea-plugin.md)"))
     }
 
     @Test
-    fun smallTopicStaysSingleFile() {
+    fun smallTopicStaysSingleFileWithFooter() {
         val text = """
             # Tiny
 
@@ -120,6 +155,7 @@ class SdkDocsConverterSplitTest {
 
         assertEquals(1, docs.size)
         assertEquals("tiny.md", docs.single().relativePath)
+        assertTrue(docs.single().content.contains("> Source:"))
         assertNull(docByPath(docs, "tiny/a.md"))
     }
 }

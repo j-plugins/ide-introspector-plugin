@@ -65,9 +65,7 @@ In most cases, the ignored files and excluded folders must be skipped from proce
 During the lifetime of a running instance of an IntelliJ Platform IDE, multiple `VirtualFile` instances may correspond to the same disk file.
 They are equal, have the same `hashCode`, and share the user data.
 
-## Subtopics
-
-- Synchronous and Asynchronous Refreshes — `sdk.virtual-file-system.synchronous-and-asynchronous-refreshes`
-- Virtual File System Events — `sdk.virtual-file-system.virtual-file-system-events`
+## Synchronous and Asynchronous Refreshes (virtual-file-system/synchronous-and-asynchronous-refreshes.md)
+## Virtual File System Events (virtual-file-system/virtual-file-system-events.md)
 
 > Source: IntelliJ Platform SDK docs — Virtual File System (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

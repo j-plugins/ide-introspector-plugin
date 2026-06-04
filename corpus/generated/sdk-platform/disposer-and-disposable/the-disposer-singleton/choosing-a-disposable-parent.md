@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, choosing, disposable, parent]
 ---
-Part of `sdk.disposer-and-disposable.the-disposer-singleton`.
-
 To register a child `Disposable`, a parent `Disposable` of a suitable lifetime is used to establish the parent-child relationship.
 One of the parent `Disposables` provided by the IntelliJ Platform can be chosen, or it can be another `Disposable`.
 
@@ -64,4 +62,3 @@ For example, suppose a UI component created for a specific operation uses a proj
 In that case, the entire component will remain in memory after the operation is complete.
 This creates memory pressure and can waste CPU cycles on processing events that are no longer relevant.
 
-> Source: IntelliJ Platform SDK docs — Disposer and Disposable: Choosing a Disposable Parent (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

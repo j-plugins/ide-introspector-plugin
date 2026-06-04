@@ -18,10 +18,17 @@ An example of the plugin approach is the [comparing_string_references_inspection
 
 See the [Inspections](https://plugins.jetbrains.com/docs/intellij/inspections.html) topic in UI Guidelines on naming, writing description, and message texts for inspections.
 
-## Subtopics
-
-- Creating an Inspection Plugin — `sdk.code-inspections.creating-an-inspection-plugin`
-- Creating an Inspection — `sdk.code-inspections.creating-an-inspection`
-- Running the Comparing String References Inspection Code Sample — `sdk.code-inspections.running-the-comparing-string-references-inspection-code-sample`
+## Creating an Inspection Plugin (code-inspections/creating-an-inspection-plugin.md)
+## Creating an Inspection (code-inspections/creating-an-inspection.md)
+### Plugin Configuration File (code-inspections/creating-an-inspection/plugin-configuration-file.md)
+### Inspection Implementation Java Class (code-inspections/creating-an-inspection/inspection-implementation-java-class.md)
+### Visitor Implementation Class (code-inspections/creating-an-inspection/visitor-implementation-class.md)
+### Quick Fix Implementation (code-inspections/creating-an-inspection/quick-fix-implementation.md)
+### Inspection Description (code-inspections/creating-an-inspection/inspection-description.md)
+#### Code Snippets (code-inspections/creating-an-inspection/inspection-description/code-snippets.md)
+#### Settings Link (code-inspections/creating-an-inspection/inspection-description/settings-link.md)
+### Inspection Test (code-inspections/creating-an-inspection/inspection-test.md)
+## Running the Comparing String References Inspection Code Sample (code-inspections/running-the-comparing-string-references-inspection-code-sample.md)
+### How does it work? (code-inspections/running-the-comparing-string-references-inspection-code-sample/how-does-it-work.md)
 
 > Source: IntelliJ Platform SDK docs — Code Inspections (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

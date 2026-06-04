@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, dispatchers, threads]
 ---
-Part of `sdk.coroutine-dispatchers`.
-
 The dispatcher concept is a higher level of abstraction over threads.
 While the code is always executed on threads, do not think about dispatchers as specific thread instances.
 
@@ -67,4 +65,3 @@ or [other channels](https://plugins.jetbrains.com/docs/intellij/getting-help.htm
 Be specific about the topics and reasons for adding them and leave your email in case we need
 more details. Thanks for your feedback!
 
-> Source: IntelliJ Platform SDK docs — Coroutine Dispatchers: Dispatchers vs. Threads (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

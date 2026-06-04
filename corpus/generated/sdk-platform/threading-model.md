@@ -65,14 +65,33 @@ Warning:
 
 Plugins targeting versions 2024.1+ should use [coroutine dispatchers](https://plugins.jetbrains.com/docs/intellij/coroutine-dispatchers.html) for switching between threads.
 
-## Subtopics
-
-- Read-Write Lock — `sdk.threading-model.read-write-lock`
-- Accessing Data — `sdk.threading-model.accessing-data`
-- Invoking Operations on EDT and Modality — `sdk.threading-model.invoking-operations-on-edt-and-modality`
-- Non-Blocking Read Actions — `sdk.threading-model.non-blocking-read-actions`
-- Avoiding UI Freezes — `sdk.threading-model.avoiding-ui-freezes`
-- Kotlin Notebooks — `sdk.threading-model.kotlin-notebooks`
-- FAQ — `sdk.threading-model.faq`
+## Read-Write Lock (threading-model/read-write-lock.md)
+### Locks and EDT (threading-model/read-write-lock/locks-and-edt.md)
+## Accessing Data (threading-model/accessing-data.md)
+### Read Actions (threading-model/accessing-data/read-actions.md)
+#### API (threading-model/accessing-data/read-actions/api.md)
+##### Alternative APIs (threading-model/accessing-data/read-actions/api/alternative-apis.md)
+#### Rules (threading-model/accessing-data/read-actions/rules.md)
+##### Objects Validity (threading-model/accessing-data/read-actions/rules/objects-validity.md)
+### Write Actions (threading-model/accessing-data/write-actions.md)
+#### API (threading-model/accessing-data/write-actions/api.md)
+##### Alternative APIs (threading-model/accessing-data/write-actions/api/alternative-apis.md)
+#### Rules (threading-model/accessing-data/write-actions/rules.md)
+## Invoking Operations on EDT and Modality (threading-model/invoking-operations-on-edt-and-modality.md)
+## Non-Blocking Read Actions (threading-model/non-blocking-read-actions.md)
+### Non-Blocking Read Actions API (threading-model/non-blocking-read-actions/non-blocking-read-actions-api.md)
+## Avoiding UI Freezes (threading-model/avoiding-ui-freezes.md)
+### Don't Perform Long Operations on EDT (threading-model/avoiding-ui-freezes/don-t-perform-long-operations-on-edt.md)
+#### Action Update (threading-model/avoiding-ui-freezes/don-t-perform-long-operations-on-edt/action-update.md)
+#### Minimize Write Actions Scope (threading-model/avoiding-ui-freezes/don-t-perform-long-operations-on-edt/minimize-write-actions-scope.md)
+#### Slow Operations on EDT Assertion (threading-model/avoiding-ui-freezes/don-t-perform-long-operations-on-edt/slow-operations-on-edt-assertion.md)
+### Event Listeners (threading-model/avoiding-ui-freezes/event-listeners.md)
+### VFS Events (threading-model/avoiding-ui-freezes/vfs-events.md)
+### Investigating UI Freezes (threading-model/avoiding-ui-freezes/investigating-ui-freezes.md)
+## Kotlin Notebooks (threading-model/kotlin-notebooks.md)
+## FAQ (threading-model/faq.md)
+### How to check whether the current thread is the EDT/UI thread? (threading-model/faq/how-to-check-whether-the-current-thread-is-the-edt-ui-thread.md)
+### Why write actions are currently allowed only on EDT? (threading-model/faq/why-write-actions-are-currently-allowed-only-on-edt.md)
+### Why can write intent lock be acquired from any thread but write lock only from EDT? (threading-model/faq/why-can-write-intent-lock-be-acquired-from-any-thread-but-write-lock-only-from-edt.md)
 
 > Source: IntelliJ Platform SDK docs — Threading Model (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

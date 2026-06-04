@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, table, attributes]
 ---
-Part of `sdk.settings-guide.extension-points-for-settings.settings-declaration-attributes`.
-
 The attributes supported by [com.intellij.applicationConfigurable](https://jb.gg/ipe?extensions=com.intellij.applicationConfigurable) extension point
 and [com.intellij.projectConfigurable](https://jb.gg/ipe?extensions=com.intellij.projectConfigurable) extension point
 are in the table below:
@@ -25,12 +23,4 @@ are in the table below:
 | `dynamic` |no |This component's children are dynamically calculated by calling the `getConfigurables()` method.  Not recommended because it requires loading additional classes while building a Settings tree. If possible, use XML attributes instead.   |`Configurable.Composite` |
 | `childrenEPName` |no |Specifies the FQN name of the Extension Point that will be used to calculate the children of this component. |`Configurable` |
 
-##### Attribute Notes
-
-(1) Either `instance` or `provider` must be specified depending on the implementation.
-
-(2) Either `displayName` or `key` and `bundle` must be specified depending on whether the displayed Settings name is localized.
-
-(3) If both `groupId` and `parentId` are specified, a warning is logged. Also, see default entry in [Values for Parent ID Attribute](#values-for-parent-id-attribute).
-
-> Source: IntelliJ Platform SDK docs — Settings Guide: Table of Attributes (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
+##### Attribute Notes (settings-guide/extension-points-for-settings/settings-declaration-attributes/table-of-attributes/attribute-notes.md)

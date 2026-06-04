@@ -23,11 +23,10 @@ In the IntelliJ Platform, coroutines are executed on three main dispatchers:
 
 * [EDT Dispatcher](#edt-dispatcher)
 
-## Subtopics
-
-- Default Dispatcher — `sdk.coroutine-dispatchers.default-dispatcher`
-- IO Dispatcher — `sdk.coroutine-dispatchers.io-dispatcher`
-- EDT Dispatcher — `sdk.coroutine-dispatchers.edt-dispatcher`
-- Dispatchers vs. Threads — `sdk.coroutine-dispatchers.dispatchers-vs-threads`
+## Default Dispatcher (coroutine-dispatchers/default-dispatcher.md)
+## IO Dispatcher (coroutine-dispatchers/io-dispatcher.md)
+## EDT Dispatcher (coroutine-dispatchers/edt-dispatcher.md)
+### Dispatchers.Main` vs. `Dispatchers.EDT (coroutine-dispatchers/edt-dispatcher/dispatchers-main-vs-dispatchers-edt.md)
+## Dispatchers vs. Threads (coroutine-dispatchers/dispatchers-vs-threads.md)
 
 > Source: IntelliJ Platform SDK docs — Coroutine Dispatchers (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

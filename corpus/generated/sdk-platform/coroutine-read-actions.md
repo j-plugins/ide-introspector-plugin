@@ -21,9 +21,10 @@ the Threading section:
 
 This section explains running read actions (RA) in coroutines specifically.
 
-## Subtopics
-
-- Coroutine Read Actions API — `sdk.coroutine-read-actions.coroutine-read-actions-api`
-- FAQ — `sdk.coroutine-read-actions.faq`
+## Coroutine Read Actions API (coroutine-read-actions/coroutine-read-actions-api.md)
+### Write Allowing Read Action vs. NonBlockingReadAction (coroutine-read-actions/coroutine-read-actions-api/write-allowing-read-action-vs-nonblockingreadaction.md)
+#### Read Action Cancellability (coroutine-read-actions/coroutine-read-actions-api/write-allowing-read-action-vs-nonblockingreadaction/read-action-cancellability.md)
+## FAQ (coroutine-read-actions/faq.md)
+### Why can't I suspend inside the block? (coroutine-read-actions/faq/why-can-t-i-suspend-inside-the-block.md)
 
 > Source: IntelliJ Platform SDK docs — Coroutine Read Actions (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, defining, storage, location]
 ---
-Part of `sdk.persisting-state-of-components.using-persistentstatecomponent`.
-
 To specify where precisely the persisted values are stored, add the `@State` annotation to the `PersistentStateComponent` class.
 
 It has the following fields:
@@ -48,4 +46,3 @@ Warning:
 
 If there are multiple components that store state in the same file, they must have the same `roamingType` attribute value.
 
-> Source: IntelliJ Platform SDK docs — Persisting State of Components: Defining the Storage Location (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

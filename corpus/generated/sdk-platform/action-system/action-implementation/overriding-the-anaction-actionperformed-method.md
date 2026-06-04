@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, overriding, anaction, actionperformed, method]
 ---
-Part of `sdk.action-system.action-implementation`.
-
 Overriding the `AnAction.actionPerformed()` Method
 
 When the user selects an enabled action, be it from a menu or toolbar, the action's `AnAction.actionPerformed()` method is called.
@@ -26,4 +24,3 @@ The code that executes in the `AnAction.actionPerformed()` method should execute
 
 An example of inspecting PSI elements is demonstrated in the `action_basics` SDK code sample in [PopupDialogAction.actionPerformed()](https://github.com/JetBrains/intellij-sdk-code-samples/tree/main/action_basics/src/main/java/org/intellij/sdk/action/PopupDialogAction.java).
 
-> Source: IntelliJ Platform SDK docs — Action System: Overriding the `AnAction.actionPerformed()` Method (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, references, with, optional, multiple, resolve]
 ---
-Part of `sdk.psi-references`.
-
 In the simplest case, a reference resolves to a single element, and if resolving fails, the code is incorrect, and the IDE needs to highlight it as an error.
 However, there are cases when the situation is different.
 
@@ -28,4 +26,3 @@ Each of the objects identifies a PSI element and also specifies whether the resu
 For example, suppose you have multiple Java method overloads and a call with arguments not matching any of the overloads.
 In that case, you will get back `ResolveResult` objects for all the overloads, and `isValidResult()` returns `false` for all of them.
 
-> Source: IntelliJ Platform SDK docs — PSI References: References with Optional or Multiple Resolve Results (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, contributed, references]
 ---
-Part of `sdk.psi-references`.
-
 In addition to references defined by the semantics of the programming language, the IDE recognizes many references determined by the semantics of the APIs and frameworks used in code.
 Consider the following example:
 
@@ -33,4 +31,3 @@ The exact places to contribute references to are then specified using [Element P
 
 See also [Reference Contributor tutorial](https://plugins.jetbrains.com/docs/intellij/reference-contributor.html).
 
-> Source: IntelliJ Platform SDK docs — PSI References: Contributed References (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

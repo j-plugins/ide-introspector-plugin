@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, non, blocking, read, actions]
 ---
-Part of `sdk.threading-model`.
-
 BGT shouldn't hold [read locks](#read-actions) for a long time.
 The reason is that if EDT needs a write action (for example, the user types something in the editor), it must be acquired as soon as possible.
 Otherwise, the UI will freeze until all BGTs have released their read actions.
@@ -67,27 +65,4 @@ Warning:
 
 Note that APIs mentioned in [Read Actions API](#read-actions-api) (except suspending `readAction()`) are blocking.
 
-### Non-Blocking Read Actions API
-
-Warning:
-
-Plugins targeting versions 2024.1+ should use Write Allowing Read Actions available in the [Kotlin Coroutines Read Actions API](https://plugins.jetbrains.com/docs/intellij/coroutine-read-actions.html#coroutine-read-actions-api).
-
-To run a non-blocking read action, use one of the available APIs:
-
-* [ReadAction.nonBlocking()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/application/ReadAction.java) which returns [NonBlockingReadAction](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/application/NonBlockingReadAction.java) (NBRA). NBRA handles restarting the action out-of-the-box.
-
-* [ReadAction.computeCancellable()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/application/ReadAction.java) which computes the result immediately in the current thread or throws an exception if there is a running or requested write action.
-
-In both cases, when a read action is started and a write action occurs in the meantime, the read action is marked as canceled.
-Read actions must [check for cancellation](https://plugins.jetbrains.com/docs/intellij/background-processes.html#handling-cancellation) often enough to trigger actual cancellation.
-Although the cancellation mechanism may differ under the hood ([Progress API](https://plugins.jetbrains.com/docs/intellij/background-processes.html#progress-api) or [Kotlin Coroutines](https://plugins.jetbrains.com/docs/intellij/kotlin-coroutines.html)), the cancellation handling rules are the same in both cases.
-
-Always check at the start of each read action if the [objects are still valid](#objects-validity) and if the whole operation still makes sense.
-With `ReadAction.nonBlocking()`, use `expireWith()` or `expireWhen()` for that.
-
-Note:
-
-If NBRA needs to access a [file-based index](https://plugins.jetbrains.com/docs/intellij/indexing-and-psi-stubs.html) (for example, it is doing any project-wide PSI analysis, resolves references, or performs other tasks depending on indexes), use `ReadAction.nonBlocking(…).inSmartMode()`.
-
-> Source: IntelliJ Platform SDK docs — Threading Model: Non-Blocking Read Actions (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
+### Non-Blocking Read Actions API (threading-model/non-blocking-read-actions/non-blocking-read-actions-api.md)

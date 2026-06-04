@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, idea, version]
 ---
-Part of `sdk.plugin-configuration-file.idea-plugin`.
-
 `idea-version`
 
 
@@ -46,4 +44,3 @@ Examples
 
   * Compatibility with versions from any of `213` branches to any of `221` branches: ```XML <idea-version since-build="213" until-build="221.*"/> ```
 
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File: idea-version (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

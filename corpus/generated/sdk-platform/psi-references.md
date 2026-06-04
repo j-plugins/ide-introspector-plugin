@@ -42,11 +42,9 @@ Tip:
 
 Please see also [Cache Results of Heavy Computations](https://plugins.jetbrains.com/docs/intellij/psi-performance.html#cache-results-of-heavy-computations).
 
-## Subtopics
-
-- Contributed References — `sdk.psi-references.contributed-references`
-- References with Optional or Multiple Resolve Results — `sdk.psi-references.references-with-optional-or-multiple-resolve-results`
-- Searching for References — `sdk.psi-references.searching-for-references`
-- Implementing References — `sdk.psi-references.implementing-references`
+## Contributed References (psi-references/contributed-references.md)
+## References with Optional or Multiple Resolve Results (psi-references/references-with-optional-or-multiple-resolve-results.md)
+## Searching for References (psi-references/searching-for-references.md)
+## Implementing References (psi-references/implementing-references.md)
 
 > Source: IntelliJ Platform SDK docs — PSI References (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

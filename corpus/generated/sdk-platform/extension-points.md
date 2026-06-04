@@ -39,10 +39,9 @@ Note:
 
 See the [Bundling Plugin API Sources](https://plugins.jetbrains.com/docs/intellij/bundling-plugin-openapi-sources.html) section explaining how to expose extension points sources to other plugins.
 
-## Subtopics
-
-- Example — `sdk.extension-points.example`
-- Using Extension Points — `sdk.extension-points.using-extension-points`
-- Dynamic Extension Points — `sdk.extension-points.dynamic-extension-points`
+## Example (extension-points/example.md)
+## Using Extension Points (extension-points/using-extension-points.md)
+### Error Handling (extension-points/using-extension-points/error-handling.md)
+## Dynamic Extension Points (extension-points/dynamic-extension-points.md)
 
 > Source: IntelliJ Platform SDK docs — Extension Points (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, example]
 ---
-Part of `sdk.extension-points`.
-
 Consider example extension points declarations:
 
 `myPlugin/META-INF/plugin.xml`
@@ -81,4 +79,3 @@ For the above extension points, their usage in anotherPlugin would look like thi
 </idea-plugin>
 ```
 
-> Source: IntelliJ Platform SDK docs — Extension Points: Example (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, sharing, settings, between, ide, installations]
 ---
-Part of `sdk.persisting-state-of-components.using-persistentstatecomponent`.
-
 <tldr>
 Product Help: [Share IDE settings](https://www.jetbrains.com/help/idea/sharing-your-ide-settings.html)
 </tldr>
@@ -31,34 +29,5 @@ The decision about making a specific component's state shareable should be made 
 Only the settings that aren't specific to a given machine should be shared, for example, paths to user-specific directories shouldn't be shared.
 If a component contains both shareable and non-shareable data, it should be split into two separate components.
 
-#### Backup and Sync Plugin
-
-Tip:
-
-The Settings Sync plugin has been renamed to Backup and Sync in 2024.3.
-
-To include a plugin's component state in the Backup and Sync plugin synchronization, the following requirements must be met:
-
-* The `RoamingType` is defined via the `roamingType` attribute of the `@Storage` annotation and is not equal to `DISABLED`.
-
-* The `SettingsCategory` is defined via the `category` attribute of the `@State` annotation and is not equal to `OTHER`.
-
-* There is no other `PersistentStateComponent`, which is stored in the same XML file and has a different `RoamingType`.
-
-If the component state is OS-dependent, the `roamingType` of the `@Storage` annotation must be set to `RoamingType.PER_OS`.
-
-Warning:
-
-Note that `other.xml` file is non-roamable and declaring it in the `@Storage` annotation will disable roaming of the component state.
-It is recommended to use a separate XML file for the component or use another existing storage file.
-
-#### Settings Repository Plugin and Export Settings Feature
-
-Warning:
-
-The Settings Repository plugin is unbundled starting with version 2022.3 and will be no longer maintained.
-
-Persistent components can be shared via the Settings Repository plugin and Export Settings feature, depending on the `roamingType` of the `@Storage` annotation.
-See the [Defining the Storage Location](#defining-the-storage-location) for more details.
-
-> Source: IntelliJ Platform SDK docs — Persisting State of Components: Sharing Settings Between IDE Installations (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
+#### Backup and Sync Plugin (persisting-state-of-components/using-persistentstatecomponent/sharing-settings-between-ide-installations/backup-and-sync-plugin.md)
+#### Settings Repository Plugin and Export Settings Feature (persisting-state-of-components/using-persistentstatecomponent/sharing-settings-between-ide-installations/settings-repository-plugin-and-export-settings-feature.md)

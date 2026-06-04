@@ -20,13 +20,18 @@ Note: Services as API
 
 If declared services are intended to be used by other plugins depending on your plugin, consider [bundling their sources](https://plugins.jetbrains.com/docs/intellij/bundling-plugin-openapi-sources.html) in the plugin distribution.
 
-## Subtopics
-
-- Types — `sdk.services.types`
-- Constructor — `sdk.services.constructor`
-- Light Services — `sdk.services.light-services`
-- Declaring a Service — `sdk.services.declaring-a-service`
-- Retrieving a Service — `sdk.services.retrieving-a-service`
-- Sample Plugin — `sdk.services.sample-plugin`
+## Types (services/types.md)
+## Constructor (services/constructor.md)
+### Kotlin Coroutines (services/constructor/kotlin-coroutines.md)
+## Light Services (services/light-services.md)
+### Light Service Restrictions (services/light-services/light-service-restrictions.md)
+### Examples (services/light-services/examples.md)
+## Declaring a Service (services/declaring-a-service.md)
+### Service API (services/declaring-a-service/service-api.md)
+### Additional Attributes (services/declaring-a-service/additional-attributes.md)
+### Examples (services/declaring-a-service/examples.md)
+## Retrieving a Service (services/retrieving-a-service.md)
+### Getting Service Flow (services/retrieving-a-service/getting-service-flow.md)
+## Sample Plugin (services/sample-plugin.md)
 
 > Source: IntelliJ Platform SDK docs — Services (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

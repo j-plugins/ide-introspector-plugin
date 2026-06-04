@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, inspection, test]
 ---
-Part of `sdk.code-inspections.creating-an-inspection`.
-
 Note:
 
 Please note that running the test requires setting system property `idea.home.path` in the `test` task configuration of the Gradle build script.
@@ -23,4 +21,3 @@ The folder contains pairs of files for each test using the name convention `∗.
 
 The `comparing_string_references_inspection` tests run the inspection on the `∗.java` files, apply the quick fix, and compare the results with the respective `∗.after.java` files containing expected results.
 
-> Source: IntelliJ Platform SDK docs — Code Inspections: Inspection Test (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

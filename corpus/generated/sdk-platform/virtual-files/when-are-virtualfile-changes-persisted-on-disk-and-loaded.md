@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, when, are, virtualfile, changes, persisted]
 ---
-Part of `sdk.virtual-files`.
-
 When are `VirtualFile` changes persisted on disk and loaded from disk to VFS?
 
 Since version 2026.2, changes to a `VirtualFile` (`getOutputStream()` or `setBinaryContent()`) may reach the underlying files with some delay – the actual IO is postponed and executed asynchronously.
@@ -22,4 +20,3 @@ Changes in the underlying files also reach VFS with some (normally, short) delay
 It could introduce significant delay, so use it with caution.
 More about refreshing in [Virtual File System (VFS)](https://plugins.jetbrains.com/docs/intellij/virtual-file-system.html#synchronous-and-asynchronous-refreshes).
 
-> Source: IntelliJ Platform SDK docs — Virtual Files: When are `VirtualFile` changes persisted on disk and loaded (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, resource, bundle]
 ---
-Part of `sdk.plugin-configuration-file.idea-plugin`.
-
 `resource-bundle`
 
 
@@ -32,4 +30,3 @@ Example
 <resource-bundle>messages.Bundle</resource-bundle>
 ```
 
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File: resource-bundle (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

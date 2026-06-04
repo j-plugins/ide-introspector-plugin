@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, diagnosing, disposer, leaks]
 ---
-Part of `sdk.disposer-and-disposable`.
-
 Diagnosing `Disposer` Leaks
 
 When the application exits, it performs a final sanity check to verify everything was disposed.
@@ -54,4 +52,3 @@ That is a promising place to start digging.
 The above memory leak was ultimately caused by failing to pass a `Project` instance to a function responsible for registering it for disposal.
 Often the fix for a memory leak is as simple as understanding the memory scope of the object being allocated - usually a UI container, project, or application - and making sure a `Disposer.register()` call is made appropriately for it.
 
-> Source: IntelliJ Platform SDK docs — Disposer and Disposable: Diagnosing `Disposer` Leaks (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, version]
 ---
-Part of `sdk.plugin-configuration-file.idea-plugin`.
-
 `version`
 
 <tldr>
@@ -31,4 +29,3 @@ Example
 <version>1.3.18</version>
 ```
 
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File: version (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, creating, run, configuration, from, context]
 ---
-Part of `sdk.run-configurations`.
-
 Run configurations can be created and run from context, e.g., by right-clicking an application main method, a test class/method, etc., directly in the editor or the project view.
 This is achieved by implementing [LazyRunConfigurationProducer](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/lang-api/src/com/intellij/execution/actions/LazyRunConfigurationProducer.kt) and registering
 it in [com.intellij.runConfigurationProducer](https://jb.gg/ipe?extensions=com.intellij.runConfigurationProducer) extension point
@@ -27,4 +25,3 @@ If the run configuration requires additional data before it is executed for the 
 To support the automatic naming of configurations created from context, the configuration should extend [LocatableConfigurationBase](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/execution/src/com/intellij/execution/configurations/LocatableConfigurationBase.java).
 It supports generating a name for a configuration from its settings and tracking whether the user changed the name.
 
-> Source: IntelliJ Platform SDK docs — Run Configurations: Creating a Run Configuration from Context (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

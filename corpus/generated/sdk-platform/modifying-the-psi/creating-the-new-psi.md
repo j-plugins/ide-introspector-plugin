@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, creating, new, psi]
 ---
-Part of `sdk.modifying-the-psi`.
-
 The PSI elements to add to the tree or replace existing PSI elements are usually created from text.
 In most cases, the flow is:
 
@@ -78,4 +76,3 @@ public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descri
 }
 ```
 
-> Source: IntelliJ Platform SDK docs — Modifying the PSI: Creating the New PSI (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

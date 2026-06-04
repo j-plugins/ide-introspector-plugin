@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, notification, title, body]
 ---
-Part of `sdk.notification-balloons`.
-
 To give more context, [use a title and a body](https://plugins.jetbrains.com/docs/intellij/balloon.html#text).
 The title briefly describes what happened, and the body explains the impact or what the user can do about it.
 The overloaded constructor takes an extra string before the content – that’s the title.
@@ -21,4 +19,3 @@ Note:
 
 The notification body may contain HTML code for presentation purposes.
 
-> Source: IntelliJ Platform SDK docs — Notification Balloons: Notification Title and Body (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

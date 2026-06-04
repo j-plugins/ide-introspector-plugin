@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, settingseditor]
 ---
-Part of `sdk.run-configurations.architecture-overview`.
-
 `SettingsEditor`
 
 A run configuration may allow editing its general settings and settings specific to a [program runner](https://plugins.jetbrains.com/docs/intellij/execution.html#execution-classes).
@@ -34,4 +32,3 @@ If the settings editor is complex, see [Simplifying Settings Editors](#simplifyi
 
 Example: [DemoSettingsEditor](https://github.com/JetBrains/intellij-sdk-code-samples/tree/main/run_configuration/src/main/java/org/jetbrains/sdk/runConfiguration/DemoSettingsEditor.java) from the `run_configuration` code sample.
 
-> Source: IntelliJ Platform SDK docs — Run Configurations: SettingsEditor (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

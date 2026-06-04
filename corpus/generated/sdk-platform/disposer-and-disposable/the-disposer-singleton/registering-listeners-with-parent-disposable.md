@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, registering, listeners, with, parent, disposable]
 ---
-Part of `sdk.disposer-and-disposable.the-disposer-singleton`.
-
 Many IntelliJ Platform APIs for registering listeners either require passing a parent disposable or have overloads that take a parent disposable, for example:
 
 ```JAVA
@@ -27,4 +25,3 @@ The same rules apply to [message bus](https://plugins.jetbrains.com/docs/intelli
 Always pass a parent disposable to `MessageBus.connect(parentDisposable)`, and make sure it has the shortest possible lifetime.
 To choose the correct parent disposable, use the guidelines from the [previous section](#choosing-a-disposable-parent).
 
-> Source: IntelliJ Platform SDK docs — Disposer and Disposable: Registering Listeners with Parent Disposable (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

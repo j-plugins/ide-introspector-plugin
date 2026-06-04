@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, incompatible, with]
 ---
-Part of `sdk.plugin-configuration-file.idea-plugin`.
-
 `incompatible-with`
 
 
@@ -35,4 +33,3 @@ Examples
 
   * Incompatibility with the AppCode plugin referenced via its alias: ```XML <incompatible-with> com.intellij.modules.appcode.ide </incompatible-with> ```
 
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File: incompatible-with (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -12,11 +12,10 @@ Tip:
 
 [IDE Perf](https://plugins.jetbrains.com/plugin/15104-ide-perf) plugin provides on-the-fly performance diagnostic tools, including a dedicated view for [CachedValue](#cache-results-of-heavy-computations) metrics.
 
-## Subtopics
-
-- Overview — `sdk.psi-performance.overview`
-- Avoid Expensive Methods of `PsiElement — `sdk.psi-performance.avoid-expensive-methods-of-psielement`
-- Avoid Using Many PSI Trees/Documents — `sdk.psi-performance.avoid-using-many-psi-trees-documents`
-- Cache Results of Heavy Computations — `sdk.psi-performance.cache-results-of-heavy-computations`
+## Overview (psi-performance/overview.md)
+## Avoid Expensive Methods of `PsiElement (psi-performance/avoid-expensive-methods-of-psielement.md)
+## Avoid Using Many PSI Trees/Documents (psi-performance/avoid-using-many-psi-trees-documents.md)
+## Cache Results of Heavy Computations (psi-performance/cache-results-of-heavy-computations.md)
+### Using `ProjectRootManager` as a Dependency (psi-performance/cache-results-of-heavy-computations/using-projectrootmanager-as-a-dependency.md)
 
 > Source: IntelliJ Platform SDK docs — PSI Performance (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

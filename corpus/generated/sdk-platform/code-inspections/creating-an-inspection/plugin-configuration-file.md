@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, plugin, configuration, file]
 ---
-Part of `sdk.code-inspections.creating-an-inspection`.
-
 The `comparing_string_references_inspection` is described as a [com.intellij.localInspection](https://jb.gg/ipe?extensions=com.intellij.localInspection) extension point
 in the `comparing_string_references_inspection` plugin configuration ([plugin.xml](https://github.com/JetBrains/intellij-sdk-code-samples/tree/main/comparing_string_references_inspection/src/main/resources/META-INF/plugin.xml)) file.
 
@@ -23,4 +21,3 @@ In most cases, it is simplest to define the attributes in the plugin configurati
 
 If required, inspections can define all the attribute information (except `implementationClass`) by overriding methods in the inspection implementation class (not recommended in general).
 
-> Source: IntelliJ Platform SDK docs — Code Inspections: Plugin Configuration File (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

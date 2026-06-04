@@ -20,11 +20,13 @@ A `Disposable` is an interface for any object providing a `Disposable.dispose()`
 
 The `Disposer` supports chaining `Disposable` objects in parent-child relationships.
 
-## Subtopics
-
-- Automatically Disposed Objects — `sdk.disposer-and-disposable.automatically-disposed-objects`
-- The `Disposer` Singleton — `sdk.disposer-and-disposable.the-disposer-singleton`
-- Implementing the `Disposable` Interface — `sdk.disposer-and-disposable.implementing-the-disposable-interface`
-- Diagnosing `Disposer` Leaks — `sdk.disposer-and-disposable.diagnosing-disposer-leaks`
+## Automatically Disposed Objects (disposer-and-disposable/automatically-disposed-objects.md)
+## The `Disposer` Singleton (disposer-and-disposable/the-disposer-singleton.md)
+### Choosing a Disposable Parent (disposer-and-disposable/the-disposer-singleton/choosing-a-disposable-parent.md)
+### Registering Listeners with Parent Disposable (disposer-and-disposable/the-disposer-singleton/registering-listeners-with-parent-disposable.md)
+### Determining Disposal Status (disposer-and-disposable/the-disposer-singleton/determining-disposal-status.md)
+### Ending a Disposable Lifecycle (disposer-and-disposable/the-disposer-singleton/ending-a-disposable-lifecycle.md)
+## Implementing the `Disposable` Interface (disposer-and-disposable/implementing-the-disposable-interface.md)
+## Diagnosing `Disposer` Leaks (disposer-and-disposable/diagnosing-disposer-leaks.md)
 
 > Source: IntelliJ Platform SDK docs — Disposer and Disposable (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

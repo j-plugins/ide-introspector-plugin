@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, projectlisteners]
 ---
-Part of `sdk.plugin-configuration-file.idea-plugin`.
-
 `projectListeners`
 
 
@@ -32,4 +30,3 @@ Required
 Children
 : * [&lt;listener&gt;](#idea-plugin__applicationListeners__listener)
 
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File: projectListeners (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

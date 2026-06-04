@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, about, intention, actions]
 ---
-Part of `sdk.intentions`.
-
 The IntelliJ Platform analyzes your code and helps handle situations that may result in errors.
 When a possible problem is suspected, the IDE suggests an appropriate intention action, denoted with special icons.
 
@@ -17,4 +15,3 @@ You can view a list of all available intention actions as well as enable/disable
 
 See the [Intention Action Preview](https://plugins.jetbrains.com/docs/intellij/code-intentions-preview.html) topic on providing a preview of changes that can be made by executing an intention.
 
-> Source: IntelliJ Platform SDK docs — Intentions: About Intention Actions (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

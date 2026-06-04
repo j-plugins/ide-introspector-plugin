@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, searching, for, references]
 ---
-Part of `sdk.psi-references`.
-
 Resolving a reference means going from usage to the corresponding declaration.
 To perform the navigation in the opposite direction - from a declaration to its usages - perform a references search.
 
@@ -15,4 +13,3 @@ To perform a search using [ReferencesSearch](https://github.com/JetBrains/intell
 The created [Query](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/util/Query.kt) allows obtaining all results at once or iterating over the results one by one.
 The latter allows stopping processing as soon as the first (matching) result has been found.
 
-> Source: IntelliJ Platform SDK docs — PSI References: Searching for References (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

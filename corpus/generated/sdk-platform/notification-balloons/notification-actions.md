@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, notification, actions]
 ---
-Part of `sdk.notification-balloons`.
-
 A notification balloon [can contain actions](https://plugins.jetbrains.com/docs/intellij/balloon.html#actions), rendered as a link or button.
 
 ```KOTLIN
@@ -22,9 +20,4 @@ Chain `addAction` method with `createSimpleExpiring` method, which provides a tr
 When the user clicks it, the notification dismisses automatically.
 However, it will stay in the Notification tool window with the hyperlink greyed-out.
 
-### Multiple Actions
-
-Anything beyond two actions [gets hidden](https://plugins.jetbrains.com/docs/intellij/balloon.html#number-of-actions) in a More menu.
-Put the most important actions first.
-
-> Source: IntelliJ Platform SDK docs — Notification Balloons: Notification Actions (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
+### Multiple Actions (notification-balloons/notification-actions/multiple-actions.md)

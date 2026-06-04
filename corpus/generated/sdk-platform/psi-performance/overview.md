@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, overview]
 ---
-Part of `sdk.psi-performance`.
-
 PSI has a lot of time-space compromises.
 There are tons of PSI elements in IDE memory, so the IntelliJ Platform and language plugins strive to keep them as compact as possible, storing very little data inside.
 As a result, many things are recomputed on every call of getter methods on `PsiElement` and its subclasses.
@@ -62,4 +60,3 @@ PsiExpression first = expressions[0];
 PsiExpression last = expressions[expressions.length - 1];
 ```
 
-> Source: IntelliJ Platform SDK docs — PSI Performance: Overview (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

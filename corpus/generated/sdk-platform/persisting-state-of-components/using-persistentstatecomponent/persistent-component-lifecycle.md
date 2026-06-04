@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, persistent, component, lifecycle]
 ---
-Part of `sdk.persisting-state-of-components.using-persistentstatecomponent`.
-
 The `PersistentStateComponent.loadState()` method is called in two cases:
 
 1. After the component is created (only if there is some non-default state persisted for the component)
@@ -20,4 +18,3 @@ The `PersistentStateComponent.getState()` method is called every time the settin
 If the state returned from `getState()` is equal to the default state (obtained by creating the state class with a default constructor), nothing is persisted in the XML.
 Otherwise, the returned state is serialized in XML and stored.
 
-> Source: IntelliJ Platform SDK docs — Persisting State of Components: Persistent Component Lifecycle (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

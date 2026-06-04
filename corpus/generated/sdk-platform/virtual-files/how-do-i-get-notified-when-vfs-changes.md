@@ -6,8 +6,6 @@ kind: reference
 verifiedAgainstBuild: 261.24374.151
 tags: [sdk-platform, how, get, notified, when, vfs]
 ---
-Part of `sdk.virtual-files`.
-
 Note:
 
 See [Virtual File System Events](https://plugins.jetbrains.com/docs/intellij/virtual-file-system.html#virtual-file-system-events) for important details.
@@ -30,4 +28,3 @@ See [Message Infrastructure](https://plugins.jetbrains.com/docs/intellij/messagi
 
 For a non-blocking alternative see [AsyncFileListener](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/vfs/AsyncFileListener.java).
 
-> Source: IntelliJ Platform SDK docs — Virtual Files: How do I get notified when VFS changes? (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
