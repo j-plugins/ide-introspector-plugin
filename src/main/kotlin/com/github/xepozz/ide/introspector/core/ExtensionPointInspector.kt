@@ -176,7 +176,7 @@ object ExtensionPointInspector {
 
     internal fun adapterToExtensionInfo(adapter: Any, pointName: String): ExtensionInfo {
         val implClass = ReflectionAccess.readMethod(adapter, "getAssignableToClassName")?.toString()
-            ?: ReflectionAccess.readField(adapter, "implementationClassOrName")?.toString()
+            ?: implementationClassOrName(adapter)
             ?: ReflectionAccess.readMethod(adapter, "getOrderId")?.toString()
         // ExtensionComponentAdapter exposes `pluginDescriptor` as a public field, not a getter.
         // The value is a public `PluginDescriptor`, so id + name come from typed access.
@@ -194,6 +194,12 @@ object ExtensionPointInspector {
             additionalAttributes = attributes,
         )
     }
+
+    private fun implementationClassOrName(adapter: Any): String? =
+        when (val value = ReflectionAccess.readField(adapter, "implementationClassOrName")) {
+            is Class<*> -> value.name
+            else -> value?.toString()
+        }
 
     @Suppress("UNCHECKED_CAST")
     internal fun readAdditionalAttributes(adapter: Any): Map<String, String> {

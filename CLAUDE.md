@@ -34,7 +34,7 @@ introspector-plugin/
 ├── doc-processor/                  # KSP processor that renders docs/MCP_TOOLS.md
 ├── docs/                           # human-facing docs (MCP_TOOLS.md is generated)
 └── src/main/
-    ├── kotlin/com/github/xepozz/introspector/
+    ├── kotlin/com/github/xepozz/ide/introspector/
     │   ├── core/                   # ComponentRegistry / Walker / Serializer,
     │   │                           #   XPathMatcher, PluginInventory,
     │   │                           #   ExtensionPointInspector, ScreenshotCapture
