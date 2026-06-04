@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+## [2026.1.0] - 2026-06-04
+
+### Added
+
+- Context / skill-book: a bundled corpus exposed to MCP clients via `skill.list`,
+  `skill.get`, `context.search`, and `context.get` (33 → 37 tools). Curated skills plus an
+  auto-vendored IntelliJ Platform SDK reference (sliced from the official `llms.txt`) are
+  packed into the plugin under `context-corpus/`, searchable with an in-process BM25 index
+  and browsable as a tree of files linked by id.
+- New `:corpus-core` module (pure Kotlin) with the frontmatter/corpus/manifest/BM25 logic and
+  build-time assembly (`assembleContextCorpus`) + `convertSdkDocs` / `refresh-sdk-docs.sh`.
+
 ## [2026.0.4] - 2026-06-03
 
 ### Fixed
