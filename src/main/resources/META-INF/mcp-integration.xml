@@ -9,6 +9,8 @@
         <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.PsiToolset"/>
         <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.IdeStateToolset"/>
         <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.EditorToolset"/>
+        <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.SkillToolset"/>
+        <mcpServer.mcpToolset implementation="com.github.xepozz.ide.introspector.tools.ContextToolset"/>
         <!-- ExecToolset was previously gated by `kotlin-exec.xml` depending on the Kotlin
              plugin. Kotlin scripting here uses kotlin-scripting-jsr223 via standard
              javax.script — bundled in our plugin classloader, no Kotlin IDE plugin needed.

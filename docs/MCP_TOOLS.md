@@ -6,7 +6,7 @@ Generated from the `@McpTool` / `@McpDescription` annotations on the `McpToolset
 classes by a KSP processor (`doc-processor/`) that runs as part of `compileKotlin`.
 To refresh: any `./gradlew build` (or `./gradlew compileKotlin`) regenerates this file.
 
-**Total tools:** 33
+**Total tools:** 37
 
 ## Tools by group
 
@@ -24,6 +24,11 @@ To refresh: any `./gradlew build` (or `./gradlew compileKotlin`) regenerates thi
 - [`code__find_class`](#codefindclass)
 - [`code__get_source`](#codegetsource)
 - [`code__list_members`](#codelistmembers)
+
+### `context.*` (2)
+
+- [`context__get`](#contextget)
+- [`context__search`](#contextsearch)
 
 ### `editor.*` (2)
 
@@ -60,6 +65,11 @@ To refresh: any `./gradlew build` (or `./gradlew compileKotlin`) regenerates thi
 
 - [`services__find`](#servicesfind)
 - [`services__list`](#serviceslist)
+
+### `skill.*` (2)
+
+- [`skill__get`](#skillget)
+- [`skill__list`](#skilllist)
 
 ### `ui.*` (9)
 
@@ -432,6 +442,74 @@ Examples:
 | `limit` | `Int` | Cap on returned members. Default 500. |
 
 **Returns:** `ListMembersResponse`
+
+---
+
+## `context__get`
+
+*ContextToolset*
+
+Fetches one corpus entry body by id, clamped to a token budget with a pagination cursor.
+
+Use this when:
+  - context.search gave you an id and you want the full text of that entry.
+  - You are paging a long entry — pass the returned nextOffset back as offset.
+
+Do NOT use this when:
+  - You do not yet know the id — rank candidates with context.search first.
+
+Returns: { status, id, title, kind, body, returnedTokens, truncated, nextOffset }.
+status is "ok", "not_found", "unavailable" or "error". When truncated is true, call again
+with offset=nextOffset to continue.
+
+Example:
+  id=the-extension-point-model                — first slice
+  id=the-extension-point-model offset=2000    — continue paging
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `String` | stable entry id from context.search |
+| `maxTokens` | `Int` | token budget for the returned body; capped per call |
+| `offset` | `Int` | character offset to resume from; pass a prior nextOffset |
+
+**Returns:** `ContextSectionResponse`
+
+---
+
+## `context__search`
+
+*ContextToolset*
+
+Ranks the whole context corpus (curated skills + generated reference) against a query and
+returns locators only, for progressive disclosure.
+
+Use this when:
+  - You have a free-text task or keyword and want the most relevant context entries before
+    pulling any bodies.
+  - You want to discover ids to feed into context.get / skill.get.
+
+Do NOT use this when:
+  - You only want curated skills by tag — skill.list is cheaper.
+  - You already know the id — call context.get directly.
+
+Returns: { status, query, hits:[{ id, title, kind, source, score, tokenEstimate,
+matchedTerms }], total }. status is "ok", "unavailable" or "error". Bodies are NOT included;
+fetch one with context.get.
+
+Example:
+  query="register an extension point"   — ranked locators
+  query="service lifecycle" limit=5     — top five
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `query` | `String` | natural-language task or keywords |
+| `limit` | `Int` | maximum number of hits to return |
+
+**Returns:** `ContextSearchResponse`
 
 ---
 
@@ -1102,6 +1180,71 @@ Examples:
 | `limit` | `Int` | Cap on returned services. Default 500. |
 
 **Returns:** `ListServicesResponse`
+
+---
+
+## `skill__get`
+
+*SkillToolset*
+
+Fetches one skill body by id, clamped to a token budget with a pagination cursor.
+
+Use this when:
+  - skill.list or context.search gave you an id and you want the full guidance.
+  - You are paging a long skill — pass the returned nextOffset back as offset.
+
+Do NOT use this when:
+  - You do not yet know the id — discover it via skill.list or context.search first.
+
+Returns: { status, id, title, kind, body, returnedTokens, truncated, nextOffset }.
+status is "ok", "not_found", "unavailable" or "error". When truncated is true, call again
+with offset=nextOffset to continue.
+
+Example:
+  id=declaring-a-service                 — first slice, default budget
+  id=declaring-a-service maxTokens=4000  — a larger slice
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `String` | stable skill id from skill.list or context.search |
+| `maxTokens` | `Int` | token budget for the returned body; capped per call |
+| `offset` | `Int` | character offset to resume from; pass a prior nextOffset |
+
+**Returns:** `ContextSectionResponse`
+
+---
+
+## `skill__list`
+
+*SkillToolset*
+
+Lists the curated skill cards in the bundled context corpus (id, title, tags, token cost).
+
+Use this when:
+  - You want the playbook for an IntelliJ-platform task and need to discover which skills
+    exist before fetching one with skill.get.
+  - You want to narrow by a topic tag.
+
+Do NOT use this when:
+  - You have a free-text question — use context.search to rank the whole corpus instead.
+  - You already know the id — call skill.get directly.
+
+Returns: { status, skills:[{ id, title, kind, tags, tokenEstimate }], total, appliedTag }.
+status is "ok", "unavailable" (corpus not bundled) or "error". Bodies are NOT included.
+
+Example:
+  (no args)         — list every skill
+  tag=service       — only skills tagged "service"
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `tag` | `String?` | optional tag filter; null lists every skill |
+
+**Returns:** `SkillListResponse`
 
 ---
 

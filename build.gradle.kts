@@ -44,6 +44,11 @@ dependencies {
     // and the bridge then throws "Result type X is not serializable".
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
+    // Context/skill-book retrieval logic (parser, manifest model, BM25 ranker, token budgeter).
+    // Pure Kotlin; kotlinx-serialization-json stays compileOnly there too, so the IDE-provided
+    // runtime copy is used and no second KSerializer classloader is bundled.
+    implementation(project(":corpus-core"))
+
     // Phase 2: Kotlin runtime execution.
     //
     // We do NOT bundle kotlin-compiler-embeddable (≈57 MB) anymore. Instead, at runtime
