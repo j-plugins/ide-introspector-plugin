@@ -1,11 +1,5 @@
----
-id: sdk.persistent-state-component-in-split-mode
-title: Persistent State Component in Split Mode
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, persistent, state, component, split, mode]
----
+# Persistent State Component in Split Mode
+
 This article shows how to make a [Persistent State Component](https://plugins.jetbrains.com/docs/intellij/persisting-state-of-components.html) synchronize correctly between the frontend and the backend.
 
 At a high level, it requires:

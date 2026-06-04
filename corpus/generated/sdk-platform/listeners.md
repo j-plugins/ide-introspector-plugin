@@ -1,11 +1,5 @@
----
-id: sdk.listeners
-title: Listeners
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, listeners]
----
+# Listeners
+
 Listeners allow plugins to subscribe to events delivered through the message bus (see [Messaging infrastructure](https://plugins.jetbrains.com/docs/intellij/messaging-infrastructure.html) for details).
 
 Listeners are defined at the application (global) or [project](https://plugins.jetbrains.com/docs/intellij/project.html) level.

@@ -1,11 +1,5 @@
----
-id: sdk.persisting-state-of-components.using-persistentstatecomponent
-title: Persisting State of Components: Using `PersistentStateComponent
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, using, persistentstatecomponent]
----
+# Using `PersistentStateComponent
+
 Using `PersistentStateComponent`
 
 The [PersistentStateComponent](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/projectModel-api/src/com/intellij/openapi/components/PersistentStateComponent.java) interface allows for persisting state classes and gives the most flexibility for defining the values to be persisted, their format, and storage location.
@@ -21,17 +15,25 @@ To use it:
 Note that instances of extensions can't persist their state by implementing `PersistentStateComponent`.
 If an extension needs to have a persistent state, define a separate service responsible for managing that state.
 
-### Implementing the `PersistentStateComponent` Interface (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface.md)
-#### SimplePersistentStateComponent (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface/simplepersistentstatecomponent.md)
-#### SerializablePersistentStateComponent (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface/serializablepersistentstatecomponent.md)
-#### Persistent Component with Separate State Class (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface/persistent-component-with-separate-state-class.md)
-#### Persistent Component Being a State Class (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface/persistent-component-being-a-state-class.md)
-### Implementing the State Class (persisting-state-of-components/using-persistentstatecomponent/implementing-the-state-class.md)
-#### Converter Example (persisting-state-of-components/using-persistentstatecomponent/implementing-the-state-class/converter-example.md)
-### Defining the Storage Location (persisting-state-of-components/using-persistentstatecomponent/defining-the-storage-location.md)
-### Sharing Settings Between IDE Installations (persisting-state-of-components/using-persistentstatecomponent/sharing-settings-between-ide-installations.md)
-#### Backup and Sync Plugin (persisting-state-of-components/using-persistentstatecomponent/sharing-settings-between-ide-installations/backup-and-sync-plugin.md)
-#### Settings Repository Plugin and Export Settings Feature (persisting-state-of-components/using-persistentstatecomponent/sharing-settings-between-ide-installations/settings-repository-plugin-and-export-settings-feature.md)
-### Customizing the XML Format of Persisted Values (persisting-state-of-components/using-persistentstatecomponent/customizing-the-xml-format-of-persisted-values.md)
-### Migrating Persisted Values (persisting-state-of-components/using-persistentstatecomponent/migrating-persisted-values.md)
-### Persistent Component Lifecycle (persisting-state-of-components/using-persistentstatecomponent/persistent-component-lifecycle.md)
+### Implementing the `PersistentStateComponent` Interface (sdk.persisting-state-of-components.using-persistentstatecomponent.implementing-the-persistentstatecomponent-interface)
+### Implementing the State Class (sdk.persisting-state-of-components.using-persistentstatecomponent.implementing-the-state-class)
+### Defining the Storage Location (sdk.persisting-state-of-components.using-persistentstatecomponent.defining-the-storage-location)
+### Sharing Settings Between IDE Installations (sdk.persisting-state-of-components.using-persistentstatecomponent.sharing-settings-between-ide-installations)
+### Customizing the XML Format of Persisted Values (sdk.persisting-state-of-components.using-persistentstatecomponent.customizing-the-xml-format-of-persisted-values)
+### Migrating Persisted Values
+
+If the underlying persistence model or storage format has changed, a [ConverterProvider](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/lang-impl/src/com/intellij/conversion/ConverterProvider.java) can provide [ProjectConverter](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/lang-impl/src/com/intellij/conversion/ProjectConverter.java), whose `getAdditionalAffectedFiles()` method returns affected files to migrate and performs programmatic migration of stored values.
+
+### Persistent Component Lifecycle
+
+The `PersistentStateComponent.loadState()` method is called in two cases:
+
+1. After the component is created (only if there is some non-default state persisted for the component)
+
+2. After the XML file with the persisted state is changed externally (for example, if the project file was updated from the version control system)
+
+In the latter case, the component is responsible for updating the UI and other related components according to the changed state.
+
+The `PersistentStateComponent.getState()` method is called every time the settings are saved (for example, on frame deactivation or when closing the IDE).
+If the state returned from `getState()` is equal to the default state (obtained by creating the state class with a default constructor), nothing is persisted in the XML.
+Otherwise, the returned state is serialized in XML and stored.

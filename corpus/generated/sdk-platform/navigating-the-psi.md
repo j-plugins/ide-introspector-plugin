@@ -1,11 +1,5 @@
----
-id: sdk.navigating-the-psi
-title: Navigating the PSI
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, navigating, psi]
----
+# Navigating the PSI
+
 There are three main ways to navigate the PSI: top-down, bottom-up, and references.
 In the first scenario, you have a PSI file or another higher-level element (for example, a method). You need to find all elements that match a specified condition (for example, all variable declarations).
 In the second scenario, you have a specific point in the PSI tree (for example, the element at caret) and need to find out something about its context (for example, the element in which it has been declared).

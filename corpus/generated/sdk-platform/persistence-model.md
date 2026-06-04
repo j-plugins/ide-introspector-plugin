@@ -1,11 +1,5 @@
----
-id: sdk.persistence-model
-title: Persistence Model
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, persistence, model]
----
+# Persistence Model
+
 The IntelliJ Platform Persistence Model is used to store a variety of information.
 For example, [Run Configurations](https://plugins.jetbrains.com/docs/intellij/run-configurations.html) and [Settings](https://plugins.jetbrains.com/docs/intellij/settings.html) are stored using the Persistence Model.
 

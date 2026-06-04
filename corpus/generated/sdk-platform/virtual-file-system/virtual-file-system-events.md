@@ -1,11 +1,5 @@
----
-id: sdk.virtual-file-system.virtual-file-system-events
-title: Virtual File System: Virtual File System Events
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, virtual, file, system, events]
----
+# Virtual File System Events
+
 All changes happening in the virtual file system (either due to refresh operations or caused by user actions) are reported as virtual file system events.
 VFS events are always fired in the event dispatch thread and in a write action.
 
@@ -27,4 +21,3 @@ Note that a refresh operation fires events only for changes in files that have b
 For example, if you accessed a `VirtualFile` for a directory but never loaded its contents using [VirtualFile.getChildren()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/vfs/VirtualFile.java), you may not get `fileCreated` notifications when files are created in that directory.
 
 If you load only a single file in a directory using `VirtualFile.findChild()`, you will get notifications for changes to that file, but you may not get created/deleted notifications for other files in the same directory.
-

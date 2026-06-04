@@ -1,11 +1,5 @@
----
-id: sdk.coroutine-tips-and-tricks
-title: Coroutine Tips and Tricks
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, coroutine, tips, tricks]
----
+# Coroutine Tips and Tricks
+
 Tip: Kotlin Coroutines×IntelliJ Platform
 
 This section focuses on explaining coroutines in the specific context of the [IntelliJ Platform](https://plugins.jetbrains.com/docs/intellij/intellij-platform.html).

@@ -22,21 +22,36 @@ class CorpusLoader(
         val path = file.relativePath
         val layer = CorpusLayers.fromRelativePath(path)
         val parsed = FrontmatterParser.parse(file.text, path)
-        issues += parsed.parseIssues
+        val layerSource = CorpusLayers.sourceFor(layer)
+        val body = bodyFor(layer, parsed.body)
+
         val frontmatter = parsed.frontmatter
         if (frontmatter == null) {
-            issues += ValidationIssue(
-                severity = Severity.ERROR,
-                code = IssueCode.MISSING_FRONTMATTER,
-                message = "Missing frontmatter in $path",
-                sourcePath = path,
+            if (layer == CorpusLayer.MANUAL) {
+                issues += parsed.parseIssues
+                issues += ValidationIssue(
+                    severity = Severity.ERROR,
+                    code = IssueCode.MISSING_FRONTMATTER,
+                    message = "Missing frontmatter in $path",
+                    sourcePath = path,
+                )
+                return
+            }
+            val derived = deriveFrontmatter(path, layer, layerSource, file.text)
+            entries += CorpusEntry(
+                id = derived.id,
+                frontmatter = derived,
+                body = body,
+                relativePath = path,
+                layer = layer,
+                source = layerSource,
             )
             return
         }
+
+        issues += parsed.parseIssues
         issues += FrontmatterValidator.validate(frontmatter, path)
-        val layerSource = CorpusLayers.sourceFor(layer)
         issues += layerIssues(frontmatter, layer, layerSource, path)
-        val body = bodyFor(layer, parsed.body)
         entries += CorpusEntry(
             id = frontmatter.id,
             frontmatter = frontmatter,
@@ -86,6 +101,49 @@ class CorpusLoader(
                 )
             }
         }
+
+    private fun deriveFrontmatter(
+        path: String,
+        layer: CorpusLayer,
+        layerSource: Source,
+        rawText: String,
+    ): Frontmatter {
+        val subPath = normalize(path).removePrefix("generated/").removeSuffix(".md")
+        val id = when (layer) {
+            CorpusLayer.SDK_PLATFORM -> "sdk." + subPath.removePrefix("sdk-platform/").replace('/', '.')
+            else -> subPath.replace('/', '.')
+        }
+        val slug = subPath.substringAfterLast('/')
+        val title = firstHeading(rawText) ?: humanize(slug)
+        return Frontmatter(
+            id = id,
+            title = title,
+            source = layerSource,
+            kind = Kind.REFERENCE,
+            tags = deriveTags(slug),
+        )
+    }
+
+    private fun firstHeading(rawText: String): String? =
+        rawText.lineSequence()
+            .firstOrNull { it.startsWith("# ") }
+            ?.removePrefix("# ")
+            ?.trim()
+            ?.ifBlank { null }
+
+    private fun humanize(slug: String): String =
+        slug.split('-')
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { it.replaceFirstChar { character -> character.uppercase() } }
+            .ifBlank { "Untitled" }
+
+    private fun deriveTags(slug: String): List<String> {
+        val derived = slug.split('-')
+            .filter { it.length >= 3 && it != "the" && it != "and" }
+            .distinct()
+            .take(5)
+        return listOf("sdk-platform") + derived
+    }
 
     private fun bodyFor(layer: CorpusLayer, body: String): String =
         when (layer) {

@@ -1,11 +1,5 @@
----
-id: sdk.plugin-configuration-file.idea-plugin.idea-version
-title: Plugin Configuration File: idea-version
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, idea, version]
----
+# idea-version
+
 `idea-version`
 
 
@@ -43,4 +37,3 @@ Examples
 : * Compatibility with a specific build number (2021.3.3) and higher versions: ```XML <idea-version since-build="213.7172.25"/> ```
 
   * Compatibility with versions from any of `213` branches to any of `221` branches: ```XML <idea-version since-build="213" until-build="221.*"/> ```
-

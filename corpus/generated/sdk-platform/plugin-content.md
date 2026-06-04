@@ -1,11 +1,5 @@
----
-id: sdk.plugin-content
-title: Plugin Content
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, plugin, content]
----
+# Plugin Content
+
 Plugin distribution is built using the dedicated Gradle `buildPlugin` task (Reference: [2.x](https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html#buildPlugin),
 [1.x](https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html#tasks-buildplugin)) or [Plugin DevKit](https://plugins.jetbrains.com/docs/intellij/deploying-theme.html).
 

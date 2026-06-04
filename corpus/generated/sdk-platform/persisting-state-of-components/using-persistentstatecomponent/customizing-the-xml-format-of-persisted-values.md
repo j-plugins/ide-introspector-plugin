@@ -1,11 +1,5 @@
----
-id: sdk.persisting-state-of-components.using-persistentstatecomponent.customizing-the-xml-format-of-persisted-values
-title: Persisting State of Components: Customizing the XML Format of Persisted Values
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, customizing, xml, format, persisted, values]
----
+# Customizing the XML Format of Persisted Values
+
 Note:
 
 Consider using annotation parameters only to achieve backward compatibility.
@@ -29,4 +23,3 @@ To disable the expansion of path macros ([PathMacro](https://github.com/JetBrain
 in stored values, implement [PathMacroFilter](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/jps/model-serialization/src/com/intellij/openapi/application/PathMacroFilter.java)
 and register in [com.intellij.pathMacroFilter](https://jb.gg/ipe?extensions=com.intellij.pathMacroFilter) extension point
 .
-

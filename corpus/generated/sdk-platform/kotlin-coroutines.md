@@ -1,11 +1,5 @@
----
-id: sdk.kotlin-coroutines
-title: Kotlin Coroutines
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, kotlin, coroutines]
----
+# Kotlin Coroutines
+
 The IntelliJ Platform is a multithreading environment that executes many asynchronous and non-blocking tasks to avoid UI freezes.
 These tasks are usually executed in background threads, which is a standard approach in the JVM world.
 

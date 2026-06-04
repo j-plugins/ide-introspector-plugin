@@ -1,11 +1,5 @@
----
-id: sdk.psi-elements
-title: PSI Elements
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, psi, elements]
----
+# PSI Elements
+
 A PSI (Program Structure Interface) file represents a hierarchy of PSI elements (so-called PSI trees).
 A single [PSI file](https://plugins.jetbrains.com/docs/intellij/psi-files.html) (itself being a PSI element) may expose several PSI trees in specific programming languages (see [File View Providers](https://plugins.jetbrains.com/docs/intellij/file-view-providers.html)).
 A PSI element, in its turn, can have child PSI elements.

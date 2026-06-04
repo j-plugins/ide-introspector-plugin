@@ -1,11 +1,5 @@
----
-id: sdk.persisting-state-of-components.using-persistentstatecomponent.defining-the-storage-location
-title: Persisting State of Components: Defining the Storage Location
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, defining, storage, location]
----
+# Defining the Storage Location
+
 To specify where precisely the persisted values are stored, add the `@State` annotation to the `PersistentStateComponent` class.
 
 It has the following fields:
@@ -45,4 +39,3 @@ The `roamingType` parameter of the `@Storage` annotation specifies the roaming t
 Warning:
 
 If there are multiple components that store state in the same file, they must have the same `roamingType` attribute value.
-

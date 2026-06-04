@@ -1,11 +1,5 @@
----
-id: sdk.action-system.action-implementation
-title: Action System: Action Implementation
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, action, implementation]
----
+# Action Implementation
+
 An action is a class derived from the abstract class [AnAction](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/editor-ui-api/src/com/intellij/openapi/actionSystem/AnAction.java) (see also [Useful Action Base Classes](#useful-action-base-classes) below).
 The IntelliJ Platform calls methods of actions when a user interacts with a menu item or toolbar button.
 
@@ -23,16 +17,33 @@ For actions available during [dumb mode](https://plugins.jetbrains.com/docs/inte
 
 Do not override `AnAction.isDumbAware()` instead.
 
-### Principal Implementation Overrides (action-system/action-implementation/principal-implementation-overrides.md)
-#### AnAction.update() (action-system/action-implementation/principal-implementation-overrides/anaction-update.md)
-#### AnAction.getActionUpdateThread() (action-system/action-implementation/principal-implementation-overrides/anaction-getactionupdatethread.md)
-#### AnAction.actionPerformed() (action-system/action-implementation/principal-implementation-overrides/anaction-actionperformed.md)
-#### Miscellaneous (action-system/action-implementation/principal-implementation-overrides/miscellaneous.md)
-### Overriding the `AnAction.update()` Method (action-system/action-implementation/overriding-the-anaction-update-method.md)
-#### Determining the Action Context (action-system/action-implementation/overriding-the-anaction-update-method/determining-the-action-context.md)
-#### Enabling and Setting Visibility for an Action (action-system/action-implementation/overriding-the-anaction-update-method/enabling-and-setting-visibility-for-an-action.md)
-### Overriding the `AnAction.actionPerformed()` Method (action-system/action-implementation/overriding-the-anaction-actionperformed-method.md)
-### Action IDs (action-system/action-implementation/action-ids.md)
-### Grouping Actions (action-system/action-implementation/grouping-actions.md)
-#### Presentation (action-system/action-implementation/grouping-actions/presentation.md)
-#### The `compact` Attribute (action-system/action-implementation/grouping-actions/the-compact-attribute.md)
+### Principal Implementation Overrides (sdk.action-system.action-implementation.principal-implementation-overrides)
+### Overriding the `AnAction.update()` Method (sdk.action-system.action-implementation.overriding-the-anaction-update-method)
+### Overriding the `AnAction.actionPerformed()` Method
+
+Overriding the `AnAction.actionPerformed()` Method
+
+When the user selects an enabled action, be it from a menu or toolbar, the action's `AnAction.actionPerformed()` method is called.
+This method contains the code executed to perform the action, and it is here that the real work gets done.
+
+Warning: Reusable Logic
+
+Reusable logic must not be exposed in the `AnAction` implementation via `static` methods (Java) or `companion object` (Kotlin).
+
+Instead, introduce dedicated methods in utility classes or [Services](https://plugins.jetbrains.com/docs/intellij/plugin-services.html).
+
+By using the `AnActionEvent` methods and `CommonDataKeys`, objects such as the `Project`, `Editor`, `PsiFile`, and other information is available.
+For example, the `actionPerformed()` method can modify, remove, or add PSI elements to a file open in the editor.
+
+The code that executes in the `AnAction.actionPerformed()` method should execute efficiently, but it does not have to meet the same stringent requirements as the `update()` method.
+
+An example of inspecting PSI elements is demonstrated in the `action_basics` SDK code sample in [PopupDialogAction.actionPerformed()](https://github.com/JetBrains/intellij-sdk-code-samples/tree/main/action_basics/src/main/java/org/intellij/sdk/action/PopupDialogAction.java).
+
+### Action IDs
+
+Each action and action group must have a unique identifier (see the `id` attribute specification for [action](https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html#idea-plugin__actions__action) and [group](https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html#idea-plugin__actions__group)).
+
+An action requires a unique identifier for every context where it appears in the IDE UI, even if the implementation FQN is shared.
+Standard IntelliJ Platform action IDs are defined in [IdeActions](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/ide-core/src/com/intellij/openapi/actionSystem/IdeActions.java).
+
+### Grouping Actions (sdk.action-system.action-implementation.grouping-actions)

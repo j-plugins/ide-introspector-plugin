@@ -1,11 +1,5 @@
----
-id: sdk.threading-model.invoking-operations-on-edt-and-modality
-title: Threading Model: Invoking Operations on EDT and Modality
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, invoking, operations, edt, modality]
----
+# Invoking Operations on EDT and Modality
+
 Operations that write data on EDT should be invoked with `Application.invokeLater()` because it allows specifying the modality state ([ModalityState](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/application/ModalityState.java)) for the scheduled operation.
 This is not supported by `SwingUtilities.invokeLater()` and similar APIs.
 
@@ -104,4 +98,3 @@ Note:
 
 If EDT activity needs to access a [file-based index](https://plugins.jetbrains.com/docs/intellij/indexing-and-psi-stubs.html) (for example, it is doing any project-wide PSI analysis, resolves references, or performs other tasks depending on indexes), use [DumbService.smartInvokeLater()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/project/DumbService.kt).
 This API also supports `ModalityState` and runs the operation after all possible indexing processes have been completed.
-

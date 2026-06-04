@@ -6,6 +6,7 @@ class SdkDocsConverter(
     private val build: String,
     private val baseUrl: String = "https://plugins.jetbrains.com/docs/intellij",
     private val maxChunkChars: Int = 6_000,
+    private val minSplitChars: Int = 2_000,
 ) {
     fun convert(llmsText: String, selectedTitles: Set<String>): List<GeneratedDoc> {
         val usedTopSlugs = mutableSetOf<String>()
@@ -13,99 +14,90 @@ class SdkDocsConverter(
         for (topic in LlmsTopicSplitter.split(llmsText).filter { it.title in selectedTitles }) {
             val slug = uniqueSlug(Slugs.slugify(topic.title), usedTopSlugs)
             val body = rewriteLinks(topic.body)
-            val tree = if (body.length > maxChunkChars) HeadingTreeParser.parse(body) else null
-            if (tree == null || tree.roots.isEmpty()) {
-                docs += GeneratedDoc("$slug.md", renderSingle("sdk.$slug", topic.title, slug, body))
+            val tree = HeadingTreeParser.parse(body)
+            val total = tree.intro.length + tree.roots.sumOf { subtreeChars(it) }
+            val content = if (total <= maxChunkChars || tree.roots.isEmpty()) {
+                buildString {
+                    appendLine("# ${topic.title}")
+                    appendLine()
+                    appendLine(body)
+                    appendLine()
+                    appendLine(footer(topic.title))
+                }
             } else {
-                val sections = assign(tree.roots, slug, "sdk.$slug")
-                docs += GeneratedDoc("$slug.md", renderMainIndex("sdk.$slug", topic.title, slug, tree.intro, sections))
-                collectSectionDocs(topic.title, sections, docs)
+                buildString {
+                    appendLine("# ${topic.title}")
+                    appendLine()
+                    if (tree.intro.isNotBlank()) {
+                        appendLine(tree.intro)
+                        appendLine()
+                    }
+                    append(renderChildren(tree.roots, slug, "sdk.$slug", docs))
+                    appendLine()
+                    appendLine(footer(topic.title))
+                }
             }
+            docs += GeneratedDoc("$slug.md", content)
         }
         return docs
     }
 
-    private fun assign(nodes: List<HeadingNode>, parentPath: String, parentId: String): List<Section> {
-        val usedSlugs = mutableSetOf<String>()
-        return nodes.map { node ->
-            val title = node.title.ifBlank { firstMeaningfulLine(node.body) }
-            val slug = uniqueSlug(Slugs.slugify(title), usedSlugs)
-            val path = "$parentPath/$slug"
-            val id = "$parentId.$slug"
-            Section(title, slug, path, id, node.level, node.body, assign(node.children, path, id))
-        }
-    }
-
-    private fun collectSectionDocs(rootTitle: String, sections: List<Section>, sink: MutableList<GeneratedDoc>) {
-        for (section in sections) {
-            sink += GeneratedDoc("${section.path}.md", renderSection(rootTitle, section))
-            collectSectionDocs(rootTitle, section.children, sink)
-        }
-    }
-
-    private fun renderSingle(id: String, title: String, slug: String, body: String): String = buildString {
-        append(frontmatter(id, title, tagsFor(slug)))
-        appendLine(body)
-        appendLine()
-        appendLine(footer(title))
-    }
-
-    private fun renderMainIndex(
-        id: String,
-        title: String,
-        slug: String,
-        intro: String,
-        sections: List<Section>,
+    private fun renderChildren(
+        children: List<HeadingNode>,
+        parentPath: String,
+        parentId: String,
+        sink: MutableList<GeneratedDoc>,
     ): String = buildString {
-        append(frontmatter(id, title, tagsFor(slug)))
-        if (intro.isNotBlank()) {
-            appendLine(intro)
+        val usedSlugs = mutableSetOf<String>()
+        for (child in children) {
+            val title = child.title.ifBlank { firstMeaningfulLine(child.body) }
+            if (subtreeChars(child) > minSplitChars) {
+                val slug = uniqueSlug(Slugs.slugify(title), usedSlugs)
+                val path = "$parentPath/$slug"
+                val id = "$parentId.$slug"
+                appendLine("${"#".repeat(child.level)} $title ($id)")
+                emitSection(child, title, path, id, sink)
+            } else {
+                append(inline(listOf(child)))
+            }
+        }
+    }
+
+    private fun emitSection(node: HeadingNode, title: String, path: String, id: String, sink: MutableList<GeneratedDoc>) {
+        val content = buildString {
+            appendLine("# $title")
             appendLine()
+            if (node.body.isNotBlank()) {
+                appendLine(node.body)
+                appendLine()
+            }
+            if (subtreeChars(node) > maxChunkChars) {
+                append(renderChildren(node.children, path, id, sink))
+            } else {
+                append(inline(node.children))
+            }
         }
-        appendOutline(sections)
-        appendLine()
-        appendLine(footer(title))
+        sink += GeneratedDoc("$path.md", content.trimEnd() + "\n")
     }
 
-    private fun renderSection(rootTitle: String, section: Section): String = buildString {
-        append(frontmatter(section.id, "$rootTitle: ${section.title}", tagsFor(section.slug)))
-        if (section.body.isNotBlank()) {
-            appendLine(section.body)
+    private fun inline(nodes: List<HeadingNode>): String = buildString {
+        for (node in nodes) {
+            val title = node.title.ifBlank { firstMeaningfulLine(node.body) }
+            appendLine("${"#".repeat(node.level)} $title")
             appendLine()
-        }
-        if (section.children.isNotEmpty()) {
-            appendOutline(section.children)
-        }
-    }
-
-    private fun StringBuilder.appendOutline(sections: List<Section>) {
-        for (section in sections) {
-            appendLine("${"#".repeat(section.level)} ${section.title} (${section.path}.md)")
-            appendOutline(section.children)
+            if (node.body.isNotBlank()) {
+                appendLine(node.body)
+                appendLine()
+            }
+            append(inline(node.children))
         }
     }
 
-    private fun frontmatter(id: String, title: String, tags: String): String = buildString {
-        appendLine("---")
-        appendLine("id: $id")
-        appendLine("title: $title")
-        appendLine("source: generated")
-        appendLine("kind: reference")
-        appendLine("verifiedAgainstBuild: $build")
-        appendLine("tags: $tags")
-        appendLine("---")
-    }
+    private fun subtreeChars(node: HeadingNode): Int =
+        node.title.length + node.body.length + 4 + node.children.sumOf { subtreeChars(it) }
 
     private fun footer(title: String): String =
         "> Source: IntelliJ Platform SDK docs — $title (build $build). $baseUrl/llms.txt"
-
-    private fun tagsFor(slug: String): String {
-        val derived = slug.split('-')
-            .filter { it.length >= 3 && it != "the" && it != "and" }
-            .distinct()
-            .take(5)
-        return (listOf("sdk-platform") + derived).joinToString(", ", prefix = "[", postfix = "]")
-    }
 
     private fun firstMeaningfulLine(body: String): String {
         val line = body.lineSequence().map { it.trim() }.firstOrNull { it.isNotBlank() } ?: return "section"
@@ -122,16 +114,6 @@ class SdkDocsConverter(
 
     private fun rewriteLinks(body: String): String =
         RELATIVE_LINK.replace(body) { "](${baseUrl}/${it.groupValues[1]})" }
-
-    private class Section(
-        val title: String,
-        val slug: String,
-        val path: String,
-        val id: String,
-        val level: Int,
-        val body: String,
-        val children: List<Section>,
-    )
 
     private companion object {
         val RELATIVE_LINK = Regex("""\]\((?!https?://|#)([A-Za-z0-9._-]+\.html(?:#[^)\s]*)?)\)""")

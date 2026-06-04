@@ -1,11 +1,5 @@
----
-id: sdk.action-system.registering-actions.registering-actions-in-plugin-xml.action-declaration-reference
-title: Action System: Action Declaration Reference
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, action, declaration, reference]
----
+# Action Declaration Reference
+
 The places where actions can appear are defined by constants in [ActionPlaces](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/ide-core/src/com/intellij/openapi/actionSystem/ActionPlaces.java).
 Group IDs for the IntelliJ Platform are defined in [PlatformActions.xml](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/platform-resources/src/idea/PlatformActions.xml).
 
@@ -118,4 +112,3 @@ See the [&lt;actions&gt;](https://plugins.jetbrains.com/docs/intellij/plugin-con
   </group>
 </actions>
 ```
-

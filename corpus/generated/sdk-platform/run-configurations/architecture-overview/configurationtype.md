@@ -1,11 +1,5 @@
----
-id: sdk.run-configurations.architecture-overview.configurationtype
-title: Run Configurations: ConfigurationType
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, configurationtype]
----
+# ConfigurationType
+
 `ConfigurationType`
 
 The entry point of a run configuration implementation is [ConfigurationType](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/execution/src/com/intellij/execution/configurations/ConfigurationType.java).
@@ -34,4 +28,3 @@ Marking a configuration type as [dumb aware](https://plugins.jetbrains.com/docs/
 Sometimes, it is required to provide run configurations programmatically from contexts external to run configuration UI.
 Implementing [VirtualConfigurationType](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/execution/src/com/intellij/execution/configurations/VirtualConfigurationType.java) blocks the possibility of adding and removing run configurations of this type in the Run/Debug Configurations panel.
 Editing its template is also not available.
-

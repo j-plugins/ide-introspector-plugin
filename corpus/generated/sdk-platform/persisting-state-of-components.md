@@ -1,11 +1,5 @@
----
-id: sdk.persisting-state-of-components
-title: Persisting State of Components
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, persisting, state, components]
----
+# Persisting State of Components
+
 The IntelliJ Platform provides an API that allows components or services to persist their state between restarts of the IDE.
 The API allows for persisting simple key-value entries and complex state classes.
 
@@ -18,22 +12,33 @@ Warning:
 
 For persisting sensitive data like passwords, see [Persisting Sensitive Data](https://plugins.jetbrains.com/docs/intellij/persisting-sensitive-data.html).
 
-## Using `PersistentStateComponent (persisting-state-of-components/using-persistentstatecomponent.md)
-### Implementing the `PersistentStateComponent` Interface (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface.md)
-#### SimplePersistentStateComponent (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface/simplepersistentstatecomponent.md)
-#### SerializablePersistentStateComponent (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface/serializablepersistentstatecomponent.md)
-#### Persistent Component with Separate State Class (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface/persistent-component-with-separate-state-class.md)
-#### Persistent Component Being a State Class (persisting-state-of-components/using-persistentstatecomponent/implementing-the-persistentstatecomponent-interface/persistent-component-being-a-state-class.md)
-### Implementing the State Class (persisting-state-of-components/using-persistentstatecomponent/implementing-the-state-class.md)
-#### Converter Example (persisting-state-of-components/using-persistentstatecomponent/implementing-the-state-class/converter-example.md)
-### Defining the Storage Location (persisting-state-of-components/using-persistentstatecomponent/defining-the-storage-location.md)
-### Sharing Settings Between IDE Installations (persisting-state-of-components/using-persistentstatecomponent/sharing-settings-between-ide-installations.md)
-#### Backup and Sync Plugin (persisting-state-of-components/using-persistentstatecomponent/sharing-settings-between-ide-installations/backup-and-sync-plugin.md)
-#### Settings Repository Plugin and Export Settings Feature (persisting-state-of-components/using-persistentstatecomponent/sharing-settings-between-ide-installations/settings-repository-plugin-and-export-settings-feature.md)
-### Customizing the XML Format of Persisted Values (persisting-state-of-components/using-persistentstatecomponent/customizing-the-xml-format-of-persisted-values.md)
-### Migrating Persisted Values (persisting-state-of-components/using-persistentstatecomponent/migrating-persisted-values.md)
-### Persistent Component Lifecycle (persisting-state-of-components/using-persistentstatecomponent/persistent-component-lifecycle.md)
-## Using `PropertiesComponent` for Simple Non-Roamable Persiste (persisting-state-of-components/using-propertiescomponent-for-simple-non-roamable-persiste.md)
-## Legacy API (`JDOMExternalizable`) (persisting-state-of-components/legacy-api-jdomexternalizable.md)
+## Using `PersistentStateComponent (sdk.persisting-state-of-components.using-persistentstatecomponent)
+## Using `PropertiesComponent` for Simple Non-Roamable Persiste
+
+Using `PropertiesComponent` for Simple Non-Roamable Persistence
+
+If the plugin needs to persist a few simple values, the easiest way to do so is to use the [PropertiesComponent](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/ide/util/PropertiesComponent.java) service.
+It can save both application-level values and project-level values in the workspace file.
+Roaming is disabled for `PropertiesComponent`, so use it only for temporary, non-roamable properties.
+
+Use the `PropertiesComponent.getInstance()` method for storing application-level values and the `PropertiesComponent.getInstance(Project)` method for storing project-level values.
+
+Since all plugins share the same namespace, it is highly recommended to prefix key names (for example, using plugin ID `com.example.myCustomSetting`).
+
+## Legacy API (`JDOMExternalizable`)
+
+Legacy API (`JDOMExternalizable`)
+
+Older components use the [JDOMExternalizable](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/util/src/com/intellij/openapi/util/JDOMExternalizable.java) interface for persisting state.
+It uses the `readExternal()` method for reading the state from a JDOM element, and `writeExternal()` to write the state.
+
+Implementations can manually store the state in attributes and sub-elements or use the [DefaultJDOMExternalizer](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/util/src/com/intellij/openapi/util/DefaultJDOMExternalizer.java) class to store the values of all public fields automatically.
+
+Components save their state in the following files:
+
+* Project-level: project (`.ipr`) file. However, if the workspace option in the `[plugin.xml](https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html)` file is set to `true`, then the workspace (`.iws`) file is used instead.
+
+* Module-level: module (`.iml`) file.
+
 
 > Source: IntelliJ Platform SDK docs — Persisting State of Components (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

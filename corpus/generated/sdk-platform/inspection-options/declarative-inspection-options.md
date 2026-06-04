@@ -1,11 +1,5 @@
----
-id: sdk.inspection-options.declarative-inspection-options
-title: Inspection Options: Declarative Inspection Options
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, declarative, inspection, options]
----
+# Declarative Inspection Options
+
 Declarative API allows:
 
 * delegate component rendering to the platform and make all the inspection options UI consistent and compliant with the [UI guidelines](https://plugins.jetbrains.com/docs/intellij/ui-guidelines-welcome.html)
@@ -61,5 +55,21 @@ The `OptPane` class exposes methods for building fields of other types, e.g., nu
 Note that the bind identifiers passed as a first string argument of methods creating form controls contain injected references that resolve to the bound fields.
 It enables resolving and other resolve-related features available, making it easy to rename fields and minimizing the risk of introducing typos resulting in bugs, as unresolved references will be highlighted as errors.
 
-### Custom Options Binding Protocol (inspection-options/declarative-inspection-options/custom-options-binding-protocol.md)
-### Non-Profile Inspection Options (inspection-options/declarative-inspection-options/non-profile-inspection-options.md)
+### Custom Options Binding Protocol (sdk.inspection-options.declarative-inspection-options.custom-options-binding-protocol)
+### Non-Profile Inspection Options
+
+Sometimes, inspections use options that are rendered in a non-standard way or are shared with other inspections or other IDE features.
+Such a shared configuration can be implemented as a [persistent component](https://plugins.jetbrains.com/docs/intellij/persisting-state-of-components.html) and not have a single owner.
+It is still convenient to be able to configure these options from the inspection panel.
+
+An example of such a case is the `Java | Probable bugs | Nullability problems | @NotNull/@Nullable problems` inspection, which contains the Configure Annotations… button that opens the Nullable/NotNull Configuration dialog.
+
+Custom Swing controls can be provided by implementing
+[CustomComponentExtensionWithSwingRenderer](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/lang-api/src/com/intellij/codeInspection/ui/CustomComponentExtensionWithSwingRenderer.java)
+and registering the implementation in the [com.intellij.inspectionCustomComponent](https://jb.gg/ipe?extensions=com.intellij.inspectionCustomComponent) extension point
+.
+Please note that this API is still in the experimental state and may be changed without preserving backward compatibility.
+
+Example:
+[JavaInspectionButtons](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/java/java-impl/src/com/intellij/codeInsight/options/JavaInspectionButtons.java)
+providing buttons for configuring options in custom dialogs

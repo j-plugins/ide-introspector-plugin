@@ -1,11 +1,5 @@
----
-id: sdk.psi-performance.overview
-title: PSI Performance: Overview
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, overview]
----
+# Overview
+
 PSI has a lot of time-space compromises.
 There are tons of PSI elements in IDE memory, so the IntelliJ Platform and language plugins strive to keep them as compact as possible, storing very little data inside.
 As a result, many things are recomputed on every call of getter methods on `PsiElement` and its subclasses.
@@ -59,4 +53,3 @@ PsiExpression[] expressions = call.getArgumentList().getExpressions();
 PsiExpression first = expressions[0];
 PsiExpression last = expressions[expressions.length - 1];
 ```
-

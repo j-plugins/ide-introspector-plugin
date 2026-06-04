@@ -1,11 +1,5 @@
----
-id: sdk.modifying-the-psi.creating-the-new-psi
-title: Modifying the PSI: Creating the New PSI
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, creating, new, psi]
----
+# Creating the New PSI
+
 The PSI elements to add to the tree or replace existing PSI elements are usually created from text.
 In most cases, the flow is:
 
@@ -75,4 +69,3 @@ public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descri
   }
 }
 ```
-

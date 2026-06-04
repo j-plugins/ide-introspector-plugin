@@ -1,11 +1,5 @@
----
-id: sdk.settings
-title: Settings
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, settings]
----
+# Settings
+
 <tldr>
 Product Help: [Settings](https://www.jetbrains.com/help/idea/settings-preferences-dialog.html), [Configuring the IDE](https://www.jetbrains.com/help/idea/configuring-project-and-ide-settings.html)
 </tldr>

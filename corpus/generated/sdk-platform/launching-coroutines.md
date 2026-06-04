@@ -1,11 +1,5 @@
----
-id: sdk.launching-coroutines
-title: Launching Coroutines
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, launching, coroutines]
----
+# Launching Coroutines
+
 Tip: Kotlin Coroutines×IntelliJ Platform
 
 This section focuses on explaining coroutines in the specific context of the [IntelliJ Platform](https://plugins.jetbrains.com/docs/intellij/intellij-platform.html).

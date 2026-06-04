@@ -1,11 +1,5 @@
----
-id: sdk.disposer-and-disposable.the-disposer-singleton
-title: Disposer and Disposable: The `Disposer` Singleton
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, disposer, singleton]
----
+# The `Disposer` Singleton
+
 The `Disposer` Singleton
 
 The primary purpose of the [Disposer](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/util/src/com/intellij/openapi/util/Disposer.java) singleton is to enforce the rule that a child `Disposable` never outlives its parent.
@@ -75,7 +69,40 @@ Registering a disposable is performed by calling `Disposer.register()`:
 Disposer.register(parentDisposable, childDisposable);
 ```
 
-### Choosing a Disposable Parent (disposer-and-disposable/the-disposer-singleton/choosing-a-disposable-parent.md)
-### Registering Listeners with Parent Disposable (disposer-and-disposable/the-disposer-singleton/registering-listeners-with-parent-disposable.md)
-### Determining Disposal Status (disposer-and-disposable/the-disposer-singleton/determining-disposal-status.md)
-### Ending a Disposable Lifecycle (disposer-and-disposable/the-disposer-singleton/ending-a-disposable-lifecycle.md)
+### Choosing a Disposable Parent (sdk.disposer-and-disposable.the-disposer-singleton.choosing-a-disposable-parent)
+### Registering Listeners with Parent Disposable
+
+Many IntelliJ Platform APIs for registering listeners either require passing a parent disposable or have overloads that take a parent disposable, for example:
+
+```JAVA
+public interface PomModel {
+  // ...
+  void addModelListener(PomModelListener listener);
+  void addModelListener(PomModelListener listener, Disposable parentDisposable);
+  void removeModelListener(PomModelListener listener);
+}
+```
+
+Methods with a `parentDisposable` parameter automatically unsubscribe the listener when the corresponding parent disposable is disposed.
+Using such methods is always preferable to removing listeners explicitly from the `dispose` method because it requires less code and is easier to verify for correctness.
+
+The same rules apply to [message bus](https://plugins.jetbrains.com/docs/intellij/messaging-infrastructure.html) connections.
+
+Always pass a parent disposable to `MessageBus.connect(parentDisposable)`, and make sure it has the shortest possible lifetime.
+To choose the correct parent disposable, use the guidelines from the [previous section](#choosing-a-disposable-parent).
+
+### Determining Disposal Status
+
+You can use `Disposer.isDisposed()` to check whether a `Disposable` has already been disposed.
+This check is useful, for example, for an asynchronous callback to a `Disposable` that may be disposed before the callback is executed.
+In such a case, the best strategy is usually to do nothing and return early.
+
+Warning:
+
+Non-disposed objects shouldn't hold onto references to disposed objects, as this constitutes a memory leak.
+Once a `Disposable` is released, it should be completely inactive, and there's no reason to refer to it anymore.
+
+### Ending a Disposable Lifecycle
+
+A plugin can manually end a `Disposable` lifecycle by calling `Disposer.dispose(Disposable)`.
+This method handles recursively disposing of all the `Disposable` child descendants as well.

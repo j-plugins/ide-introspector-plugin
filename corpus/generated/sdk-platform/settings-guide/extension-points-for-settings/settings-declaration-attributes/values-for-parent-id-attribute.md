@@ -1,11 +1,5 @@
----
-id: sdk.settings-guide.extension-points-for-settings.settings-declaration-attributes.values-for-parent-id-attribute
-title: Settings Guide: Values for Parent ID Attribute
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, values, for, parent, attribute]
----
+# Values for Parent ID Attribute
+
 The table below shows all Settings groups and their corresponding value for the `parentId` attribute.
 See the [previous section](#table-of-attributes) for all supported attributes.
 
@@ -21,4 +15,3 @@ See the [previous section](#table-of-attributes) for all supported attributes.
 | `other`  Do not use   |default |If neither `parentId` nor `groupId` attribute is set, the component is added to the `other` Settings group. This is undesirable; see `other` group description. |
 | Catch-all  Deprecated   |`other` |The IntelliJ Platform no longer uses this group. Do not use this group. Use the `tools` group instead. |
 | Project-related Settings  Deprecated   |`project` |The IntelliJ Platform no longer uses this group. It was intended to store some project-related settings. Do not use this group. |
-

@@ -1,11 +1,5 @@
----
-id: sdk.messaging-infrastructure.broadcasting
-title: Messaging Infrastructure: Broadcasting
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, broadcasting]
----
+# Broadcasting
+
 Message buses can be organised into hierarchies.
 Moreover, the IntelliJ Platform has them already:
 
@@ -96,4 +90,3 @@ The following options are available:
 * `TO_PARENT`
 
 See [Topic.BroadcastDirection](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/extensions/src/com/intellij/util/messages/Topic.java) for detailed description of each option.
-

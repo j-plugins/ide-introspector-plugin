@@ -1,11 +1,5 @@
----
-id: sdk.persisting-sensitive-data
-title: Persisting Sensitive Data
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, persisting, sensitive, data]
----
+# Persisting Sensitive Data
+
 The Credentials Store API allows you to store sensitive user data securely, like passwords, server URLs, etc.
 
 ## How to Use

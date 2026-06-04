@@ -1,11 +1,5 @@
----
-id: sdk.action-system
-title: Action System
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, action, system]
----
+# Action System
+
 <tldr>
 Product Help: [Menus and toolbars](https://www.jetbrains.com/help/idea/customize-actions-menus-and-toolbars.html)
 
@@ -23,37 +17,63 @@ Once implemented and registered, an action receives callbacks from the IntelliJ 
 The [Creating Actions](https://plugins.jetbrains.com/docs/intellij/creating-actions-tutorial.html) tutorial describes the process of adding a custom action to a plugin.
 The [Grouping Actions](https://plugins.jetbrains.com/docs/intellij/grouping-actions-tutorial.html) tutorial demonstrates three types of groups that can contain actions.
 
-## Action Implementation (action-system/action-implementation.md)
-### Principal Implementation Overrides (action-system/action-implementation/principal-implementation-overrides.md)
-#### AnAction.update() (action-system/action-implementation/principal-implementation-overrides/anaction-update.md)
-#### AnAction.getActionUpdateThread() (action-system/action-implementation/principal-implementation-overrides/anaction-getactionupdatethread.md)
-#### AnAction.actionPerformed() (action-system/action-implementation/principal-implementation-overrides/anaction-actionperformed.md)
-#### Miscellaneous (action-system/action-implementation/principal-implementation-overrides/miscellaneous.md)
-### Overriding the `AnAction.update()` Method (action-system/action-implementation/overriding-the-anaction-update-method.md)
-#### Determining the Action Context (action-system/action-implementation/overriding-the-anaction-update-method/determining-the-action-context.md)
-#### Enabling and Setting Visibility for an Action (action-system/action-implementation/overriding-the-anaction-update-method/enabling-and-setting-visibility-for-an-action.md)
-### Overriding the `AnAction.actionPerformed()` Method (action-system/action-implementation/overriding-the-anaction-actionperformed-method.md)
-### Action IDs (action-system/action-implementation/action-ids.md)
-### Grouping Actions (action-system/action-implementation/grouping-actions.md)
-#### Presentation (action-system/action-implementation/grouping-actions/presentation.md)
-#### The `compact` Attribute (action-system/action-implementation/grouping-actions/the-compact-attribute.md)
-## Registering Actions (action-system/registering-actions.md)
-### Registering Actions in plugin.xml (action-system/registering-actions/registering-actions-in-plugin-xml.md)
-#### Action Declaration Reference (action-system/registering-actions/registering-actions-in-plugin-xml/action-declaration-reference.md)
-#### Localizing Actions and Groups (action-system/registering-actions/registering-actions-in-plugin-xml/localizing-actions-and-groups.md)
-##### Dedicated Resource Bundle (action-system/registering-actions/registering-actions-in-plugin-xml/localizing-actions-and-groups/dedicated-resource-bundle.md)
-### Registering Actions from Code (action-system/registering-actions/registering-actions-from-code.md)
-## Building a Toolbar/Popup Menu from Actions (action-system/building-a-toolbar-popup-menu-from-actions.md)
-## Useful Action Base Classes (action-system/useful-action-base-classes.md)
-### Toggle/Selection (action-system/useful-action-base-classes/toggle-selection.md)
-#### Popup Menus (action-system/useful-action-base-classes/toggle-selection/popup-menus.md)
-### Back/Forward Navigation (action-system/useful-action-base-classes/back-forward-navigation.md)
-### Runtime Placeholder Action (action-system/useful-action-base-classes/runtime-placeholder-action.md)
-## Executing Actions Programmatically (action-system/executing-actions-programmatically.md)
-## Action ID Code Insight (action-system/action-id-code-insight.md)
-### Builtin Places (action-system/action-id-code-insight/builtin-places.md)
-### Custom Places (action-system/action-id-code-insight/custom-places.md)
-#### Code (action-system/action-id-code-insight/custom-places/code.md)
-#### Other Places (action-system/action-id-code-insight/custom-places/other-places.md)
+## Action Implementation (sdk.action-system.action-implementation)
+## Registering Actions (sdk.action-system.registering-actions)
+## Building a Toolbar/Popup Menu from Actions (sdk.action-system.building-a-toolbar-popup-menu-from-actions)
+## Useful Action Base Classes (sdk.action-system.useful-action-base-classes)
+## Executing Actions Programmatically
+
+Sometimes, it is required to execute actions programmatically, for example, executing an action implementing logic needed in another place, and the implementation is out of our control.
+Executing actions can be achieved with [ActionUtils.invokeAction()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/platform-api/src/com/intellij/openapi/actionSystem/ex/ActionUtil.kt).
+
+Warning:
+
+Executing actions programmatically should be avoided whenever possible.
+If an action executed programmatically is under your control, extract its logic to a [service](https://plugins.jetbrains.com/docs/intellij/plugin-services.html) or utility class and call it directly, without the action execution context.
+
+## Action ID Code Insight
+
+Action ID Code Insight
+
+Code insight to defined Actions and Groups is provided by the Plugin DevKit plugin.
+
+### Builtin Places
+
+* IntelliJ Platform API, for example [ActionManager.getAction()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/editor-ui-api/src/com/intellij/openapi/actionSystem/ActionManager.java)
+
+* Test Framework API, for example [CodeInsightTestFixture.performEditorAction()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/testFramework/src/com/intellij/testFramework/fixtures/CodeInsightTestFixture.java)
+
+* String literal fields with the name `ACTION_ID`
+
+* Constants defined in [IdeActions](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/ide-core/src/com/intellij/openapi/actionSystem/IdeActions.java)
+
+### Custom Places
+
+Additional places can be configured to provide Action ID reference using the bundled IntelliLang plugin.
+Common use cases include plugin-specific test utility code or configuration files.
+
+#### Code
+
+For string literal constants, parameters, and return values, use [@Language](https://github.com/JetBrains/java-annotations/tree/24.0.0/common/src/main/java/org/intellij/lang/annotations/Language.java)
+annotation with `devkit-action-id`.
+
+```JAVA
+public abstract class MyPluginTestCase
+    extends LightPlatformCodeInsightTestCase {
+
+  protected void doTestInvokingSomeAction(
+      @Language("devkit-action-id") @NonNls final String actionId
+      /* more parameters */) {
+  }
+
+}
+```
+
+#### Other Places
+
+To setup Action ID references in other places (for example, XML files) perform the following steps:
+
+Procedure: Injecting in other places
+
 
 > Source: IntelliJ Platform SDK docs — Action System (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

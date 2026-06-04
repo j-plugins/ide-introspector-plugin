@@ -1,11 +1,5 @@
----
-id: sdk.psi-cookbook
-title: PSI Cookbook
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, psi, cookbook]
----
+# PSI Cookbook
+
 This page gives recipes for the most common operations for working with the PSI (Program Structure Interface).
 
 Unlike [Developing Custom Language Plugins](https://plugins.jetbrains.com/docs/intellij/custom-language-support.html), it is about working with the PSI of existing languages (such as Java).

@@ -1,11 +1,5 @@
----
-id: sdk.tool-windows.declarative-setup
-title: Tool Windows: Declarative Setup
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, declarative, setup]
----
+# Declarative Setup
+
 The tool window is registered in `[plugin.xml](https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html)` using the [com.intellij.toolWindow](https://jb.gg/ipe?extensions=com.intellij.toolWindow) extension point
 .
 The extension point attributes specify all the data which is necessary to display the tool window button:
@@ -23,4 +17,20 @@ The extension point attributes specify all the data which is necessary to displa
 When the user clicks on the tool window button, the `createToolWindowContent()` method of the factory class is called and initializes the UI of the tool window.
 This procedure ensures that unused tool windows don't cause any overhead in startup time or memory usage: if a user does not interact with the tool window, no plugin code will be loaded or executed.
 
-### Conditional Display (tool-windows/declarative-setup/conditional-display.md)
+### Conditional Display
+
+If the tool window of a plugin should not be displayed for all projects, the plugin can provide a corresponding condition.
+
+2023.3+:
+
+Implement suspending `ToolWindowFactory.isApplicableAsync(Project)` in Kotlin.
+
+Earlier versions:
+
+Implement `ToolWindowFactory.isApplicable(Project)`.
+
+Tip:
+
+The condition is evaluated only once when the project is loaded.
+
+To show and hide a tool window dynamically while the user is working with the project, use [programmatic setup](#programmatic-setup) for tool window registration.

@@ -1,11 +1,5 @@
----
-id: sdk.coroutines-on-edt-and-locks
-title: Coroutines on EDT and Locks
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, coroutines, edt, locks]
----
+# Coroutines on EDT and Locks
+
 Warning: Page Obsolesence Notice
 
 This page is outdated and will be removed in the future.

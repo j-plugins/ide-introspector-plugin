@@ -1,11 +1,5 @@
----
-id: sdk.plugin-structure
-title: Plugin Structure
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, plugin, structure]
----
+# Plugin Structure
+
 Plugin Structure
 
 Learn about the plugin system structure and plugin components lifecycle.

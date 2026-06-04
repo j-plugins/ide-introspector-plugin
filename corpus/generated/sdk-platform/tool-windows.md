@@ -1,11 +1,5 @@
----
-id: sdk.tool-windows
-title: Tool Windows
-source: generated
-kind: reference
-verifiedAgainstBuild: 261.24374.151
-tags: [sdk-platform, tool, windows]
----
+# Tool Windows
+
 <tldr>
 Product Help: [Tool windows](https://www.jetbrains.com/help/idea/tool-windows.html)
 
@@ -25,16 +19,48 @@ There are two main scenarios for the use of tool windows in a plugin.
 Using [declarative setup](#declarative-setup), a tool window button is always visible, and the user can activate it and interact with the plugin functionality at any time.
 Alternatively, using [programmatic setup](#programmatic-setup), the tool window is created to show the results of a specific operation and can then be closed after the operation is completed.
 
-## Declarative Setup (tool-windows/declarative-setup.md)
-### Conditional Display (tool-windows/declarative-setup/conditional-display.md)
-## Programmatic Setup (tool-windows/programmatic-setup.md)
-## Contents (Tabs) (tool-windows/contents-tabs.md)
-### Closing Tabs (tool-windows/contents-tabs/closing-tabs.md)
-## Tool Window FAQ (tool-windows/tool-window-faq.md)
-### Accessing Tool Window (tool-windows/tool-window-faq/accessing-tool-window.md)
-### Tool Window Notification (tool-windows/tool-window-faq/tool-window-notification.md)
-### Events (tool-windows/tool-window-faq/events.md)
-## Sample Plugin (tool-windows/sample-plugin.md)
-## Testing (tool-windows/testing.md)
+## Declarative Setup (sdk.tool-windows.declarative-setup)
+## Programmatic Setup
+
+For tool windows shown only after invoking specific actions, use [ToolWindowManager.registerToolWindow(String, RegisterToolWindowTaskBuilder)](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/platform-api/src/com/intellij/openapi/wm/ToolWindowManager.kt).
+
+Always use [ToolWindowManager.invokeLater()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/platform-api/src/com/intellij/openapi/wm/ToolWindowManager.kt) instead of "plain" `Application.invokeLater()` when scheduling EDT tasks related to tool windows (see [Threading Model](https://plugins.jetbrains.com/docs/intellij/threading-model.html)).
+
+## Contents (Tabs) (sdk.tool-windows.contents-tabs)
+## Tool Window FAQ
+
+### Accessing Tool Window
+
+Use [ToolWindowManager.getToolWindow()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/platform-api/src/com/intellij/openapi/wm/ToolWindowManager.kt) specifying the `id` used for [registration](#declarative-setup).
+
+### Tool Window Notification
+
+Showing a balloon notification for a tool window can be done:
+
+* [registering notification](https://plugins.jetbrains.com/docs/intellij/notification-balloons.html#tool-window-notifications) for a specific tool window
+
+* by calling [ToolWindowManager.notifyByBalloon()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/platform-api/src/com/intellij/openapi/wm/ToolWindowManager.kt)
+
+### Events
+
+Project-level topic [ToolWindowManagerListener](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/platform-api/src/com/intellij/openapi/wm/ex/ToolWindowManagerListener.java) allows listening to tool window registration/show events (see [Listeners](https://plugins.jetbrains.com/docs/intellij/plugin-listeners.html)).
+
+## Sample Plugin
+
+To clarify how to develop plugins that create tool windows, consider the toolWindow sample plugin available in the [code samples](https://github.com/JetBrains/intellij-sdk-code-samples/tree/main/tool_window).
+
+See [Code Samples](https://plugins.jetbrains.com/docs/intellij/code-samples.html) on how to set up and run the plugin.
+
+This plugin creates the Sample Calendar tool window that displays the system date, time and time zone.
+When opened, this tool window is similar to the following screen:
+
+![Sample Calendar](images/sample_calendar.png)
+
+## Testing
+
+One of the testing approaches for tool windows is implementing [UI integration tests](https://plugins.jetbrains.com/docs/intellij/integration-tests-ui.html).
+
+To get a tool window in UI tests, use [IdeaFrameUI.toolWindow()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/remote-driver/test-sdk/src/com/intellij/driver/sdk/ui/components/common/IdeaFrameUiExt.kt).
+
 
 > Source: IntelliJ Platform SDK docs — Tool Windows (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
