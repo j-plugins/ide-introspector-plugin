@@ -9,10 +9,10 @@ dependencies {
     // Kotlin-plugin classloader, which provides all of these classes via its own jars in
     // <Kotlin plugin>/kotlinc/lib/. Avoids bundling 57 MB of kotlin-compiler-embeddable in
     // the plugin distribution.
-    compileOnly("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.21")
-    compileOnly("org.jetbrains.kotlin:kotlin-scripting-common:2.3.21")
-    compileOnly("org.jetbrains.kotlin:kotlin-scripting-jvm:2.3.21")
-    compileOnly("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:2.3.21")
+    compileOnly("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.4.0")
+    compileOnly("org.jetbrains.kotlin:kotlin-scripting-common:2.4.0")
+    compileOnly("org.jetbrains.kotlin:kotlin-scripting-jvm:2.4.0")
+    compileOnly("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:2.4.0")
 }
 
 kotlin {
