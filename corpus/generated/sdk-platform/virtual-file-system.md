@@ -65,49 +65,9 @@ In most cases, the ignored files and excluded folders must be skipped from proce
 During the lifetime of a running instance of an IntelliJ Platform IDE, multiple `VirtualFile` instances may correspond to the same disk file.
 They are equal, have the same `hashCode`, and share the user data.
 
-## Synchronous and Asynchronous Refreshes
+## Subtopics
 
-From the point of view of the caller, refresh operations can be either synchronous or asynchronous.
-In fact, the refresh operations are executed according to their own threading policy.
-The synchronous flag simply means that the calling thread will be blocked until the refresh operation (which will most likely run on a different thread) is completed.
-
-Both synchronous and asynchronous refreshes can be initiated from any thread.
-If a refresh is initiated from a background thread, the calling thread must not hold a read lock, because otherwise, a deadlock would occur.
-See [IntelliJ Platform Architectural Overview](https://plugins.jetbrains.com/docs/intellij/threading-model.html) for more details on the threading model and read/write actions.
-
-The same threading requirements also apply to functions like [LocalFileSystem.refreshAndFindFileByPath()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/analysis-api/src/com/intellij/openapi/vfs/LocalFileSystem.java), which perform a partial refresh if the file with the specified path is not found in the snapshot.
-
-In nearly all cases, using asynchronous refreshes is strongly preferred.
-If there is some code that needs to be executed after the refresh is complete, the code should be passed as a `postRunnable` parameter to one of the refresh methods:
-
-* [RefreshQueue.createSession()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/analysis-api/src/com/intellij/openapi/vfs/newvfs/RefreshQueue.kt)
-
-* [VirtualFile.refresh()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/vfs/VirtualFile.java)
-
-In some cases, synchronous refreshes can cause deadlocks, depending on which [locks](https://plugins.jetbrains.com/docs/intellij/threading-model.html#read-write-lock) are held by the thread invoking the refresh operation.
-
-## Virtual File System Events
-
-All changes happening in the virtual file system (either due to refresh operations or caused by user actions) are reported as virtual file system events.
-VFS events are always fired in the event dispatch thread and in a write action.
-
-The most efficient way to listen to VFS events is to implement [BulkFileListener](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/vfs/newvfs/BulkFileListener.java) and to subscribe with it to the [VirtualFileManager.VFS_CHANGES](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/vfs/VirtualFileManager.java) topic.
-A non-blocking variant [AsyncFileListener](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/vfs/AsyncFileListener.java) is also available.
-See [How do I get notified when VFS changes?](https://plugins.jetbrains.com/docs/intellij/virtual-file.html#how-do-i-get-notified-when-vfs-changes) for implementation details.
-
-Warning:
-
-VFS listeners are application level and will receive events for changes happening in all the projects opened by the user.
-You may need to filter out events that aren't relevant to your task (e.g., via [ProjectFileIndex.isInContent()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/projectModel-api/src/com/intellij/openapi/roots/ProjectFileIndex.java)).
-
-VFS events are sent both before and after each change, and you can access the old contents of the file in the before event.
-Note that events caused by a refresh are sent after the changes have already occurred on disk.
-So when you process the `beforeFileDeletion` event, for example, the file has already been deleted from the disk.
-However, it is still present in the VFS snapshot, and you can access its last contents using the VFS API.
-
-Note that a refresh operation fires events only for changes in files that have been loaded in the snapshot.
-For example, if you accessed a `VirtualFile` for a directory but never loaded its contents using [VirtualFile.getChildren()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/vfs/VirtualFile.java), you may not get `fileCreated` notifications when files are created in that directory.
-
-If you load only a single file in a directory using `VirtualFile.findChild()`, you will get notifications for changes to that file, but you may not get created/deleted notifications for other files in the same directory.
+- Synchronous and Asynchronous Refreshes — `sdk.virtual-file-system.synchronous-and-asynchronous-refreshes`
+- Virtual File System Events — `sdk.virtual-file-system.virtual-file-system-events`
 
 > Source: IntelliJ Platform SDK docs — Virtual File System (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -30,13 +30,15 @@ fun main(arguments: Array<String>) {
         System.err.println("WARNING: ${missing.size} selected topic(s) not found in llms.txt: $missing")
     }
 
-    if (outputDirectory.isDirectory) {
-        outputDirectory.listFiles { file -> file.extension == "md" }?.forEach { it.delete() }
+    if (outputDirectory.exists()) {
+        outputDirectory.deleteRecursively()
     }
     outputDirectory.mkdirs()
     for (document in documents) {
-        File(outputDirectory, document.relativePath).writeText(document.content, Charsets.UTF_8)
+        val target = File(outputDirectory, document.relativePath)
+        target.parentFile?.mkdirs()
+        target.writeText(document.content, Charsets.UTF_8)
     }
 
-    println("SDK docs converted: ${documents.size} topics (build $build) -> ${outputDirectory.absolutePath}")
+    println("SDK docs converted: ${documents.size} files (build $build) -> ${outputDirectory.absolutePath}")
 }
