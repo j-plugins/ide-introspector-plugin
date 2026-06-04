@@ -45,4 +45,19 @@ class ContextRetrieverTest {
         val response = retriever.section("does-not-exist", 2000, 0)
         assertEquals("not_found", response.status)
     }
+
+    @Test
+    fun searchFindsGeneratedSdkPlatformReference() {
+        val response = retriever.search("coroutine read action threading", 10)
+        assertEquals("ok", response.status)
+        assertTrue(response.hits.any { it.id.startsWith("sdk.") && it.source == "generated" })
+    }
+
+    @Test
+    fun sectionReturnsSdkTopicBody() {
+        val response = retriever.section("sdk.threading-model", 4000, 0)
+        assertEquals("ok", response.status)
+        assertEquals("sdk.threading-model", response.id)
+        assertTrue(response.body!!.lowercase().contains("thread"))
+    }
 }

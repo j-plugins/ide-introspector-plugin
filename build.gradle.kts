@@ -136,3 +136,13 @@ tasks.processResources {
         into("context-corpus")
     }
 }
+
+val convertSdkDocs by tasks.registering(JavaExec::class) {
+    description = "Converts the vendored IntelliJ Platform llms.txt into corpus/generated/sdk-platform."
+    classpath = corpusAssembler
+    mainClass.set("com.github.xepozz.ide.introspector.context.SdkDocsConverterMainKt")
+    args(
+        layout.projectDirectory.file(".writerside-build/llms.txt").asFile.absolutePath,
+        layout.projectDirectory.dir("corpus/generated/sdk-platform").asFile.absolutePath,
+    )
+}

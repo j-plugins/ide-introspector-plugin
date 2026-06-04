@@ -4,3 +4,6 @@
 .intellijPlatform
 .kotlin
 build
+
+# Writerside builder workspace (Phase 3 doc conversion, never committed)
+.writerside-build/
