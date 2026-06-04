@@ -56,5 +56,3 @@ When a message is sent to the target topic, the following happens:
 * handler1 receives message2
 
 ## Tips and Tricks (sdk.messaging-infrastructure.tips-and-tricks)
-
-> Source: IntelliJ Platform SDK docs — Messaging Infrastructure (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

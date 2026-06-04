@@ -11,5 +11,3 @@ The Program Structure Interface, commonly referred to as PSI, is the layer in th
 Tip:
 
 See [useful tools](https://plugins.jetbrains.com/docs/intellij/explore-api.html#internalMode) on how to inspect the PSI structure and its properties.
-
-> Source: IntelliJ Platform SDK docs — Program Structure Interface (PSI) (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -9,7 +9,7 @@ import org.junit.Test
 
 class SdkDocsConverterSplitTest {
 
-    private val converter = SdkDocsConverter(build = "261.0.0", maxChunkChars = 2_000, minSplitChars = 500)
+    private val converter = SdkDocsConverter(maxChunkChars = 2_000, minSplitChars = 500)
     private val filler = "Lorem ipsum dolor sit amet consectetur. ".repeat(80)
 
     private fun docByPath(docs: List<GeneratedDoc>, path: String): GeneratedDoc? =
@@ -45,13 +45,12 @@ class SdkDocsConverterSplitTest {
     }
 
     @Test
-    fun footerOnlyInMainIndexNotSectionFiles() {
+    fun noGeneratedFileHasProvenanceFooter() {
         val text = "# Big Topic\n\n## Big One\n\n$filler\n\n## Big Two\n\n$filler"
 
         val docs = converter.convert(text, setOf("Big Topic"))
 
-        assertTrue(docByPath(docs, "big-topic.md")!!.content.contains("> Source: IntelliJ Platform SDK docs"))
-        assertFalse(docByPath(docs, "big-topic/big-one.md")!!.content.contains("> Source:"))
+        assertTrue(docs.none { it.content.contains("> Source:") })
     }
 
     @Test
@@ -80,14 +79,14 @@ class SdkDocsConverterSplitTest {
     }
 
     @Test
-    fun smallTopicStaysSingleFileWithFooter() {
+    fun smallTopicStaysSingleFile() {
         val text = "# Tiny\n\n## A\n\none\n\n## B\n\ntwo"
 
         val docs = converter.convert(text, setOf("Tiny"))
 
         assertEquals(1, docs.size)
         assertEquals("tiny.md", docs.single().relativePath)
-        assertTrue(docs.single().content.contains("> Source:"))
+        assertTrue(docs.single().content.startsWith("# Tiny"))
         assertNull(docByPath(docs, "tiny/a.md"))
     }
 }

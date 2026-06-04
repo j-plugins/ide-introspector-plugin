@@ -35,6 +35,3 @@ This plugin has an application service counting the number of currently opened p
 If this number exceeds the maximum number of simultaneously opened projects allowed by the plugin (3), it displays an information message.
 
 See [Code Samples](https://plugins.jetbrains.com/docs/intellij/code-samples.html) on how to set up and run the plugin.
-
-
-> Source: IntelliJ Platform SDK docs — Services (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

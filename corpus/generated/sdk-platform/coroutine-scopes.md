@@ -15,5 +15,3 @@ Structured concurrency ensures that any errors in the code are properly reported
 
 ## IntelliJ Platform Scopes (sdk.coroutine-scopes.intellij-platform-scopes)
 ## Using a Correct Scope (sdk.coroutine-scopes.using-a-correct-scope)
-
-> Source: IntelliJ Platform SDK docs — Coroutine Scopes (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -54,6 +54,3 @@ If cached values use [ProjectRootManager](https://github.com/JetBrains/intellij-
 (without [PsiModificationTracker](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/psi/util/PsiModificationTracker.java))
 and at the same time depend on [indexes](https://plugins.jetbrains.com/docs/intellij/indexing-and-psi-stubs.html), a dependency on
 [DumbService](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/openapi/project/DumbService.kt) must be added.
-
-
-> Source: IntelliJ Platform SDK docs — PSI Performance (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -100,5 +100,3 @@ The provider implementation is responsible for creating a task instance for a gi
 If access to indexes is not required, it can be marked [dumb aware](https://plugins.jetbrains.com/docs/intellij/indexing-and-psi-stubs.html#DumbAwareAPI).
 
 ## Macros (sdk.run-configurations.macros)
-
-> Source: IntelliJ Platform SDK docs — Run Configurations (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

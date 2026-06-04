@@ -81,5 +81,3 @@ If there is some code that needs to be executed after the refresh is complete, t
 In some cases, synchronous refreshes can cause deadlocks, depending on which [locks](https://plugins.jetbrains.com/docs/intellij/threading-model.html#read-write-lock) are held by the thread invoking the refresh operation.
 
 ## Virtual File System Events (sdk.virtual-file-system.virtual-file-system-events)
-
-> Source: IntelliJ Platform SDK docs — Virtual File System (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -35,6 +35,3 @@ This ensures that the imports are created according to the user's code style set
 
 In some cases, after modifying a PSI, it is required to perform an operation on the modified document (for example, start a [live template](https://plugins.jetbrains.com/docs/intellij/live-templates.html)).
 To complete the PSI-based post-processing (such as formatting) and commit the changes to the document, call [PsiDocumentManager.doPostponedOperationsAndUnblockDocument()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/core-api/src/com/intellij/psi/PsiDocumentManager.java).
-
-
-> Source: IntelliJ Platform SDK docs — Modifying the PSI (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

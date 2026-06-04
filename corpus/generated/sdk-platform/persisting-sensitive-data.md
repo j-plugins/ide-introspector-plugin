@@ -123,5 +123,3 @@ Users can override the default behavior in `Settings | Appearance & Behavior | S
 Before 2025.3, passwords were stored on the backend side in plain text.
 
 Since 2025.3, they are being transparently redirected to the frontend and are stored according to the local environment and settings (KeePass, keychain, etc.).
-
-> Source: IntelliJ Platform SDK docs — Persisting Sensitive Data (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

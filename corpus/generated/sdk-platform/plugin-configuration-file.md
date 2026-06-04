@@ -22,5 +22,3 @@ See also [Marketing](https://plugins.jetbrains.com/docs/intellij/marketing.html)
 
 ## Configuration Structure Overview (sdk.plugin-configuration-file.configuration-structure-overview)
 ## idea-plugin (sdk.plugin-configuration-file.idea-plugin)
-
-> Source: IntelliJ Platform SDK docs — Plugin Configuration File (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

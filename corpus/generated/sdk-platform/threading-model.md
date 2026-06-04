@@ -80,5 +80,3 @@ Code can be changed for experimentation.
 See more information about the integration of [Kotlin Notebooks with the IntelliJ Platform](https://plugins.jetbrains.com/docs/intellij/tools-kotlin-notebook.html).
 
 ## FAQ (sdk.threading-model.faq)
-
-> Source: IntelliJ Platform SDK docs — Threading Model (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

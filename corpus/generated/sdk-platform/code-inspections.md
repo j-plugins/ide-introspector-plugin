@@ -50,6 +50,3 @@ The plugin highlights the code fragments where two `String` expressions are comp
 ![Comparing String References inspection highlighting and quick fix](images/comparing_references.png)
 In this example, the `str1` and `str2` are variables of the String type.
 Invoking SDK: Use equals() will result in transforming expression to the form visible in the [preview](https://plugins.jetbrains.com/docs/intellij/code-intentions-preview.html) popup (code fragment on the right).
-
-
-> Source: IntelliJ Platform SDK docs — Code Inspections (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -48,5 +48,3 @@ Example:
 * `PsiFileGist`: [JavaSimplePropertyGist](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/java/java-indexing-impl/src/com/intellij/psi/impl/JavaSimplePropertyGist.kt) providing simple properties in Java
 
 ## Improving Indexing Performance (sdk.indexing-and-psi-stubs.improving-indexing-performance)
-
-> Source: IntelliJ Platform SDK docs — Indexing and PSI Stubs (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

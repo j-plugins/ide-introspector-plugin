@@ -10,5 +10,3 @@ The `Help | Diagnostic Tools | Dump Threads` action creates a thread dump, which
 Thread dumps include all application threads and coroutines existing at the moment of dump creation.
 
 ## Coroutine Dump Format (sdk.coroutine-dumps.coroutine-dump-format)
-
-> Source: IntelliJ Platform SDK docs — Coroutine Dumps (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -73,6 +73,3 @@ For more details on developing custom language plugins, see the [Custom Language
 ## What are the rules for working with PSI?
 
 Any changes done to the content of PSI files are reflected in documents, so all [rules for working with documents](https://plugins.jetbrains.com/docs/intellij/documents.html#what-are-the-rules-of-working-with-documents) (read/write actions, commands, read-only status handling) are in effect.
-
-
-> Source: IntelliJ Platform SDK docs — PSI Files (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

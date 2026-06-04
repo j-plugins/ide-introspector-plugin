@@ -123,5 +123,3 @@ Also covers `activeInTestMode` as test mode implies headless mode.
 Note:
 
 If declared listener topics are intended to be used by other plugins depending on your plugin, consider [bundling their sources](https://plugins.jetbrains.com/docs/intellij/bundling-plugin-openapi-sources.html) in the plugin distribution.
-
-> Source: IntelliJ Platform SDK docs — Listeners (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

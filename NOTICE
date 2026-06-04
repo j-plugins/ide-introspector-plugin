@@ -1,0 +1,15 @@
+IDE Introspector
+Copyright (c) Dmitriy Derepko and contributors.
+
+This product bundles reference documentation for the IntelliJ Platform under
+corpus/generated/sdk-platform/, derived from the JetBrains IntelliJ Platform SDK
+documentation, which is licensed under the Apache License, Version 2.0.
+
+  Source: https://plugins.jetbrains.com/docs/intellij/llms.txt
+          https://github.com/JetBrains/intellij-sdk-docs
+  License: https://www.apache.org/licenses/LICENSE-2.0
+
+The bundled content is sliced into the corpus by corpus-core's SdkDocsConverter
+(see refresh-sdk-docs.sh). Original copyright remains with JetBrains s.r.o. and
+contributors. Links within the generated reference point back to the canonical
+JetBrains documentation and intellij-community sources for attribution.

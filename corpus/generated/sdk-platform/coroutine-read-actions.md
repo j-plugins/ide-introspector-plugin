@@ -17,5 +17,3 @@ This section explains running read actions (RA) in coroutines specifically.
 
 ## Coroutine Read Actions API (sdk.coroutine-read-actions.coroutine-read-actions-api)
 ## FAQ (sdk.coroutine-read-actions.faq)
-
-> Source: IntelliJ Platform SDK docs — Coroutine Read Actions (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -2,11 +2,9 @@ package com.github.xepozz.ide.introspector.context
 
 import java.io.File
 
-private val BUILD_MARKER = Regex("""idea/(\d+\.\d+\.\d+)""")
-
 fun main(arguments: Array<String>) {
     if (arguments.size < 2) {
-        System.err.println("usage: SdkDocsConverter <llmsTxtPath> <outputDir> [build]")
+        System.err.println("usage: SdkDocsConverter <llmsTxtPath> <outputDir>")
         kotlin.system.exitProcess(2)
     }
 
@@ -18,11 +16,7 @@ fun main(arguments: Array<String>) {
     }
 
     val text = llmsFile.readText(Charsets.UTF_8)
-    val build = arguments.getOrNull(2)
-        ?: BUILD_MARKER.find(text)?.groupValues?.get(1)
-        ?: "unknown"
-
-    val documents = SdkDocsConverter(build).convert(text, SdkDocsNarrowCore.TITLES)
+    val documents = SdkDocsConverter().convert(text, SdkDocsNarrowCore.TITLES)
 
     val foundTitles = LlmsTopicSplitter.split(text).map { it.title }.toSet()
     val missing = SdkDocsNarrowCore.TITLES.filterNot { it in foundTitles }
@@ -40,5 +34,5 @@ fun main(arguments: Array<String>) {
         target.writeText(document.content, Charsets.UTF_8)
     }
 
-    println("SDK docs converted: ${documents.size} files (build $build) -> ${outputDirectory.absolutePath}")
+    println("SDK docs converted: ${documents.size} files -> ${outputDirectory.absolutePath}")
 }

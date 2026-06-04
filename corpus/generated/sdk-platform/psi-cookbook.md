@@ -75,5 +75,3 @@ Use dedicated (and heavily cached) methods from [JavaLibraryUtil](https://github
 * `hasLibraryClass()` to check presence via known library class FQN
 
 * `hasLibraryJar()` using Maven coordinates (for example, `io.micronaut:micronaut-core`).
-
-> Source: IntelliJ Platform SDK docs — PSI Cookbook (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

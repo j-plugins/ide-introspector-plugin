@@ -28,5 +28,3 @@ Nothing is broken and no data races occurred.
 
 This assertion message was a way to prepare plugins for the changes in the IntelliJ Platform, but it is no longer necessary.
 It is safe to ignore it.
-
-> Source: IntelliJ Platform SDK docs — Coroutines on EDT and Locks (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

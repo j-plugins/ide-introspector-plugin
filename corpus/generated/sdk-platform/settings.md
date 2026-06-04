@@ -20,5 +20,3 @@ or [other channels](https://plugins.jetbrains.com/docs/intellij/getting-help.htm
 
 Be specific about the topics and reasons for adding them and leave your email in case we need
 more details. Thanks for your feedback!
-
-> Source: IntelliJ Platform SDK docs — Settings (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

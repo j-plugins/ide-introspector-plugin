@@ -22,6 +22,3 @@ For more information about creating Settings implementations, see [Implementatio
 The `Configurable.Composite` interface indicates a configurable component has child components.
 The preferred approach is to specify child components in the [EP declaration](#extension-points-for-parent-child-settings-relationships).
 Using the `Composite` interface incurs the penalty of loading child classes while building the tree of Settings Swing components.
-
-
-> Source: IntelliJ Platform SDK docs — Custom Settings Groups (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

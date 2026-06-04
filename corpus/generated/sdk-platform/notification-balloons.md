@@ -262,6 +262,3 @@ They are considered to be obsolete or too complex.
 * Tool Window Notification visually points to the specific tool windows. The primary action is shown as a hyperlink. It is automatically dismissed on click or keypress.
 
 * Use the `Notification` class to create instances, its builder methods to configure, and the `notify` method to show a notification.
-
-
-> Source: IntelliJ Platform SDK docs — Notification Balloons (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

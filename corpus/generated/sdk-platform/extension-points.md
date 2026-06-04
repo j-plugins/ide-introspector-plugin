@@ -129,6 +129,3 @@ Extension points matching these conditions can then be marked as dynamic by addi
 ```
 
 All non-dynamic extension points are highlighted via Plugin DevKit | Plugin descriptor | Plugin.xml dynamic plugin verification inspection.
-
-
-> Source: IntelliJ Platform SDK docs — Extension Points (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

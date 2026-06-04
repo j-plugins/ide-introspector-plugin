@@ -84,5 +84,3 @@ title
 end title
 @enduml
 ```
-
-> Source: IntelliJ Platform SDK docs — Plugin Content (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

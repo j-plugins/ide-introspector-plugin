@@ -3,7 +3,6 @@ package com.github.xepozz.ide.introspector.context
 data class GeneratedDoc(val relativePath: String, val content: String)
 
 class SdkDocsConverter(
-    private val build: String,
     private val baseUrl: String = "https://plugins.jetbrains.com/docs/intellij",
     private val maxChunkChars: Int = 6_000,
     private val minSplitChars: Int = 2_000,
@@ -21,8 +20,6 @@ class SdkDocsConverter(
                     appendLine("# ${topic.title}")
                     appendLine()
                     appendLine(body)
-                    appendLine()
-                    appendLine(footer(topic.title))
                 }
             } else {
                 buildString {
@@ -33,11 +30,9 @@ class SdkDocsConverter(
                         appendLine()
                     }
                     append(renderChildren(tree.roots, slug, "sdk.$slug", docs))
-                    appendLine()
-                    appendLine(footer(topic.title))
                 }
             }
-            docs += GeneratedDoc("$slug.md", content)
+            docs += GeneratedDoc("$slug.md", content.trimEnd() + "\n")
         }
         return docs
     }
@@ -95,9 +90,6 @@ class SdkDocsConverter(
 
     private fun subtreeChars(node: HeadingNode): Int =
         node.title.length + node.body.length + 4 + node.children.sumOf { subtreeChars(it) }
-
-    private fun footer(title: String): String =
-        "> Source: IntelliJ Platform SDK docs — $title (build $build). $baseUrl/llms.txt"
 
     private fun firstMeaningfulLine(body: String): String {
         val line = body.lineSequence().map { it.trim() }.firstOrNull { it.isNotBlank() } ?: return "section"

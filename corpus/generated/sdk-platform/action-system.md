@@ -74,6 +74,3 @@ public abstract class MyPluginTestCase
 To setup Action ID references in other places (for example, XML files) perform the following steps:
 
 Procedure: Injecting in other places
-
-
-> Source: IntelliJ Platform SDK docs — Action System (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

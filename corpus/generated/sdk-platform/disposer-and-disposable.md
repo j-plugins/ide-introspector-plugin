@@ -74,5 +74,3 @@ Never call `Disposable.dispose()` directly because it bypasses the parent-child 
 Always call `Disposer.dispose(Disposable)` instead.
 
 ## Diagnosing `Disposer` Leaks (sdk.disposer-and-disposable.diagnosing-disposer-leaks)
-
-> Source: IntelliJ Platform SDK docs — Disposer and Disposable (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

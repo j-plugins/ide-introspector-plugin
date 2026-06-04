@@ -61,6 +61,3 @@ When opened, this tool window is similar to the following screen:
 One of the testing approaches for tool windows is implementing [UI integration tests](https://plugins.jetbrains.com/docs/intellij/integration-tests-ui.html).
 
 To get a tool window in UI tests, use [IdeaFrameUI.toolWindow()](https://github.com/JetBrains/intellij-community/tree/idea/261.24374.151/platform/remote-driver/test-sdk/src/com/intellij/driver/sdk/ui/components/common/IdeaFrameUiExt.kt).
-
-
-> Source: IntelliJ Platform SDK docs — Tool Windows (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

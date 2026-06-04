@@ -7,7 +7,7 @@ import org.junit.Test
 
 class SdkDocsConverterTest {
 
-    private val converter = SdkDocsConverter(build = "261.0.0")
+    private val converter = SdkDocsConverter()
 
     private fun content(text: String, vararg titles: String): String =
         converter.convert(text, titles.toSet()).single().content
@@ -26,13 +26,8 @@ class SdkDocsConverterTest {
     }
 
     @Test
-    fun singleFileEndsWithProvenanceFooter() {
-        val text = content("# Services\n\nbody", "Services")
-        assertTrue(
-            text.contains(
-                "> Source: IntelliJ Platform SDK docs — Services (build 261.0.0). https://plugins.jetbrains.com/docs/intellij/llms.txt",
-            ),
-        )
+    fun generatedFileHasNoProvenanceFooter() {
+        assertFalse(content("# Services\n\nbody", "Services").contains("> Source:"))
     }
 
     @Test

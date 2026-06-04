@@ -21,5 +21,3 @@ See [Inspecting Settings](https://plugins.jetbrains.com/docs/intellij/internal-u
 
 ## Extension Points for Settings (sdk.settings-guide.extension-points-for-settings)
 ## Implementations for Settings Extension Points (sdk.settings-guide.implementations-for-settings-extension-points)
-
-> Source: IntelliJ Platform SDK docs — Settings Guide (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

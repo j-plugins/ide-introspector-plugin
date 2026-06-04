@@ -39,6 +39,3 @@ Components save their state in the following files:
 * Project-level: project (`.ipr`) file. However, if the workspace option in the `[plugin.xml](https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html)` file is set to `true`, then the workspace (`.iws`) file is used instead.
 
 * Module-level: module (`.iml`) file.
-
-
-> Source: IntelliJ Platform SDK docs — Persisting State of Components (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

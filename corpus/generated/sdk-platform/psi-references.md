@@ -97,6 +97,3 @@ The latter allows stopping processing as soon as the first (matching) result has
 ## Implementing References
 
 Please refer to the [guide](https://plugins.jetbrains.com/docs/intellij/references-and-resolve.html) and corresponding [tutorial](https://plugins.jetbrains.com/docs/intellij/reference-contributor.html) for more information.
-
-
-> Source: IntelliJ Platform SDK docs — PSI References (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

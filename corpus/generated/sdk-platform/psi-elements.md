@@ -29,5 +29,3 @@ To use Java PSI API, [add a dependency](https://plugins.jetbrains.com/docs/intel
 ## What can I do with PSI elements?
 
 See [PSI Cookbook](https://plugins.jetbrains.com/docs/intellij/psi-cookbook.html) and [Modifying the PSI](https://plugins.jetbrains.com/docs/intellij/modifying-psi.html).
-
-> Source: IntelliJ Platform SDK docs — PSI Elements (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

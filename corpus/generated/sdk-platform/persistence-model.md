@@ -11,5 +11,3 @@ There are two distinct approaches, depending on the type of data being persisted
 
 [Split plugins](https://plugins.jetbrains.com/docs/intellij/split-mode-and-remote-development.html) may also need explicit synchronization metadata for persisted settings.
 See [Persistent State Component in Split Mode](https://plugins.jetbrains.com/docs/intellij/persistent-state-in-split-mode.html).
-
-> Source: IntelliJ Platform SDK docs — Persistence Model (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -173,5 +173,3 @@ It is possible that the coroutine is launched as a response to a user event from
 
 If the coroutine is launched from a background thread, then it should not be invoked on top of an unrelated dialog anyway.
 The absence of the context modality state is effectively equivalent to specifying `ModalityState.nonModal()`.
-
-> Source: IntelliJ Platform SDK docs — Coroutine Tips and Tricks (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

@@ -40,5 +40,3 @@ Use `View | Quick Documentation` in the lookup list to access more information a
 See [Explore the IntelliJ Platform API](https://plugins.jetbrains.com/docs/intellij/explore-api.html) for more information and strategies.
 
 ## Declaring Extensions (sdk.extensions.declaring-extensions)
-
-> Source: IntelliJ Platform SDK docs — Extensions (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt

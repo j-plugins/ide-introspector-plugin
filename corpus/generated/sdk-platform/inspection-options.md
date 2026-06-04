@@ -11,5 +11,3 @@ Currently, there are two ways of providing the inspection options:
 
 ## Declarative Inspection Options (sdk.inspection-options.declarative-inspection-options)
 ## UI-Based Inspection Options (sdk.inspection-options.ui-based-inspection-options)
-
-> Source: IntelliJ Platform SDK docs — Inspection Options (build 261.24374.151). https://plugins.jetbrains.com/docs/intellij/llms.txt
