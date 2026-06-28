@@ -1,7 +1,12 @@
 # Критерии качества кода — IDE Introspector
 
 Свод правил на основе анализа кодовой базы и актуальных best practices
-(kotlinlang.org, IntelliJ SDK 2024–2026, Effective Kotlin, Kotest/MockK/JUnit 5).
+(kotlinlang.org coding conventions, IntelliJ SDK 2024–2026, Effective Kotlin,
+detekt rule sets — potential-bugs / coroutines / style / exceptions / performance,
+идиомы Philipp Hauer / sdkotlin, Kotest/MockK/JUnit 5).
+
+Каждое правило — пара «плохо → хорошо» с приёмом-заменой, чтобы применять на ревью
+без интерпретации.
 
 Правила в [CLAUDE.md](../CLAUDE.md) (Hard rules: таймаут 10 s, MCP API target,
 `compileOnly` для kotlinx-serialization, exec — последнее средство) остаются
@@ -217,6 +222,241 @@
 - Исключи из Kover (уже сделано): `tools/` (McpToolset реестр), `model/`
   (data classes), `toolwindow/`, KSP-генерируемое.
 - При желании — PIT mutation testing на core, только на changed files в CI.
+
+---
+
+## 5. Идиомы — современное вместо устаревшего/многословного
+
+Каждый пункт — Java-style/многословный приём слева, идиоматичная замена справа.
+Источник: Effective Kotlin, detekt `style`, идиомы Philipp Hauer.
+
+### 5.1 Expression body вместо block-return
+
+```kotlin
+fun mapToDto(entity: Entity): Dto { return Dto(entity.code, entity.date) }
+
+fun mapToDto(entity: Entity) = Dto(entity.code, entity.date)
+```
+
+`if`/`when`/`try` — выражения, присваивай их результат, не мутируй `var`:
+
+```kotlin
+val locale: Locale
+when (area) { "germany" -> locale = Locale.GERMAN; else -> locale = Locale.ENGLISH }
+
+val locale = when (area) { "germany" -> Locale.GERMAN; else -> Locale.ENGLISH }
+```
+
+### 5.2 Default + named аргументы вместо overload-ов и builder-ов
+
+```kotlin
+fun find(name: String) = find(name, true)
+fun find(name: String, recursive: Boolean) { … }
+SearchConfig().setRoot("p").setTerm("t").setRecursive(true)
+
+fun find(name: String, recursive: Boolean = true) { … }
+SearchConfig(root = "p", term = "t", recursive = true)
+```
+
+Именованные аргументы обязательны для boolean/числовых литералов в вызове
+(`walk(maxDepth = 12, includeProperties = false)` — не `walk(12, false)`).
+
+### 5.3 `when` вместо цепочки `if-else`, `if` вместо бинарного `when`
+
+```kotlin
+when (x) { null -> true; else -> false }     // detekt UseIfInsteadOfWhen
+if (x == null) true else false
+```
+
+`when` без аргумента заменяет лестницу `else if`. На `sealed`/`enum` — `when` без
+`else` (см. §6.4).
+
+### 5.4 `require` / `check` / `error` вместо ручного `throw`
+
+Семантика фиксирована — не путать тип исключения:
+
+| Приём | Когда | Бросает |
+|---|---|---|
+| `require(cond) { msg }` / `requireNotNull` | проверка **аргумента** | `IllegalArgumentException` |
+| `check(cond) { msg }` / `checkNotNull` | проверка **состояния** объекта | `IllegalStateException` |
+| `error(msg)` | недостижимая ветка / инвариант | `IllegalStateException` |
+
+```kotlin
+if (timeoutMs > 10_000) throw IllegalArgumentException("timeout too large")
+fun current() { if (project == null) throw IllegalStateException("no project"); … }
+
+require(timeoutMs <= 10_000) { "timeout must be <= 10_000ms, got $timeoutMs" }
+fun current() { checkNotNull(project) { "no project" }; … }
+```
+
+### 5.5 Smart-cast через `as?` + `?:` вместо `is`-проверки и каста
+
+```kotlin
+if (service !is ExecToolset) throw IllegalStateException(); service.run()
+
+val toolset = service as? ExecToolset ?: error("not an ExecToolset")
+toolset.run()
+```
+
+### 5.6 Не оборачивай в scope-функцию то, что вызывается напрямую
+
+```kotlin
+component.let { print(it) }                   // detekt UnnecessaryLet
+print(component)
+
+config.apply { version = "1.2" }              // detekt UnnecessaryApply (одно поле)
+config.version = "1.2"
+```
+
+В многострочной лямбде давай параметру имя — не вложенный `it`:
+
+```kotlin
+node.let { println(it); collect(it) }
+node.let { current -> println(current); collect(current) }
+```
+
+### 5.7 Операторы коллекций и string-template вместо ручных циклов/конкатенации
+
+```kotlin
+val ids = mutableListOf<String>()
+for (c in components) { if (c.isVisible) ids.add(c.id) }
+val msg = "node " + id + " at depth " + depth
+
+val ids = components.filter { it.isVisible }.map { it.id }
+val msg = "node $id at depth $depth"
+```
+
+Аккумуляцию строй через `buildList { }` / `buildString { }`, не `var acc` + мутация.
+
+### 5.8 Extension/top-level вместо `XxxUtils`-объекта
+
+```kotlin
+object StringUtils { fun toSlug(s: String): String = … }
+StringUtils.toSlug(name)
+
+fun String.toSlug(): String = …
+name.toSlug()
+```
+
+(Границы из §1.7 действуют — без расширений `Any`/`Any?`.)
+
+---
+
+## 6. Корректность — паттерны-источники багов
+
+Источник: detekt `potential-bugs`. Это hard-блокеры на ревью.
+
+### 6.1 `map[key]!!` → безопасный доступ
+
+```kotlin
+val toolset = registry["exec"]!!             // NPE если ключа нет
+val toolset = registry.getValue("exec")       // NoSuchElementException с именем ключа
+val toolset = registry["exec"] ?: defaultToolset
+```
+
+`!!` запрещён повсеместно (см. §1.1); `map[k]!!` — самый частый его источник.
+
+### 6.2 Каст nullable → non-null и небезопасный каст
+
+```kotlin
+val name = bar as String                      // bar: Any? → NPE при null
+val name = checkNotNull(bar) as String        // явный контракт
+val name = bar as? String                      // или безопасно: вернёт null
+```
+
+### 6.3 Структурное `==` вместо ссылочного `===`
+
+`===`/`!==` — только для проверки идентичности (тот же объект). Для значений
+(`String`, data class) используй `==`:
+
+```kotlin
+if (id === otherId) …                          // detekt AvoidReferentialEquality
+if (id == otherId) …
+```
+
+### 6.4 `equals`/`hashCode` и «не бросай из них»
+
+- Переопределил `equals` → переопредели `hashCode` (и наоборот). Параметр —
+  `Any?`, не конкретный тип (иначе это не override).
+- **Никогда не бросай** из `equals` / `hashCode` / `toString` — их зовёт логирование,
+  коллекции, отладчик (detekt `ExceptionRaisedInUnexpectedLocation`).
+- Для value-носителей — `data class`, не ручные реализации (§1.3).
+
+### 6.5 Исчерпывающий `when` без `else`
+
+На `sealed`/`enum` пиши `when` **без** `else` — компилятор заставит покрыть новую
+ветку при расширении иерархии. Лишний `else` в исчерпывающем `when` — смелл
+(detekt `ElseCaseInsteadOfExhaustiveWhen`), он молча проглотит новый вариант.
+
+### 6.6 Null-check на `var` несостоятелен
+
+После проверки `var`-свойство мог изменить другой поток/реентрант. Захвати в
+локальный `val`:
+
+```kotlin
+if (cachedScope != null) cachedScope.launch { … }     // smart-cast невозможен
+
+val scope = cachedScope ?: return
+scope.launch { … }
+```
+
+### 6.7 Unreachable code / catch
+
+Код после `return`/`throw`/`break`/`continue` и `catch` более широкого типа выше
+узкого — мёртвые ветки. Удаляй, не комментируй.
+
+---
+
+## 7. Исключения и обработка ошибок
+
+Источник: detekt `exceptions`. Дополняет §2.6 (логирование).
+
+- **Не лови обобщённое** `Exception`/`Throwable`/`RuntimeException` — лови
+  конкретный тип (`IOException`, `JsonDecodingException`). Широкий catch прячет баги.
+- **Не бросай обобщённое** — `throw IllegalArgumentException("maxDepth must be > 0")`,
+  не `throw Exception()`. Всегда с осмысленным сообщением.
+- **Не глотай исключение** — сохраняй причину:
+
+  ```kotlin
+  catch (e: IOException) { throw ToolError(e.message) }   // стек потерян
+  catch (e: IOException) { throw ToolError(e) }            // cause сохранён
+  catch (e: IOException) { }                               // пустой catch — запрещён
+  ```
+
+- **`return`/`throw` из `finally`** проглатывают исходное исключение — запрещены.
+  В `finally` только идемпотентный cleanup, который сам не бросает.
+- **`printStackTrace()` / `System.out`** запрещены — только `LOG` (§2.6).
+- **`TODO()` / `NotImplementedError()`** не должны попадать в merge.
+- **Ожидаемые ошибки — не исключения.** Для бизнес-результатов с предсказуемым
+  провалом — `sealed interface`-результат или `kotlin.Result`, чтобы компилятор
+  заставил обработать ветку (§1.3).
+- **В корутинах не глотай `CancellationException`** — `runCatching` ловит и его;
+  если используешь `try/catch`, проброс `CancellationException` обязателен, иначе
+  ломается structured concurrency.
+
+---
+
+## 8. Производительность — дешёвые выигрыши
+
+Источник: detekt `performance`. Особенно важно на EDT (§2.1, дешёвые дефолты).
+
+- **`Sequence` для длинных ленивых цепочек** на больших коллекциях — нет
+  промежуточных списков; для коротких цепочек / малых коллекций eager-операторы
+  быстрее (нет накладных на обёртку):
+
+  ```kotlin
+  nodes.map { transform(it) }.filter { it.visible }.map { it.id }      // 2 временных списка
+  nodes.asSequence().map { transform(it) }.filter { it.visible }.map { it.id }.toList()
+  ```
+
+- **Примитивные массивы** — `IntArray`/`LongArray` вместо `Array<Int>` (нет
+  боксинга) на горячих путях.
+- **`for` вместо `forEach` по диапазону** — `for (i in 1..n)`, не `(1..n).forEach`.
+- **Не разворачивай готовый массив через spread** (`f(*existingArray)` копирует);
+  spread оправдан только для тут же построенного `arrayOf(...)`.
+- **Без лишних temporary-инстансов** (`Integer(1).toString()` → `1.toString()`).
+- **`by lazy` для дорогой инициализации** свойства вместо работы в конструкторе
+  (перекликается с §2.3 «никакой тяжёлой работы в конструкторе сервиса»).
 
 ---
 
