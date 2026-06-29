@@ -5,6 +5,7 @@ import com.github.xepozz.ide.introspector.model.FindUsagesResponse
 import com.github.xepozz.ide.introspector.model.TargetInfo
 import com.github.xepozz.ide.introspector.model.UsageInfo
 import com.github.xepozz.ide.introspector.util.truncateChars
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -110,9 +111,8 @@ object PsiUsageSearcher {
             })
         } catch (pce: ProcessCanceledException) {
             throw pce
-        } catch (_: Throwable) {
-            // Index hiccup / cancelled — keep what we have. The 10 s timeout will surface
-            // separately via TimeoutException if we're really stuck.
+        } catch (throwable: Throwable) {
+            thisLogger().debug("ReferencesSearch failed — keeping partial results", throwable)
         }
 
         // (b) DefinitionsScopedSearch — overriding methods + implementing classes, language-agnostic.
@@ -131,7 +131,8 @@ object PsiUsageSearcher {
                 })
             } catch (pce: ProcessCanceledException) {
                 throw pce
-            } catch (_: Throwable) {
+            } catch (throwable: Throwable) {
+                thisLogger().debug("DefinitionsScopedSearch failed — keeping partial results", throwable)
             }
         }
 
@@ -210,7 +211,12 @@ object PsiUsageSearcher {
             ?: return null
 
         val elemRange = element.textRange ?: return null
-        val rangeIn = try { ref.rangeInElement } catch (_: Throwable) { return null }
+        val rangeIn = try {
+            ref.rangeInElement
+        } catch (throwable: Throwable) {
+            thisLogger().debug("usage ref.rangeInElement failed", throwable)
+            return null
+        }
         val absStart = elemRange.startOffset + rangeIn.startOffset
         val absEnd = elemRange.startOffset + rangeIn.endOffset
 
@@ -219,7 +225,10 @@ object PsiUsageSearcher {
             val s = rangeIn.startOffset.coerceIn(0, full.length)
             val e = rangeIn.endOffset.coerceIn(s, full.length)
             full.substring(s, e)
-        } catch (_: Throwable) { "" }
+        } catch (throwable: Throwable) {
+            thisLogger().debug("usage ref text slice failed", throwable)
+            ""
+        }
 
         return UsageInfo(
             kind = "reference",

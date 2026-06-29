@@ -1,5 +1,6 @@
 package com.github.xepozz.ide.introspector.core
 
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.openapi.wm.ex.ToolWindowManagerEx
 import com.intellij.openapi.project.ProjectManager
@@ -51,8 +52,8 @@ object ComponentTreeWalker {
                 tw.contentManager.contents.forEach { content ->
                     content.component?.let { result.add(it) }
                 }
-            } catch (_: Throwable) {
-                // Tool window may not be initialised yet — ignore.
+            } catch (throwable: Throwable) {
+                thisLogger().debug("Tool window '$id' content not available yet", throwable)
             }
         }
         return result

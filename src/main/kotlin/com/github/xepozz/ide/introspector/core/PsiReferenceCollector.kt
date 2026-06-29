@@ -3,6 +3,7 @@ package com.github.xepozz.ide.introspector.core
 import com.github.xepozz.ide.introspector.model.ResolveTarget
 import com.github.xepozz.ide.introspector.model.ResolvedReference
 import com.github.xepozz.ide.introspector.util.truncateChars
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
@@ -91,7 +92,8 @@ object PsiReferenceCollector {
     ) {
         val refs: List<PsiReference> = try {
             PsiReferenceService.getService().getReferences(element, PsiReferenceService.Hints.NO_HINTS)
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            thisLogger().debug("getReferences failed for element", throwable)
             return
         }
         if (refs.isEmpty()) return
@@ -103,7 +105,8 @@ object PsiReferenceCollector {
         for (ref in refs) {
             val refRangeInElement: TextRange = try {
                 ref.rangeInElement
-            } catch (_: Throwable) {
+            } catch (throwable: Throwable) {
+                thisLogger().debug("ref.rangeInElement failed", throwable)
                 continue
             }
             val absStart = elementStart + refRangeInElement.startOffset
@@ -115,7 +118,8 @@ object PsiReferenceCollector {
                     val e = refRangeInElement.endOffset.coerceIn(s, full.length)
                     full.substring(s, e)
                 }.orEmpty()
-            } catch (_: Throwable) {
+            } catch (throwable: Throwable) {
+                thisLogger().debug("reference source-text slice failed", throwable)
                 ""
             }
 
@@ -127,7 +131,8 @@ object PsiReferenceCollector {
                 } else {
                     listOfNotNull(ref.resolve())
                 }
-            } catch (_: Throwable) {
+            } catch (throwable: Throwable) {
+                thisLogger().debug("reference resolution failed", throwable)
                 emptyList()
             }
 
@@ -159,14 +164,16 @@ object PsiReferenceCollector {
 
         val targetText = try {
             target.text?.let { truncateChars(it, truncateTextAt) }
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            thisLogger().debug("target text read failed", throwable)
             null
         }
 
         val rangeInfo = try {
             // Line/column meaningful only for same-file targets, where hostDocument applies.
             PsiStructureWalker.textRangeInfoOf(target.textRange, if (sameFile) hostDocument else null)
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            thisLogger().debug("target range computation failed", throwable)
             null
         }
 

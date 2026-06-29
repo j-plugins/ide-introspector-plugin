@@ -5,6 +5,7 @@ import com.github.xepozz.ide.introspector.model.ComponentInfo
 import com.github.xepozz.ide.introspector.model.ComponentProperty
 import com.github.xepozz.ide.introspector.util.truncateChars
 import com.intellij.openapi.actionSystem.AnActionHolder
+import com.intellij.openapi.diagnostic.thisLogger
 import java.awt.Component
 import java.awt.Container
 import javax.accessibility.Accessible
@@ -33,7 +34,8 @@ object ComponentSerializer {
         val bounds = try {
             val b = component.bounds
             Bounds(b.x, b.y, b.width, b.height)
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            thisLogger().debug("Component bounds read failed", throwable)
             Bounds(0, 0, 0, 0)
         }
 
@@ -72,7 +74,12 @@ object ComponentSerializer {
         is AbstractButton -> component.text
         is JLabel -> component.text
         is JTextComponent -> {
-            val t = try { component.text } catch (_: Throwable) { null }
+            val t = try {
+                component.text
+            } catch (throwable: Throwable) {
+                thisLogger().debug("JTextComponent text read failed", throwable)
+                null
+            }
             if (t != null) truncateChars(t, 500) else null
         }
         else -> null

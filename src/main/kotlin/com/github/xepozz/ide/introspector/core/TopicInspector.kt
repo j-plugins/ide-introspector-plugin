@@ -85,8 +85,8 @@ object TopicInspector {
         for (fqn in classes) {
             try {
                 scanClassForTopics(fqn, classLoader, pluginId, pluginName, seen, out)
-            } catch (_: Throwable) {
-                // Class might be unloadable due to missing transitive deps — skip silently.
+            } catch (throwable: Throwable) {
+                thisLogger().debug("Topic scan: class '$fqn' unloadable in $pluginId (missing transitive deps)", throwable)
             }
         }
         thisLogger().info(
@@ -104,7 +104,8 @@ object TopicInspector {
     ) {
         val cls = try {
             Class.forName(fqn, false, classLoader)
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            thisLogger().debug("Topic scan: cannot load class '$fqn'", throwable)
             return
         }
         val isCompanion = fqn.endsWith("\$Companion")
@@ -191,7 +192,8 @@ object TopicInspector {
                     into += name.removeSuffix(".class").replace('/', '.')
                 }
             }
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            thisLogger().debug("Topic scan: cannot read jar ${jarFile.name}", throwable)
         }
     }
 }

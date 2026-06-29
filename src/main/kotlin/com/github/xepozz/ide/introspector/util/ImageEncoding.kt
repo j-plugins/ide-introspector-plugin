@@ -1,5 +1,6 @@
 package com.github.xepozz.ide.introspector.util
 
+import com.intellij.openapi.diagnostic.Logger
 import java.awt.Graphics2D
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
@@ -12,6 +13,8 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import javax.imageio.ImageIO
+
+private val imageEncodingLogger = Logger.getInstance("com.github.xepozz.ide.introspector.util.ImageEncoding")
 
 /** Returns a scaled copy of [src]. If [factor]≈1.0 returns [src] unchanged. */
 fun scaleImage(src: BufferedImage, factor: Double): BufferedImage {
@@ -67,7 +70,8 @@ fun pruneOldScreenshots(ttl: Duration = SCREENSHOT_TTL) {
         for (entry in stream) {
             try {
                 if (Files.getLastModifiedTime(entry) < cutoff) Files.deleteIfExists(entry)
-            } catch (_: Exception) {
+            } catch (exception: Exception) {
+                imageEncodingLogger.debug("Pruning screenshot $entry failed", exception)
             }
         }
     }

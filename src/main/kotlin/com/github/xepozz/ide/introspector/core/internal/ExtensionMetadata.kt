@@ -41,7 +41,10 @@ internal object ExtensionMetadata {
                     when (v) {
                         is String, is Number, is Boolean, is Char -> into[f.name] = v.toString()
                     }
-                } catch (_: Throwable) {}
+                } catch (_: Throwable) {
+                    // Field not readable (inaccessible / security manager) — skip it. This is a
+                    // pure no-IDE-deps helper, so failures can't be routed to the platform logger.
+                }
             }
             c = c.superclass
         }

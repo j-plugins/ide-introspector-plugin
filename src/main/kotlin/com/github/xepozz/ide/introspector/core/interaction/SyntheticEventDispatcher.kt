@@ -1,5 +1,6 @@
 package com.github.xepozz.ide.introspector.core.interaction
 
+import com.intellij.openapi.diagnostic.thisLogger
 import java.awt.Component
 import java.awt.Point
 import java.awt.event.MouseEvent
@@ -17,6 +18,7 @@ object SyntheticEventDispatcher {
             }
             true
         } catch (exception: Exception) {
+            thisLogger().debug("Synthetic click dispatch failed on ${component.javaClass.name}", exception)
             false
         }
     }

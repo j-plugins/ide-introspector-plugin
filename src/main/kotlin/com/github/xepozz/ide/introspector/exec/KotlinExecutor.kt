@@ -152,8 +152,16 @@ object KotlinExecutor {
         } finally {
             if (args.captureStdout) System.setOut(originalOut)
             if (args.captureStderr) System.setErr(originalErr)
-            try { Disposer.dispose(disposable) } catch (_: Throwable) {}
-            try { tempRoot.toFile().deleteRecursively() } catch (_: Throwable) {}
+            try {
+                Disposer.dispose(disposable)
+            } catch (throwable: Throwable) {
+                log.debug("Disposing exec disposable failed", throwable)
+            }
+            try {
+                tempRoot.toFile().deleteRecursively()
+            } catch (throwable: Throwable) {
+                log.debug("Cleaning up exec temp dir failed", throwable)
+            }
         }
     }
 
@@ -260,7 +268,9 @@ object KotlinExecutor {
                 @Suppress("UNCHECKED_CAST")
                 return m.invoke(null, jdkRoot.toPath(), true) as List<java.nio.file.Path>
             }
-        } catch (_: Throwable) { /* fall through */ }
+        } catch (throwable: Throwable) {
+            log.debug("JavaSdkUtil.getJdkClassesRoots unavailable — falling back to jimage", throwable)
+        }
         val jrtModules = jdkRoot.resolve("lib/modules")
         return if (jrtModules.isFile) listOf(jrtModules.toPath()) else emptyList()
     }

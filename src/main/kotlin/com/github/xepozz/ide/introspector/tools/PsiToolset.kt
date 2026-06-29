@@ -15,6 +15,7 @@ import com.github.xepozz.ide.introspector.util.requireFocusedProject
 import com.intellij.mcpserver.McpToolset
 import com.intellij.mcpserver.annotations.McpDescription
 import com.intellij.mcpserver.annotations.McpTool
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.DumbService
@@ -439,7 +440,8 @@ class PsiToolset : McpToolset {
             val editor = FileEditorManager.getInstance(project).selectedTextEditor
             if (editor != null && editor.virtualFile == vf) editor.caretModel.offset else null
         }
-    } catch (_: Throwable) {
+    } catch (throwable: Throwable) {
+        thisLogger().debug("Caret offset read failed", throwable)
         null
     }
 

@@ -75,7 +75,12 @@ object ExtensionPointInspector {
         // BuildManager$BuildManagerStartupActivity may not implement ProjectActivity in some
         // builds, which makes the extensionList getter throw and pollute the IDE state).
         // ep.size() returns the adapter count without instantiation.
-        val extCount = try { ep.size() } catch (_: Throwable) { 0 }
+        val extCount = try {
+            ep.size()
+        } catch (throwable: Throwable) {
+            thisLogger().debug("ep.size() failed for ${epName(ep)}", throwable)
+            0
+        }
         return ExtensionPointInfo(
             name = epName(ep),
             kind = kind,
@@ -93,7 +98,8 @@ object ExtensionPointInspector {
         ReflectionAccess.readField(ep, "name")?.toString()
             ?: ReflectionAccess.readMethod(ep, "getName")?.toString()
             ?: ep.javaClass.simpleName
-    } catch (_: Throwable) {
+    } catch (throwable: Throwable) {
+        thisLogger().debug("epName reflection failed on ${ep.javaClass.name}", throwable)
         ep.javaClass.simpleName
     }
 
@@ -109,7 +115,8 @@ object ExtensionPointInspector {
                 ?: tryReadExtensionClass(ep)
                 ?: "?"
             return kindStr to resolvedName
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            thisLogger().debug("kindAndClass reflection failed on ${ep.javaClass.name}", throwable)
             return "BEAN_CLASS" to "?"
         }
     }
@@ -138,13 +145,15 @@ object ExtensionPointInspector {
         try {
             val maybe = app.getExtensionPointIfRegistered<Any>(epName)
             if (maybe != null) return maybe
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            thisLogger().debug("EP lookup '$epName' failed in application area", throwable)
         }
         for (project in ProjectManager.getInstance().openProjects) {
             try {
                 val maybe = project.extensionArea.getExtensionPointIfRegistered<Any>(epName)
                 if (maybe != null) return maybe
-            } catch (_: Throwable) {
+            } catch (throwable: Throwable) {
+                thisLogger().debug("EP lookup '$epName' failed in project area", throwable)
             }
         }
         return null
@@ -215,13 +224,17 @@ object ExtensionPointInspector {
             if (element != null) {
                 readXmlAttributes(element, merged)
             }
-        } catch (_: Throwable) {}
+        } catch (throwable: Throwable) {
+            thisLogger().debug("Reading extensionElement attributes failed", throwable)
+        }
         try {
             val instance = ReflectionAccess.readField(adapter, "extensionInstance")
             if (instance != null) {
                 ExtensionMetadata.harvestBeanFields(instance, merged)
             }
-        } catch (_: Throwable) {}
+        } catch (throwable: Throwable) {
+            thisLogger().debug("Harvesting extensionInstance fields failed", throwable)
+        }
         return merged
     }
 

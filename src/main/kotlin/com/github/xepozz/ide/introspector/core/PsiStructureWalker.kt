@@ -5,6 +5,7 @@ import com.github.xepozz.ide.introspector.model.PsiInjectionTree
 import com.github.xepozz.ide.introspector.model.PsiNode
 import com.github.xepozz.ide.introspector.model.TextRangeInfo
 import com.github.xepozz.ide.introspector.util.truncateChars
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.lang.ASTNode
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.editor.Document
@@ -211,7 +212,8 @@ object PsiStructureWalker {
         // PsiElement.references is the cheap path — provider lookup but no resolution.
         val hasRefs = try {
             element.references.isNotEmpty()
-        } catch (_: Throwable) {
+        } catch (throwable: Throwable) {
+            thisLogger().debug("element.references probe failed", throwable)
             false
         }
 
